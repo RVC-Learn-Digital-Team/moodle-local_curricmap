@@ -24,18 +24,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['pluginname'] = 'Curriculum map';
-
-// Capabilities.
-$string['curricmap:managesync'] = 'Configure, trigger and inspect curriculum syncs';
-$string['curricmap:importcsv'] = 'Import curriculum data from CSV';
 $string['curricmap:editmanual'] = 'Create and edit manual curriculum entries';
-$string['curricmap:viewstaffmeta'] = 'View staff-only curriculum metadata (Sofia links, source, codes)';
+$string['curricmap:importcsv'] = 'Import curriculum data from CSV';
 $string['curricmap:managebindings'] = 'Manage bindings between Moodle locations and curriculum nodes';
-
-// Settings.
+$string['curricmap:managesync'] = 'Configure, trigger and inspect curriculum syncs';
+$string['curricmap:viewstaffmeta'] = 'View staff-only curriculum metadata (Sofia links, source, codes)';
+$string['pluginname'] = 'Curriculum map';
+$string['privacy:metadata'] = 'The Curriculum map plugin does not currently store any personal data. This will be revised when audit logging of manual edits is implemented.';
 $string['settings:general_heading'] = 'Curriculum map';
 $string['settings:general_heading_desc'] = 'Base plugin scaffold. Sofia connection, sync scheduling, CSV import and binding settings arrive with the corresponding features — see PLAN.md in the plugin repository.';
-
-// Privacy.
-$string['privacy:metadata'] = 'The Curriculum map plugin does not currently store any personal data. This will be revised when audit logging of manual edits is implemented.';

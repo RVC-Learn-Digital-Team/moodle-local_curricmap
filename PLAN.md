@@ -36,12 +36,19 @@ umbrella repo.
 
 ### M2 — Schema + derivation
 
-- [ ] `db/install.xml`: programme, node, edge, tagfield/tagoption/nodetag, synclog,
-      audit, binding tables (design doc §1)
-- [ ] `\local_curricmap\local\derive`: role derivation, title coalescing, natural sort,
-      grouping extraction — pure functions, table-driven
-- [ ] Shared cross-language test vectors (natural sort, coalesce) imported from umbrella
-      repo and wired into PHPUnit
+Decisions (July 2026): trust the API — `?coalesce` output stored as-is, `sortorder` =
+index in the parent's `children` array (no re-implementation of Sofia ordering); the
+grouping-label column is named `grouplabel` (`grouping` is reserved in PostgreSQL); all
+nine tables ship in `install.xml` up front (forward-only migrations); node ids are stable
+across syncs (upsert by UUID), edges/nodetags rebuilt wholesale.
+
+- [ ] `db/install.xml`: all nine tables — programme, node, edge, tagfield, tagoption,
+      nodetag, synclog, audit, binding (design doc §1)
+- [ ] `\local_curricmap\local\derive`: role derivation, `grouplabel` extraction,
+      path/depth/sortorder assembly — pure functions, table-driven; natural sort for
+      csv/manual rows only
+- [ ] Golden fixture corpus copied into `tests/fixtures/` with provenance notes (repo is
+      private — approved for inclusion), plus the natural-sort test vectors
 - [ ] Install/uninstall clean on Moodle 4.5; PHPCS zero errors
 
 ### M3 — Sofia client
