@@ -25,7 +25,6 @@ namespace local_curricmap\local;
  * @covers    \local_curricmap\local\derive
  */
 final class derive_test extends \basic_testcase {
-
     /** @var string UUID of the Year 1 node in the vet-med fixtures. */
     const YEAR_UUID = 'e1e70820-6c4b-4ddf-a478-7c1b2db0cabe';
 
@@ -138,8 +137,8 @@ final class derive_test extends \basic_testcase {
 
         $this->assertSame('other', $rows[self::TESTUNIT_UUID]['role']);
         $this->assertSame('group', $rows[self::TESTFOLDER_UUID]['role']);
-        $this->assertSame('other', $rows[self::TESTOUTCOME_UUID]['role'],
-            'An outcome under an assessment is not a strand or session outcome.');
+        // An outcome under an assessment is not a strand or session outcome.
+        $this->assertSame('other', $rows[self::TESTOUTCOME_UUID]['role']);
     }
 
     /**
@@ -159,8 +158,8 @@ final class derive_test extends \basic_testcase {
         $this->assertCount(27, $children);
 
         foreach ($children as $index => $childuuid) {
-            $this->assertSame($index, $rows[$childuuid]['sortorder'],
-                'sortorder is the index in the parent children array.');
+            // The sortorder is the index in the parent children array.
+            $this->assertSame($index, $rows[$childuuid]['sortorder']);
             $this->assertSame(self::LOCO_UUID, $rows[$childuuid]['parentuuid']);
             $this->assertSame(2, $rows[$childuuid]['depth']);
         }
@@ -211,15 +210,14 @@ final class derive_test extends \basic_testcase {
      * Natural-compare conformance vectors (tests/fixtures/natural_sort_vectors.json).
      */
     public function test_natural_compare_vectors(): void {
-        $vectors = json_decode(
-            file_get_contents(__DIR__ . '/../fixtures/natural_sort_vectors.json'), true);
+        $json = file_get_contents(__DIR__ . '/../fixtures/natural_sort_vectors.json');
+        $vectors = json_decode($json, true);
 
         foreach ($vectors['compare_cases'] as $case) {
-            $this->assertSame($case['expect'], derive::natural_compare($case['a'], $case['b']),
-                "natural_compare('{$case['a']}', '{$case['b']}')");
+            $label = "natural_compare('{$case['a']}', '{$case['b']}')";
+            $this->assertSame($case['expect'], derive::natural_compare($case['a'], $case['b']), $label);
             // Antisymmetry.
-            $this->assertSame(-$case['expect'], derive::natural_compare($case['b'], $case['a']),
-                "natural_compare('{$case['b']}', '{$case['a']}') (reversed)");
+            $this->assertSame(-$case['expect'], derive::natural_compare($case['b'], $case['a']), $label . ' reversed');
         }
 
         foreach ($vectors['sorted_sequences'] as $sequence) {
@@ -240,8 +238,8 @@ final class derive_test extends \basic_testcase {
             ['code' => 'Z9', 'positionraw' => '2'],
         ];
         usort($records, [derive::class, 'compare_siblings']);
-        $this->assertSame(['Z9', 'A1', 'B2', 'B10'], array_column($records, 'code'),
-            'Positioned rows first in position order, then unpositioned in natural code order.');
+        // Positioned rows first in position order, then unpositioned in natural code order.
+        $this->assertSame(['Z9', 'A1', 'B2', 'B10'], array_column($records, 'code'));
     }
 
     /**

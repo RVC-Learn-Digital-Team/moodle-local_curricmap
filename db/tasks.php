@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version details for local_curricmap.
+ * Scheduled task definitions for local_curricmap.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
@@ -24,8 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_curricmap';
-$plugin->version   = 2026070800;
-$plugin->requires  = 2024100700; // Moodle 4.5 LTS.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.3.0';
+$tasks = [
+    [
+        'classname' => 'local_curricmap\task\cleanup_task',
+        'blocking' => 0,
+        'minute' => '30',
+        'hour' => '3',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
+    ],
+];

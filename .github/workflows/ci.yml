@@ -50,6 +50,12 @@ jobs:
         with:
           path: plugin
 
+      - name: Configure required locales
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq locales
+          sudo locale-gen en_AU.UTF-8
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:

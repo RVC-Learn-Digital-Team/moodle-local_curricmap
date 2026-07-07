@@ -14,18 +14,30 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+namespace local_curricmap\task;
+
 /**
- * Version details for local_curricmap.
+ * Daily housekeeping: purge expired API log rows.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+class cleanup_task extends \core\task\scheduled_task {
+    /**
+     * Task name shown in the scheduled tasks admin screen.
+     *
+     * @return string
+     */
+    public function get_name(): string {
+        return get_string('task_cleanup', 'local_curricmap');
+    }
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'local_curricmap';
-$plugin->version   = 2026070800;
-$plugin->requires  = 2024100700; // Moodle 4.5 LTS.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.3.0';
+    /**
+     * Run the cleanup.
+     */
+    public function execute(): void {
+        $deleted = \local_curricmap\local\apilog::cleanup();
+        mtrace("local_curricmap: purged {$deleted} expired API log rows.");
+    }
+}

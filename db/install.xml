@@ -224,6 +224,33 @@
       </INDEXES>
     </TABLE>
 
+    <TABLE NAME="local_curricmap_apilog" COMMENT="Sofia API request log. Errors always recorded; successful requests recorded (with response preview) only when debug mode is enabled. Purged by the daily cleanup task.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="method" TYPE="char" LENGTH="8" NOTNULL="true" DEFAULT="GET" SEQUENCE="false"/>
+        <FIELD NAME="url" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Path and query only - never credentials or tokens."/>
+        <FIELD NAME="httpcode" TYPE="int" LENGTH="4" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="elapsedms" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="ratecount" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="X-Sofia-Request-Count header value."/>
+        <FIELD NAME="ratelimit" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="X-Sofia-Request-Limit header value."/>
+        <FIELD NAME="outcome" TYPE="char" LENGTH="8" NOTNULL="true" DEFAULT="ok" SEQUENCE="false"
+            COMMENT="ok or error."/>
+        <FIELD NAME="message" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="responsepreview" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Truncated response body; populated only in debug mode."/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="timecreated_ix" UNIQUE="false" FIELDS="timecreated"/>
+      </INDEXES>
+    </TABLE>
+
     <TABLE NAME="local_curricmap_binding" COMMENT="Join surface between Moodle locations and curriculum nodes. Addressing is deepest-non-null-wins: course, section, cm, sub-activity. Uniqueness of address+node+relation is enforced in code (nullable columns make a DB unique index unreliable cross-db).">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>

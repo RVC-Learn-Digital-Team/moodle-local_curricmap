@@ -28,9 +28,63 @@ if ($hassiteconfig) {
     $settings = new admin_settingpage('local_curricmap', get_string('pluginname', 'local_curricmap'));
     $ADMIN->add('localplugins', $settings);
 
+    // Sofia API connection.
     $settings->add(new admin_setting_heading(
-        'local_curricmap/general_heading',
-        get_string('settings:general_heading', 'local_curricmap'),
-        get_string('settings:general_heading_desc', 'local_curricmap')
+        'local_curricmap/sofia_heading',
+        get_string('settings:sofia_heading', 'local_curricmap'),
+        get_string('settings:sofia_heading_desc', 'local_curricmap')
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_curricmap/sofia_baseurl',
+        get_string('settings:baseurl', 'local_curricmap'),
+        get_string('settings:baseurl_desc', 'local_curricmap'),
+        '',
+        PARAM_URL
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_curricmap/sofia_clientid',
+        get_string('settings:clientid', 'local_curricmap'),
+        get_string('settings:clientid_desc', 'local_curricmap'),
+        '',
+        PARAM_RAW_TRIMMED
+    ));
+
+    $settings->add(new admin_setting_configpasswordunmask(
+        'local_curricmap/sofia_clientsecret',
+        get_string('settings:clientsecret', 'local_curricmap'),
+        get_string('settings:clientsecret_desc', 'local_curricmap'),
+        ''
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_curricmap/ratelimitfloor',
+        get_string('settings:ratelimitfloor', 'local_curricmap'),
+        get_string('settings:ratelimitfloor_desc', 'local_curricmap'),
+        10,
+        PARAM_INT
+    ));
+
+    // Diagnostics.
+    $settings->add(new admin_setting_heading(
+        'local_curricmap/diagnostics_heading',
+        get_string('settings:diagnostics_heading', 'local_curricmap'),
+        get_string('settings:diagnostics_heading_desc', 'local_curricmap')
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_curricmap/enabledebuglog',
+        get_string('settings:debuglog', 'local_curricmap'),
+        get_string('settings:debuglog_desc', 'local_curricmap'),
+        0
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_curricmap/apilogretention',
+        get_string('settings:apilogretention', 'local_curricmap'),
+        get_string('settings:apilogretention_desc', 'local_curricmap'),
+        30,
+        PARAM_INT
     ));
 }

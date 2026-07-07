@@ -14,18 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+namespace local_curricmap\api;
+
 /**
- * Version details for local_curricmap.
+ * Exception thrown by the Sofia API client.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+class client_exception extends \moodle_exception {
+    /** @var int|null HTTP status code of the failed request, if one was received. */
+    public ?int $httpcode;
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'local_curricmap';
-$plugin->version   = 2026070800;
-$plugin->requires  = 2024100700; // Moodle 4.5 LTS.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.3.0';
+    /**
+     * Constructor.
+     *
+     * @param string $errorcode Language string key within local_curricmap.
+     * @param mixed $a Placeholder value(s) for the language string.
+     * @param int|null $httpcode HTTP status code, if a response was received.
+     * @param string|null $debuginfo Additional detail for logs (never shown to users).
+     */
+    public function __construct(string $errorcode, $a = null, ?int $httpcode = null, ?string $debuginfo = null) {
+        $this->httpcode = $httpcode;
+        parent::__construct($errorcode, 'local_curricmap', '', $a, $debuginfo);
+    }
+}

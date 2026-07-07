@@ -64,11 +64,29 @@ across syncs (upsert by UUID), edges/nodetags rebuilt wholesale.
 
 ### M3 — Sofia client
 
-- [ ] OAuth2 client-credentials on `\core\http_client`, token cache (MUC), single 401 retry
-- [ ] `metadata() / nodes() / tree() / compare()` with key-only query options
-- [ ] Rate-limit header tracking + configurable refusal floor
-- [ ] PHPUnit via Guzzle MockHandler: token flow, 401, 5xx, truncated JSON, rate floor
-- [ ] Secrets in Moodle secret config; TLS verification always on
+Decision (July 2026): API debug logging is **database-backed** (`..._apilog` table) —
+production is load-balanced so local files are per-node/ephemeral, and FR-SOF-7 needs
+the error log admin-visible. Errors always logged; success + response preview only when
+`enabledebuglog` is on; tokens/credentials never logged; daily cleanup task with
+configurable retention (default 30 days).
+
+- [x] OAuth2 client-credentials on `\core\http_client`, token cache (MUC), single 401 retry
+- [x] `metadata() / nodes() / tree() / compare()` with key-only query options
+- [x] Rate-limit header tracking (persisted to config for admin visibility) +
+      configurable refusal floor (`ratelimitfloor`, default 10)
+- [x] API debug log: `apilog` table + `enabledebuglog`/`apilogretention` settings +
+      daily `cleanup_task`
+- [x] Real settings page: base URL, client id, client secret (passwordunmask), rate
+      floor, debug log, retention
+- [x] PHPUnit via Guzzle MockHandler: token flow + caching, 401 single-retry, second-401
+      failure, 5xx (always logged), invalid JSON, rate-floor refusal, header
+      persistence, debug on/off logging, token-body never stored, unconfigured refusal,
+      compare path, log cleanup
+- [x] Secrets in Moodle secret config; TLS verification always on (core default, never
+      touched)
+- [ ] Verify on playground after submodule update: upgrade to 2026070800 creates
+      `apilog`, settings page shows Sofia section, cleanup task registered; CI green on
+      both DBs; live smoke test against `rvc-vetmed-test` once credentials are entered
 
 ### M4 — Sync engine (full sync)
 

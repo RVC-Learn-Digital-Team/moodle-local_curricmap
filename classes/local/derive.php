@@ -33,7 +33,6 @@ namespace local_curricmap\local;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class derive {
-
     /** @var string Role: course year. */
     const ROLE_YEAR = 'year';
 

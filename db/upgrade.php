@@ -22,8 +22,6 @@
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Upgrade the local_curricmap plugin.
  *
@@ -57,6 +55,15 @@ function xmldb_local_curricmap_upgrade($oldversion) {
         }
 
         upgrade_plugin_savepoint(true, 2026070710, 'local', 'curricmap');
+    }
+
+    if ($oldversion < 2026070800) {
+        // M3: Sofia API request log table.
+        if (!$dbman->table_exists('local_curricmap_apilog')) {
+            $dbman->install_one_table_from_xmldb_file(__DIR__ . '/install.xml', 'local_curricmap_apilog');
+        }
+
+        upgrade_plugin_savepoint(true, 2026070800, 'local', 'curricmap');
     }
 
     return true;

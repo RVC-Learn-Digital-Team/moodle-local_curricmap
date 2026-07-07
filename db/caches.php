@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version details for local_curricmap.
+ * Cache definitions for local_curricmap.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
@@ -24,8 +24,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_curricmap';
-$plugin->version   = 2026070800;
-$plugin->requires  = 2024100700; // Moodle 4.5 LTS.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.3.0';
+$definitions = [
+    // OAuth2 bearer token for the Sofia API, cached until shortly before expiry.
+    'token' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+    ],
+];
