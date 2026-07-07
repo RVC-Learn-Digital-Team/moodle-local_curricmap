@@ -68,3 +68,7 @@ jobs:
       - name: Savepoints
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci savepoints
+
+      - name: PHPUnit tests
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpunit --fail-on-warning

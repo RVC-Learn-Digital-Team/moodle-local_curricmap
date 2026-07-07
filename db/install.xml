@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/curricmap/db" VERSION="20260707" COMMENT="XMLDB schema for local_curricmap"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="local_curricmap_programme" COMMENT="One row per synced Sofia programme.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="slug" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Sofia programme slug, e.g. vet-med."/>
+        <FIELD NAME="versionlabel" TYPE="char" LENGTH="64" NOTNULL="true" DEFAULT="LATEST" SEQUENCE="false"
+            COMMENT="Version label or pinned version tracked by sync."/>
+        <FIELD NAME="revisionhash" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Root hash of the last applied revision - the change-control anchor."/>
+        <FIELD NAME="rootuuid" TYPE="char" LENGTH="36" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false"/>
+        <FIELD NAME="lastsyncstatus" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="never" SEQUENCE="false"
+            COMMENT="ok, error, noop or never."/>
+        <FIELD NAME="timelastsynced" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timelastchanged" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Last sync run that applied changes."/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="slug_uq" UNIQUE="true" FIELDS="slug"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_node" COMMENT="Polymorphic curriculum node mirror. Sofia, CSV and manual rows share this table, discriminated by source.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="programmeid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Null for csv/manual rows."/>
+        <FIELD NAME="uuid" TYPE="char" LENGTH="36" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Sofia UUID for sofia rows; locally generated otherwise. Stable across syncs."/>
+        <FIELD NAME="parentid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Null for top-level nodes (the Sofia root node is not stored)."/>
+        <FIELD NAME="path" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Materialised ancestry of primary keys, e.g. /1/14/230/."/>
+        <FIELD NAME="depth" TYPE="int" LENGTH="2" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="type" TYPE="char" LENGTH="1" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Raw Sofia type letter; null for non-Sofia rows."/>
+        <FIELD NAME="subtype" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"
+            COMMENT="From doc.typeName, e.g. Lecture, Strand."/>
+        <FIELD NAME="role" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="other" SEQUENCE="false"
+            COMMENT="Derived vocabulary consumers filter on: year, strand, strandoutcome, unit, session, sessionoutcome, assessment, group, other."/>
+        <FIELD NAME="code" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="title" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Coalesced title as returned by the Sofia API."/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="subtitle" TYPE="char" LENGTH="300" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Lead educator(s) for taught nodes."/>
+        <FIELD NAME="positionraw" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Sofia position value as-is."/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Sibling order: index in the parent's children array (API presentation order)."/>
+        <FIELD NAME="grouplabel" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Extracted sofia:grouping:group doc value (the RVC unit label)."/>
+        <FIELD NAME="sofiaurl" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Deep link into Sofia; staff-only rendering."/>
+        <FIELD NAME="pebblepadurl" TYPE="char" LENGTH="1024" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="pebblepadlabel" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="source" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"
+            COMMENT="sofia, csv or manual. Sofia rows are immutable to everything but the sync engine."/>
+        <FIELD NAME="sourceversion" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Revision hash in which this row last changed."/>
+        <FIELD NAME="metadata" TYPE="text" NOTNULL="false" SEQUENCE="false"
+            COMMENT="JSON overflow: full doc field and anything not first-class."/>
+        <FIELD NAME="deleted" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Soft delete keeps last-known content for graceful degradation."/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="lastsynced" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="programmeid" TYPE="foreign" FIELDS="programmeid" REFTABLE="local_curricmap_programme" REFFIELDS="id"/>
+        <KEY NAME="parentid" TYPE="foreign" FIELDS="parentid" REFTABLE="local_curricmap_node" REFFIELDS="id"/>
+        <KEY NAME="usermodified" TYPE="foreign" FIELDS="usermodified" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="uuid_uq" UNIQUE="true" FIELDS="uuid"/>
+        <INDEX NAME="programme_deleted_ix" UNIQUE="false" FIELDS="programmeid, deleted"/>
+        <INDEX NAME="parent_sort_ix" UNIQUE="false" FIELDS="parentid, sortorder"/>
+        <INDEX NAME="role_ix" UNIQUE="false" FIELDS="role"/>
+        <INDEX NAME="source_ix" UNIQUE="false" FIELDS="source"/>
+        <INDEX NAME="grouplabel_ix" UNIQUE="false" FIELDS="grouplabel"/>
+        <INDEX NAME="path_ix" UNIQUE="false" FIELDS="path"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_edge" COMMENT="Directed connections between nodes, as Sofia stores them (on the source). Rebuilt wholesale per sync.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="programmeid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="sourceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="targetid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="connectiontype" TYPE="char" LENGTH="40" NOTNULL="true" SEQUENCE="false"
+            COMMENT="implements, event-outcome, unit-outcome, ..."/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Order within the source node's connection list (connection-sort)."/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="programmeid" TYPE="foreign" FIELDS="programmeid" REFTABLE="local_curricmap_programme" REFFIELDS="id"/>
+        <KEY NAME="sourceid" TYPE="foreign" FIELDS="sourceid" REFTABLE="local_curricmap_node" REFFIELDS="id"/>
+        <KEY NAME="targetid" TYPE="foreign" FIELDS="targetid" REFTABLE="local_curricmap_node" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="source_type_ix" UNIQUE="false" FIELDS="sourceid, connectiontype"/>
+        <INDEX NAME="target_type_ix" UNIQUE="false" FIELDS="targetid, connectiontype"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_tagfield" COMMENT="Tag categories from the Sofia Metadata API schema, synced per programme.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="programmeid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="fieldkey" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Stored verbatim, typos and all - keys are identity."/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="plural" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="programmeid" TYPE="foreign" FIELDS="programmeid" REFTABLE="local_curricmap_programme" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="programme_key_uq" UNIQUE="true" FIELDS="programmeid, fieldkey"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_tagoption" COMMENT="Tag options within a tag category.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="tagfieldid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="optionkey" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="tagfieldid" TYPE="foreign" FIELDS="tagfieldid" REFTABLE="local_curricmap_tagfield" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="field_key_uq" UNIQUE="true" FIELDS="tagfieldid, optionkey"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_nodetag" COMMENT="Tags applied to nodes. Rebuilt wholesale per sync.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="nodeid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="tagoptionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="nodeid" TYPE="foreign" FIELDS="nodeid" REFTABLE="local_curricmap_node" REFFIELDS="id"/>
+        <KEY NAME="tagoptionid" TYPE="foreign" FIELDS="tagoptionid" REFTABLE="local_curricmap_tagoption" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="node_option_uq" UNIQUE="true" FIELDS="nodeid, tagoptionid"/>
+        <INDEX NAME="tagoption_ix" UNIQUE="false" FIELDS="tagoptionid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_synclog" COMMENT="Per-run sync statistics and rate-limit observability.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="programmeid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="synctype" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="full" SEQUENCE="false"
+            COMMENT="full, check or csv."/>
+        <FIELD NAME="timestart" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timeend" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="running" SEQUENCE="false"
+            COMMENT="running, ok, noop or error."/>
+        <FIELD NAME="fromhash" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="tohash" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="nodesfetched" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="nodesinserted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="nodesupdated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="nodesdeleted" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="edgeschanged" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="tagschanged" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="requestcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="ratelimitremaining" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="message" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="programmeid" TYPE="foreign" FIELDS="programmeid" REFTABLE="local_curricmap_programme" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="timestart_ix" UNIQUE="false" FIELDS="timestart"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_audit" COMMENT="Edit log for mutable (csv/manual) rows. The sync engine never writes here.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="nodeid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="action" TYPE="char" LENGTH="16" NOTNULL="true" SEQUENCE="false"
+            COMMENT="create, update, delete or import."/>
+        <FIELD NAME="source" TYPE="char" LENGTH="16" NOTNULL="true" SEQUENCE="false"
+            COMMENT="csv or manual."/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="beforejson" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="afterjson" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="nodeid_ix" UNIQUE="false" FIELDS="nodeid"/>
+        <INDEX NAME="timecreated_ix" UNIQUE="false" FIELDS="timecreated"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_binding" COMMENT="Join surface between Moodle locations and curriculum nodes. Addressing is deepest-non-null-wins: course, section, cm, sub-activity. Uniqueness of address+node+relation is enforced in code (nullable columns make a DB unique index unreliable cross-db).">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Required - permission context and cleanup anchor."/>
+        <FIELD NAME="sectionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="cmid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="component" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Sub-activity component, e.g. mod_forum, mod_book."/>
+        <FIELD NAME="subitemid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Sub-activity id (discussion id, chapter id); requires component."/>
+        <FIELD NAME="nodeid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="nodeuuid" TYPE="char" LENGTH="36" NOTNULL="true" SEQUENCE="false"
+            COMMENT="The durable end of the join - survives resync."/>
+        <FIELD NAME="relation" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="anchor" SEQUENCE="false"
+            COMMENT="Soft-validated verb: anchor, teaches, covers, ..."/>
+        <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="active" SEQUENCE="false"
+            COMMENT="active or orphaned."/>
+        <FIELD NAME="source" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"
+            COMMENT="manual, import or api."/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+        <KEY NAME="nodeid" TYPE="foreign" FIELDS="nodeid" REFTABLE="local_curricmap_node" REFFIELDS="id"/>
+        <KEY NAME="usermodified" TYPE="foreign" FIELDS="usermodified" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="course_relation_ix" UNIQUE="false" FIELDS="courseid, relation"/>
+        <INDEX NAME="nodeuuid_relation_ix" UNIQUE="false" FIELDS="nodeuuid, relation"/>
+        <INDEX NAME="cmid_ix" UNIQUE="false" FIELDS="cmid"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

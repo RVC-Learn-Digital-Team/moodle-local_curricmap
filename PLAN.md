@@ -42,14 +42,18 @@ grouping-label column is named `grouplabel` (`grouping` is reserved in PostgreSQ
 nine tables ship in `install.xml` up front (forward-only migrations); node ids are stable
 across syncs (upsert by UUID), edges/nodetags rebuilt wholesale.
 
-- [ ] `db/install.xml`: all nine tables — programme, node, edge, tagfield, tagoption,
-      nodetag, synclog, audit, binding (design doc §1)
-- [ ] `\local_curricmap\local\derive`: role derivation, `grouplabel` extraction,
+- [x] `db/install.xml`: all nine tables — programme, node, edge, tagfield, tagoption,
+      nodetag, synclog, audit, binding (design doc §1); `db/upgrade.php` creates them on
+      scaffold-era installs via `install_one_table_from_xmldb_file`
+- [x] `\local_curricmap\local\derive`: role derivation, `grouplabel` extraction,
       path/depth/sortorder assembly — pure functions, table-driven; natural sort for
-      csv/manual rows only
-- [ ] Golden fixture corpus copied into `tests/fixtures/` with provenance notes (repo is
-      private — approved for inclusion), plus the natural-sort test vectors
-- [ ] Install/uninstall clean on Moodle 4.5; PHPCS zero errors
+      csv/manual rows only. Verified against the full revision-A fixture (1,496 rows,
+      role counts exact) on PHP 8.2
+- [x] Golden fixture corpus copied into `tests/fixtures/` with provenance notes (repo is
+      private — approved for inclusion), plus the natural-sort test vectors; PHPUnit
+      suite in `tests/local/derive_test.php`; PHPUnit step added to CI
+- [ ] Install/uninstall clean on Moodle 4.5 (verify on the docker playground after
+      submodule update); PHPCS zero errors in CI
 
 ### M3 — Sofia client
 

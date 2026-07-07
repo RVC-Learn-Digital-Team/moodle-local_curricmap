@@ -1,0 +1,35 @@
+{
+    "description": "Conformance vectors for the csv/manual natural-sort used by local_curricmap (and any future re-implementation). Rules: tokenise into digit and non-digit runs; digit runs compare numerically (leading zeros ignored, then shorter-vs-longer raw run as tie-break via full strcmp); non-digit runs compare case-insensitively; a digit run sorts before a non-digit run at the same token position; a string that is a prefix of another sorts first; final tie-break is a case-sensitive full comparison for stable ordering.",
+    "source": "sofia_api_explorer umbrella repo, test_vectors/natural_sort.json. Update both copies together.",
+    "compare_cases": [
+        {"a": "X2", "b": "X10", "expect": -1},
+        {"a": "X10", "b": "X2", "expect": 1},
+        {"a": "X2", "b": "X2", "expect": 0},
+        {"a": "LE1", "b": "LE2", "expect": -1},
+        {"a": "LE2", "b": "LE10", "expect": -1},
+        {"a": "LE10", "b": "LE11", "expect": -1},
+        {"a": "UG1-PVP-LE2", "b": "UG1-PVP-LE10", "expect": -1},
+        {"a": "UG1-PVP-LE4-LO1", "b": "UG1-PVP-LE4-LO2", "expect": -1},
+        {"a": "A2", "b": "A10", "expect": -1},
+        {"a": "B1", "b": "A2", "expect": 1},
+        {"a": "9", "b": "10", "expect": -1},
+        {"a": "07", "b": "7", "expect": -1},
+        {"a": "007", "b": "07", "expect": -1},
+        {"a": "a1", "b": "A1", "expect": 1},
+        {"a": "abc", "b": "ABD", "expect": -1},
+        {"a": "X", "b": "X1", "expect": -1},
+        {"a": "X1", "b": "X1a", "expect": -1},
+        {"a": "1A", "b": "A1", "expect": -1},
+        {"a": "V1.2", "b": "V1.10", "expect": -1},
+        {"a": "V1.10", "b": "V2.1", "expect": -1},
+        {"a": "MOD-1-POM", "b": "MOD-1-LMAP", "expect": 1},
+        {"a": "", "b": "A", "expect": -1}
+    ],
+    "sorted_sequences": [
+        ["X1", "X2", "X10", "X11", "X100"],
+        ["LE1", "LE2", "LE9", "LE10", "LE11", "LE20"],
+        ["UG1-AH", "UG1-ALI", "UG1-CVR", "UG1-PVP"],
+        ["1", "2", "9", "10", "11", "100"],
+        ["A1", "A2", "A10", "B1", "B2"]
+    ]
+}

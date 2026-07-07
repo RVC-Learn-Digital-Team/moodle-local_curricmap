@@ -1,0 +1,1173 @@
+{
+  "type": "Schema",
+  "key": "metadata",
+  "name": "Metadata",
+  "plural": "Metadata",
+  "fields": [
+    {
+      "type": "Field",
+      "key": "assessment-outcome",
+      "name": "Outcomes",
+      "plural": "Outcomes"
+    },
+    {
+      "type": "Field",
+      "key": "event-outcome",
+      "name": "Outcomes",
+      "plural": "Outcomes"
+    },
+    {
+      "type": "Field",
+      "key": "unit-outcome",
+      "name": "Outcomes",
+      "plural": "Outcomes"
+    },
+    {
+      "type": "Field",
+      "key": "outcome-outcome",
+      "name": "Related",
+      "plural": "Related"
+    },
+    {
+      "type": "Field",
+      "key": "follows",
+      "name": "Follows",
+      "plural": "Follows"
+    },
+    {
+      "type": "Field",
+      "key": "implements",
+      "name": "Implements",
+      "plural": "Implements"
+    },
+    {
+      "type": "Field",
+      "key": "prerequisites",
+      "name": "Prerequisites",
+      "plural": "Prerequisites"
+    },
+    {
+      "type": "Field",
+      "key": "CCTEST_CATEGORY",
+      "name": "CC-TEST Category",
+      "plural": "CC-TEST Categories",
+      "options": []
+    },
+    {
+      "type": "Field",
+      "key": "AVMA",
+      "name": "AVMA competencies",
+      "plural": "AVMA competencies",
+      "options": [
+        {
+          "key": "AVMADOC1",
+          "name": "Patient diagnosis, diagnostic testing and record management"
+        },
+        {
+          "key": "AVMADOC5",
+          "name": "Basic medicine skills "
+        },
+        {
+          "key": "AVMADOC3",
+          "name": "Anesthesia and pain management, patient welfare"
+        },
+        {
+          "key": "AVMADOC9",
+          "name": "Critical analysis"
+        },
+        {
+          "key": "AVMADOC7",
+          "name": "Veterinary public health"
+        },
+        {
+          "key": "AVMADOC8",
+          "name": "Client communications and ethical conduct"
+        },
+        {
+          "key": "AVMADOC6",
+          "name": "Emergency and intensive care"
+        },
+        {
+          "key": "AVMADOC2",
+          "name": "Comprehensive treatment planning"
+        },
+        {
+          "key": "AVMADOC4",
+          "name": "Basic surgery skills "
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "THEME",
+      "name": "Theme",
+      "plural": "Themes",
+      "options": [
+        {
+          "key": "PARAS",
+          "name": "Parasitology  "
+        },
+        {
+          "key": "PL",
+          "name": "Placement"
+        },
+        {
+          "key": "EMPSK",
+          "name": "Employability skills"
+        },
+        {
+          "key": "PROFVN",
+          "name": "The Professional VN "
+        },
+        {
+          "key": "PATCARE",
+          "name": "Patient care"
+        },
+        {
+          "key": "HS",
+          "name": "Health and Safety"
+        },
+        {
+          "key": "TUT",
+          "name": "Tutorial meeting"
+        },
+        {
+          "key": "PH",
+          "name": "Pharmacy"
+        },
+        {
+          "key": "LOCO",
+          "name": "Locomotor"
+        },
+        {
+          "key": "KS",
+          "name": "Knowledge summary"
+        },
+        {
+          "key": "MAN",
+          "name": "Animal management"
+        },
+        {
+          "key": "ANAES",
+          "name": "Anaesthesia"
+        },
+        {
+          "key": "HUS",
+          "name": "Animal Husbandry"
+        },
+        {
+          "key": "FAP",
+          "name": "Fundamental Anatomy and Physiology"
+        },
+        {
+          "key": "STUD",
+          "name": "Study skills"
+        },
+        {
+          "key": "DIAGIMGOTH",
+          "name": "Diagnostic imaging and other imaging techniques "
+        },
+        {
+          "key": "PATHPHYS",
+          "name": "Pathophysiology"
+        },
+        {
+          "key": "DIAGIMG",
+          "name": "Diagnostic imaging"
+        },
+        {
+          "key": "RES",
+          "name": "Principles of research"
+        },
+        {
+          "key": "TS",
+          "name": "Theatre Skills"
+        },
+        {
+          "key": "ECC",
+          "name": "ECC"
+        },
+        {
+          "key": "FA",
+          "name": "First Aid"
+        },
+        {
+          "key": "INTRO",
+          "name": "Introduction to module"
+        },
+        {
+          "key": "PRAC",
+          "name": "Practical"
+        },
+        {
+          "key": "RCVSPRAC",
+          "name": "RCVS practical skills"
+        },
+        {
+          "key": "IC",
+          "name": "Infection Control"
+        },
+        {
+          "key": "PHARM",
+          "name": "Pharmacology"
+        },
+        {
+          "key": "ETH",
+          "name": "Ethics"
+        },
+        {
+          "key": "NUT",
+          "name": "Nutrition"
+        },
+        {
+          "key": "COMM",
+          "name": "Communication"
+        },
+        {
+          "key": "ASSWK",
+          "name": "Assessment week"
+        },
+        {
+          "key": "LEG",
+          "name": "Veterinary legislation"
+        },
+        {
+          "key": "APD1",
+          "name": "Professionalism (APD1) "
+        },
+        {
+          "key": "LABS",
+          "name": "Laboratory skills "
+        },
+        {
+          "key": "CVR",
+          "name": "Cardiovascular"
+        },
+        {
+          "key": "LABSMV",
+          "name": "Laboratory skills Microbiology and virology"
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "EAEVE_DAY_ONE_COMPETENCIE",
+      "name": "EAEVE Day One Competencies",
+      "plural": "EAEVE Day One Competencies",
+      "options": [
+        {
+          "key": "ESEVTDOC1_12",
+          "name": "Advancement of veterinary knowledge"
+        },
+        {
+          "key": "ESEVTDOC1_25",
+          "name": "Notifiable and zoonotic disease"
+        },
+        {
+          "key": "ESEVTDOC1_30",
+          "name": "Aseptic procedures"
+        },
+        {
+          "key": "ESEVTDOC1_15",
+          "name": "Improve performance through self-audit"
+        },
+        {
+          "key": "ESEVTDOC1_35",
+          "name": "Ante-mortem inspections"
+        },
+        {
+          "key": "ESEVTDOC1_2",
+          "name": "Scientific research methods"
+        },
+        {
+          "key": "ESEVTDOC1_1",
+          "name": "Ethical and legal frameworks"
+        },
+        {
+          "key": "ESEVTDOC1_22",
+          "name": "Sample collection and diagnostic testing"
+        },
+        {
+          "key": "ESEVTDOC1_32",
+          "name": "Managing pain"
+        },
+        {
+          "key": "ESEVTDOC1_19",
+          "name": "Create treatment plans "
+        },
+        {
+          "key": "ESEVTDOC1_31",
+          "name": "Anaesthesia"
+        },
+        {
+          "key": "ESEVTDOC1_6",
+          "name": "Effective interpersonal interactions"
+        },
+        {
+          "key": "ESEVTDOC1_23",
+          "name": "Effective communication with referral and diagnostic services"
+        },
+        {
+          "key": "ESEVTDOC1_33",
+          "name": "Euthanasia"
+        },
+        {
+          "key": "ESEVTDOC1_24",
+          "name": "Diagnostic equipment and artificial intelligence"
+        },
+        {
+          "key": "ESEVTDOC1_34",
+          "name": "Necropsy examination"
+        },
+        {
+          "key": "ESEVTDOC1_4",
+          "name": "Health and safety"
+        },
+        {
+          "key": "ESEVTDOC1_8",
+          "name": "Work within a multidisciplinary team"
+        },
+        {
+          "key": "ESEVTDOC1_10",
+          "name": "Principles of One Health"
+        },
+        {
+          "key": "ESEVTDOC1_28",
+          "name": "Adverse reactions"
+        },
+        {
+          "key": "ESEVTDOC1_11",
+          "name": "Critically analyse evidence,"
+        },
+        {
+          "key": "ESEVTDOC1_3",
+          "name": "Organisation, management and legislation"
+        },
+        {
+          "key": "ESEVTDOC1_9",
+          "name": "Critically review and evaluate literature"
+        },
+        {
+          "key": "ESEVTDOC1_13",
+          "name": "Personal and professional limits"
+        },
+        {
+          "key": "ESEVTDOC1_21",
+          "name": "Assessment of animal husbandry and welfare"
+        },
+        {
+          "key": "ESEVTDOC1_7",
+          "name": "Accurate clinical and client records"
+        },
+        {
+          "key": "ESEVTDOC1_27",
+          "name": "Prescribing medicines"
+        },
+        {
+          "key": "ESEVTDOC1_29",
+          "name": "Biosecurity protocols"
+        },
+        {
+          "key": "ESEVTDOC1_26",
+          "name": "Animal care and welfare legislation "
+        },
+        {
+          "key": "ESEVTDOC1_20",
+          "name": "Emergency first aid"
+        },
+        {
+          "key": "ESEVTDOC1_17",
+          "name": "Safely restrain animal patients"
+        },
+        {
+          "key": "ESEVTDOC1_18",
+          "name": "Clinical examination and clinical decision making"
+        },
+        {
+          "key": "ESEVTDOC1_14",
+          "name": "Lifelong learning and to professional development"
+        },
+        {
+          "key": "ESEVTDOC1_37",
+          "name": "Protecting public health"
+        },
+        {
+          "key": "ESEVTDOC1_36",
+          "name": "Safety of animal products"
+        },
+        {
+          "key": "ESEVTDOC1_5",
+          "name": "Effective communication within the workplace"
+        },
+        {
+          "key": "ESEVTDOC1_16",
+          "name": "Obtain accurate patient records"
+        },
+        {
+          "key": "ESEVTDOC1_38",
+          "name": "Preventative and eradication schemes"
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "EAEVE_SUBJECT",
+      "name": "EAEVE Subject",
+      "plural": "EAEVE Subjects",
+      "options": [
+        {
+          "key": "ESEVTSUB2_2_1_11",
+          "name": "Basic sciences epidemiology"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_6",
+          "name": "CA clinical training"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_6",
+          "name": "Basic sciences pathology"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_1",
+          "name": "Basic sciences anatomy, histology"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_7",
+          "name": "Basic Sciences toxicology"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_5",
+          "name": "Basic sciences pharmacology"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_2",
+          "name": "Basic sciences physiology"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_4",
+          "name": "FPA surgery"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_10",
+          "name": "Basic sciences immunology"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_5",
+          "name": "FPA anaesthesiology"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_12",
+          "name": "Basic Sciences IT and data"
+        },
+        {
+          "key": "ESEVTSUB2_1_3",
+          "name": "Basic subjects animal biology, zoology"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_11",
+          "name": "FPA animal production"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_13",
+          "name": "Basic sciences professional behaviour"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_2",
+          "name": "CA diagnostic pathology"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_3",
+          "name": "Basic Sciences Biochemistry"
+        },
+        {
+          "key": "ESEVTSUB2_1_1",
+          "name": "Basic subjects medical physics"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_9",
+          "name": "FPA diagnostic imaging"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_10",
+          "name": "CA therapy"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_2",
+          "name": "FPA diagnostic pathology"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_7",
+          "name": "CA infectious disease"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_8",
+          "name": "FPA Preventive medicine"
+        },
+        {
+          "key": "ESEVTSUB2_2_4_3",
+          "name": "VPH zoonosis"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_17",
+          "name": "Basic sciences animal nutrition"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_4",
+          "name": "CA surgery"
+        },
+        {
+          "key": "ESEVTSUB2_1_4",
+          "name": "Basic subjects feed and toxic plants"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_6",
+          "name": "FPA clinical training"
+        },
+        {
+          "key": "ESEVTSUB2_2_4_5",
+          "name": "VPH food technology"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_14",
+          "name": "Basic sciences AHE"
+        },
+        {
+          "key": "ESEVTSUB2_2_4_1",
+          "name": "VPH veterinary legislation"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_8",
+          "name": "CA preventive medicine"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_1",
+          "name": "FPA reproduction"
+        },
+        {
+          "key": "ESEVTSUB2_1_2",
+          "name": "Basic subjects chemistry"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_1",
+          "name": "CA reproduction"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_16",
+          "name": "Basic sciences animal welfare"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_10",
+          "name": "FPA therapy"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_9",
+          "name": "Basic sciences microbiology"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_5",
+          "name": "CA anaesthesiology"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_7",
+          "name": "FPA Infectious diseases"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_8",
+          "name": "Basic sciences parasitology"
+        },
+        {
+          "key": "ESEVTSUB2_1_5",
+          "name": "Biomedical statistics"
+        },
+        {
+          "key": "ESEVTSUB2_2_4_4",
+          "name": "VPH food hygiene"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_3",
+          "name": "FPA medicine"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_15",
+          "name": "Basic sciences animal ethology"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_3",
+          "name": "CA medicine"
+        },
+        {
+          "key": "ESEVTSUB2_2_3_12",
+          "name": "FPA herd health"
+        },
+        {
+          "key": "ESEVTSUB2_2_1_4",
+          "name": "Basic Sciences genetics"
+        },
+        {
+          "key": "ESEVTSUB2_2_2_9",
+          "name": "CA Diagnostic imaging"
+        },
+        {
+          "key": "ESEVTSUB2_2_4_2",
+          "name": "VPH control food and feed"
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "NAVLE_COMPETENCY_DOMAINS",
+      "name": "NAVLE Competency Domains",
+      "plural": "NAVLE Competency Domains",
+      "options": [
+        {
+          "key": "CP_DGI_4",
+          "name": "Formulate possible differential diagnoses"
+        },
+        {
+          "key": "CP_DGI_3",
+          "name": "Formulate a diagnostic plan"
+        },
+        {
+          "key": "CP_DGI_2",
+          "name": "Develop a differential diagnosis"
+        },
+        {
+          "key": "CP_DGI_1",
+          "name": "Create or update medical records"
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "RCVS_DAY_ONE_COMPETENCIES",
+      "name": "RCVS Day One Competencies",
+      "plural": "RCVS Day One Competencies",
+      "options": [
+        {
+          "key": "RCVSDOC27",
+          "name": "Handling and restraint"
+        },
+        {
+          "key": "RCVSDOC40",
+          "name": "Biosecurity"
+        },
+        {
+          "key": "RCVSDOC6",
+          "name": "Ten principles"
+        },
+        {
+          "key": "RCVSDOC5",
+          "name": "Advancement of Veterinary knowledge"
+        },
+        {
+          "key": "RCVSDOC44",
+          "name": "Public health"
+        },
+        {
+          "key": "RCVSDOC13",
+          "name": "Complexity and uncertainty"
+        },
+        {
+          "key": "RCVSDOC31",
+          "name": "Sample taking"
+        },
+        {
+          "key": "RCVSDOC19",
+          "name": "Multiprofessional teamwork"
+        },
+        {
+          "key": "RCVSDOC35",
+          "name": "Euthanasia"
+        },
+        {
+          "key": "RCVSDOC42",
+          "name": "Food-chain inspection"
+        },
+        {
+          "key": "RCVSDOC17",
+          "name": "Effective communication"
+        },
+        {
+          "key": "RCVSDOC14",
+          "name": "Adaptability"
+        },
+        {
+          "key": "RCVSDOC12",
+          "name": "Self-audit and peer review"
+        },
+        {
+          "key": "RCVSDOC25",
+          "name": "Appropriate resource allocation"
+        },
+        {
+          "key": "RCVSDOC9",
+          "name": "Economic and emotional context"
+        },
+        {
+          "key": "RCVSDOC8",
+          "name": "Adverse effects"
+        },
+        {
+          "key": "RCVSDOC33",
+          "name": "Administering anaesthesia"
+        },
+        {
+          "key": "RCVSDOC3",
+          "name": "Evidence based medicine"
+        },
+        {
+          "key": "RCVSDOC38",
+          "name": "Zoonotic disease"
+        },
+        {
+          "key": "RCVSDOC28",
+          "name": "Surgical skills"
+        },
+        {
+          "key": "RCVSDOC41",
+          "name": "Animal welfare"
+        },
+        {
+          "key": "RCVSDOC24",
+          "name": "Differential diagnosis"
+        },
+        {
+          "key": "RCVSDOC11",
+          "name": "Learning and professional development"
+        },
+        {
+          "key": "RCVSDOC37",
+          "name": "Animal assessment"
+        },
+        {
+          "key": "RCVSDOC29",
+          "name": "Examination skills"
+        },
+        {
+          "key": "RCVSDOC39",
+          "name": "Population principles"
+        },
+        {
+          "key": "RCVSDOC10",
+          "name": "Recognising own limitations"
+        },
+        {
+          "key": "RCVSDOC21",
+          "name": "Collaboration and referral"
+        },
+        {
+          "key": "RCVSDOC22",
+          "name": "History taking"
+        },
+        {
+          "key": "RCVSDOC2",
+          "name": "Ethical and legal responsibilities"
+        },
+        {
+          "key": "RCVSDOC30",
+          "name": "Emergency and first aid"
+        },
+        {
+          "key": "RCVSDOC18",
+          "name": "Inclusivity and cultural competence"
+        },
+        {
+          "key": "RCVSDOC4",
+          "name": "Clinical governance"
+        },
+        {
+          "key": "RCVSDOC23",
+          "name": "Treatment plans and administration"
+        },
+        {
+          "key": "RCVSDOC15",
+          "name": "Veterinary Business"
+        },
+        {
+          "key": "RCVSDOC1",
+          "name": "Code of professional conduct"
+        },
+        {
+          "key": "RCVSDOC34",
+          "name": "Pain"
+        },
+        {
+          "key": "RCVSDOC36",
+          "name": "Post-mortem"
+        },
+        {
+          "key": "RCVSDOC43",
+          "name": "Prevention programmes"
+        },
+        {
+          "key": "RCVSDOC45",
+          "name": "Food safety standards"
+        },
+        {
+          "key": "RCVSDOC26",
+          "name": "Professionalism"
+        },
+        {
+          "key": "RCVSDOC16",
+          "name": "Health and Safety, risk"
+        },
+        {
+          "key": "RCVSDOC7",
+          "name": "Dispensing medicines"
+        },
+        {
+          "key": "RCVSDOC32",
+          "name": "Diagnostics and imaging"
+        },
+        {
+          "key": "RCVSDOC20",
+          "name": "Professional records and reports"
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "AVBC_DAY_ONCE_COMPETENCIE",
+      "name": "AVBC Day Once Competencies",
+      "plural": "AVBC Day Once Competencies",
+      "options": [
+        {
+          "key": "AVBCDOC36",
+          "name": "Time management"
+        },
+        {
+          "key": "AVBCDOC17",
+          "name": "Population medicine"
+        },
+        {
+          "key": "AVBCDOC6",
+          "name": "Treatment "
+        },
+        {
+          "key": "AVBCDOC24",
+          "name": "Food safety standards"
+        },
+        {
+          "key": "AVBCDOC30",
+          "name": "Professionalism"
+        },
+        {
+          "key": "AVBCDOC28",
+          "name": "Teamwork"
+        },
+        {
+          "key": "AVBCDOC10",
+          "name": "Anaesthesia"
+        },
+        {
+          "key": "AVBCDOC16",
+          "name": "Clinical and production factors"
+        },
+        {
+          "key": "AVBCDOC38",
+          "name": "Health and safety"
+        },
+        {
+          "key": "AVBCDOC26",
+          "name": "Accurate records"
+        },
+        {
+          "key": "AVBCDOC31",
+          "name": "Certificates"
+        },
+        {
+          "key": "AVBCDOC21",
+          "name": "One Health principles"
+        },
+        {
+          "key": "AVBCDOC5",
+          "name": "Diagnostic tests"
+        },
+        {
+          "key": "AVBCDOC8",
+          "name": "Traditional and digital technologies"
+        },
+        {
+          "key": "AVBCDOC32",
+          "name": "Medicines"
+        },
+        {
+          "key": "AVBCDOC2",
+          "name": "Animal handling and restraint"
+        },
+        {
+          "key": "AVBCDOC35",
+          "name": "Personal reflection"
+        },
+        {
+          "key": "AVBCDOC7",
+          "name": "Adjust treatment plan"
+        },
+        {
+          "key": "AVBCDOC13",
+          "name": "Assess and manage pain"
+        },
+        {
+          "key": "AVBCDOC39",
+          "name": "Critical appraisal"
+        },
+        {
+          "key": "AVBCDOC37",
+          "name": "Business and financial management"
+        },
+        {
+          "key": "AVBCDOC14",
+          "name": "Euthanasia"
+        },
+        {
+          "key": "AVBCDOC15",
+          "name": "Post mortem examination "
+        },
+        {
+          "key": "AVBCDOC20",
+          "name": "Preventive programs"
+        },
+        {
+          "key": "AVBCDOC11",
+          "name": "Routine procedures"
+        },
+        {
+          "key": "AVBCDOC29",
+          "name": "Collaboration"
+        },
+        {
+          "key": "AVBCDOC12",
+          "name": "First aid and referral"
+        },
+        {
+          "key": "AVBCDOC27",
+          "name": "Inclusivity and cultural competence"
+        },
+        {
+          "key": "AVBCDOC9",
+          "name": "Knowledge application "
+        },
+        {
+          "key": "AVBCDOC33",
+          "name": "Self -directed learning"
+        },
+        {
+          "key": "AVBCDOC19",
+          "name": "Biosecurity risks"
+        },
+        {
+          "key": "AVBCDOC4",
+          "name": "Diagnosis"
+        },
+        {
+          "key": "AVBCDOC3",
+          "name": "Clinical examination"
+        },
+        {
+          "key": "AVBCDOC22",
+          "name": "Biosecurity protocols and IPC"
+        },
+        {
+          "key": "AVBCDOC23",
+          "name": "Antemortem and postmortem inspection "
+        },
+        {
+          "key": "AVBCDOC18",
+          "name": "Animal welfare"
+        },
+        {
+          "key": "AVBCDOC40",
+          "name": "Advancement of veterinary knowledge"
+        },
+        {
+          "key": "AVBCDOC34",
+          "name": "Recognise limitations"
+        },
+        {
+          "key": "AVBCDOC1",
+          "name": "Accurate and relevant history"
+        },
+        {
+          "key": "AVBCDOC25",
+          "name": "Effective communication"
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "LOTYPE",
+      "name": "LO type",
+      "plural": "LO types",
+      "options": [
+        {
+          "key": "MODSPEC",
+          "name": "Module Specific Skills and Knowledge"
+        },
+        {
+          "key": "DISCSPEC",
+          "name": "Discipline Specific Skills and Knowledge"
+        },
+        {
+          "key": "TRANS",
+          "name": "Personal and Key Transferable/ Employment Skills and Knowledge"
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "MODALITY",
+      "name": "Modality",
+      "plural": "Modalities",
+      "options": [
+        {
+          "key": "ONSITE",
+          "name": "Onsite"
+        },
+        {
+          "key": "DIGITAL",
+          "name": "Digital"
+        },
+        {
+          "key": "HYBRID",
+          "name": "Hybrid"
+        }
+      ]
+    },
+    {
+      "type": "Field",
+      "key": "CBVE_COMPETENCIES",
+      "name": "CBVE Competencies",
+      "plural": "CBVE Competencies",
+      "options": [
+        {
+          "key": "CBVE6_3",
+          "name": "Maintaining relationships"
+        },
+        {
+          "key": "CBVE9_2",
+          "name": "Knowledge and Skills"
+        },
+        {
+          "key": "CBVE3_3",
+          "name": "Animal welfare advice"
+        },
+        {
+          "key": "CBVE7_2",
+          "name": "Time management"
+        },
+        {
+          "key": "CBVE7_1",
+          "name": "Professional obligations"
+        },
+        {
+          "key": "CBVE5_1",
+          "name": "Professional communication"
+        },
+        {
+          "key": "CBVE1_3",
+          "name": "Evidence based diagnostic/treatment plans"
+        },
+        {
+          "key": "CBVE1_1",
+          "name": "Information gathering"
+        },
+        {
+          "key": "CBVE1_7",
+          "name": "Knowledge and skill limitations"
+        },
+        {
+          "key": "CBVE5_2",
+          "name": "Adaptable communication"
+        },
+        {
+          "key": "CBVE6_4",
+          "name": "Inclusivity and cultural competence"
+        },
+        {
+          "key": "CBVE7_5",
+          "name": "Wellbeing"
+        },
+        {
+          "key": "CBVE1_5",
+          "name": "Prioritizes urgency"
+        },
+        {
+          "key": "CBVE7_3",
+          "name": "Reflect on actions"
+        },
+        {
+          "key": "CBVE7_6",
+          "name": "Career Planning"
+        },
+        {
+          "key": "CBVE4_2",
+          "name": "Health and Safety"
+        },
+        {
+          "key": "CBVE1_6",
+          "name": "Adapts knowledge to varied scenarios and contexts"
+        },
+        {
+          "key": "CBVE6_2",
+          "name": "Leadership"
+        },
+        {
+          "key": "CBVE2_1",
+          "name": "Performing procedures"
+        },
+        {
+          "key": "CBVE1_2",
+          "name": "Differential diagnosis"
+        },
+        {
+          "key": "CBVE2_2",
+          "name": "Wellness and preventative care"
+        },
+        {
+          "key": "CBVE9_1",
+          "name": "Evidence Based Veterinary Medicine"
+        },
+        {
+          "key": "CBVE3_1",
+          "name": "Population management"
+        },
+        {
+          "key": "CBVE8_3",
+          "name": "Workplace health and safety"
+        },
+        {
+          "key": "CBVE5_3",
+          "name": "Appropriate documentation"
+        },
+        {
+          "key": "CBVE1_4",
+          "name": "Animal welfare"
+        },
+        {
+          "key": "CBVE3_2",
+          "name": "Biosecurity protocols"
+        },
+        {
+          "key": "CBVE6_1",
+          "name": "Includes others opinions"
+        },
+        {
+          "key": "CBVE8_2",
+          "name": "Regulatory requirements"
+        },
+        {
+          "key": "CBVE7_4",
+          "name": "Self-directed learning"
+        },
+        {
+          "key": "CBVE8_1",
+          "name": "Economic decision making"
+        },
+        {
+          "key": "CBVE4_1",
+          "name": "Zoonotic diseases"
+        }
+      ]
+    }
+  ]
+}

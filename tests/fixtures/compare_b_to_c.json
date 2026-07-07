@@ -1,0 +1,416 @@
+{
+  "meta": {
+    "modified": 4,
+    "added": 1,
+    "removed": 1,
+    "compare": {
+      "from": "10fed6689f116b04977dfc8baa64e5f06aed67f3",
+      "to": "12ac3c30e3489c886a5c0d12606757b8770d3893"
+    }
+  },
+  "changes": [
+    {
+      "class": "Modifications",
+      "changes": [
+        {
+          "class": "HashEdit",
+          "field": "hash",
+          "old_value": "10fed6689f116b04977dfc8baa64e5f06aed67f3",
+          "new_value": "12ac3c30e3489c886a5c0d12606757b8770d3893"
+        },
+        {
+          "class": "Edit",
+          "field": "created_at",
+          "old_value": "2026-07-07T07:30:40.187Z",
+          "new_value": "2026-07-07T07:56:36.535Z"
+        },
+        {
+          "class": "TextEdit",
+          "field": "title",
+          "old_value": "Removed test folder f1",
+          "new_value": "Restored Test more or less",
+          "html_diff": "<del style=\"background:#ffe6e6;\">Removed test folder f1</del><ins style=\"background:#e6ffe6;\">Restored Test more or less</ins>"
+        },
+        {
+          "class": "TextEdit",
+          "field": "text",
+          "old_value": "",
+          "new_value": "Mostly less",
+          "html_diff": "<ins style=\"background:#e6ffe6;\">Mostly less</ins>"
+        },
+        {
+          "class": "ChildrenEdit",
+          "field": "children",
+          "old_value": [
+            "57a287367b27d2fe92002bcf77598185f254393e",
+            "dc95d9d3703e2602ef5fff0e7b3149d74a20c6d5"
+          ],
+          "new_value": [
+            "33c72633816ef153526aa1d5e083d480b13378c8",
+            "57a287367b27d2fe92002bcf77598185f254393e",
+            "a1dbf58b88d869da74f24961e2177e452390c8cb"
+          ]
+        },
+        {
+          "class": "SchemaFieldEdit",
+          "field": "03632601-1fa7-4742-8245-40a33156680c",
+          "old_value": [
+            [
+              "03632601-1fa7-4742-8245-40a33156680c",
+              {
+                "key": "CCTEST_CATEGORY",
+                "name": "CC-TEST Category",
+                "plural": "CC-TEST Categories",
+                "options": [],
+                "attribs": [
+                  [
+                    "7102a936-66fa-4a13-b0ec-d7ed147107db",
+                    {
+                      "name": "cat3"
+                    }
+                  ],
+                  [
+                    "b771d04b-879a-4231-b0b8-bd81547bbf1b",
+                    {
+                      "name": "cat1"
+                    }
+                  ],
+                  [
+                    "cef92e80-bc7f-4f97-b5ab-bca99fedf17c",
+                    {
+                      "name": "cat2"
+                    }
+                  ]
+                ]
+              }
+            ]
+          ],
+          "html_diff": "<del style=\"background:#ffe6e6;\">CC-TEST Category (key: CCTEST_CATEGORY; plural: CC-TEST Categories) <br>• cat1 (filter: no) • cat2 (filter: no) • cat3 (filter: no)</del><span> </span><ins style=\"background:#e6ffe6;\"></ins><span><br></span>"
+        }
+      ],
+      "code": "root",
+      "uuid": "457d1547-1857-422d-b743-0231c5c39bc2",
+      "path": [
+        "457d1547-1857-422d-b743-0231c5c39bc2"
+      ],
+      "preview": "",
+      "type": "r",
+      "typeName": null
+    },
+    {
+      "class": "Remove",
+      "changes": [
+        {
+          "class": "HashEdit",
+          "field": "hash",
+          "old_value": "a053160b2389c294c9c96fe21846595787a30c29",
+          "new_value": null
+        },
+        {
+          "class": "TextEdit",
+          "field": "code",
+          "old_value": "O_1",
+          "new_value": "",
+          "html_diff": "<del style=\"background:#ffe6e6;\">O_1</del>"
+        },
+        {
+          "class": "UUIDEdit",
+          "field": "uuid",
+          "old_value": "595ff1a2-c74d-4bf8-b965-6950f2d88e36",
+          "new_value": null,
+          "html_diff": "<del style=\"background:#ffe6e6;\">595ff1a2-c74d-4bf8-b965-6950f2d88e36</del>"
+        },
+        {
+          "class": "Edit",
+          "field": "owner",
+          "old_value": 9387,
+          "new_value": null
+        },
+        {
+          "class": "TextEdit",
+          "field": "type",
+          "old_value": "O",
+          "new_value": "",
+          "html_diff": "<del style=\"background:#ffe6e6;\">O</del>"
+        },
+        {
+          "class": "Edit",
+          "field": "created_at",
+          "old_value": "2026-07-07T06:57:17.956Z",
+          "new_value": null
+        },
+        {
+          "class": "TextEdit",
+          "field": "title",
+          "old_value": "CC-TEST new outcome",
+          "new_value": "",
+          "html_diff": "<del style=\"background:#ffe6e6;\">CC-TEST new outcome</del>"
+        },
+        {
+          "class": "TextEdit",
+          "field": "text",
+          "old_value": "Example Description",
+          "new_value": "",
+          "html_diff": "<del style=\"background:#ffe6e6;\">Example Description</del>"
+        },
+        {
+          "class": "MetadataEdit",
+          "field": "MODALITY",
+          "old_value": [
+            "ONSITE"
+          ],
+          "new_value": [],
+          "verbose_name": "Modality"
+        },
+        {
+          "class": "SchemaFieldEdit",
+          "field": "d5365cc2-7b71-4e3d-a4fe-6501e88c61b0",
+          "old_value": [
+            [
+              "d5365cc2-7b71-4e3d-a4fe-6501e88c61b0",
+              {
+                "key": "MODALITY",
+                "name": "Modality",
+                "plural": "Modalities",
+                "options": [
+                  [
+                    "062d8400-9805-4959-bea1-ea01011dc6f2",
+                    {
+                      "key": "ONSITE",
+                      "name": "Onsite"
+                    }
+                  ]
+                ]
+              }
+            ]
+          ],
+          "html_diff": "<del style=\"background:#ffe6e6;\">Modality (key: MODALITY; plural: Modalities) <br>Onsite (key: ONSITE)</del><span> </span><ins style=\"background:#e6ffe6;\"></ins><span><br></span>"
+        }
+      ],
+      "code": "O_1",
+      "uuid": "595ff1a2-c74d-4bf8-b965-6950f2d88e36",
+      "path": [
+        "457d1547-1857-422d-b743-0231c5c39bc2",
+        "a783486f-5409-40ce-820e-d5b0d90e96a6",
+        "c831e424-4502-49b2-a92f-00e662a7820a",
+        "595ff1a2-c74d-4bf8-b965-6950f2d88e36"
+      ],
+      "preview": "CC-TEST new outcome",
+      "type": "O",
+      "typeName": null,
+      "from": {
+        "code": "E1",
+        "uuid": "c831e424-4502-49b2-a92f-00e662a7820a",
+        "path": [
+          "457d1547-1857-422d-b743-0231c5c39bc2",
+          "a783486f-5409-40ce-820e-d5b0d90e96a6",
+          "c831e424-4502-49b2-a92f-00e662a7820a"
+        ],
+        "preview": "Test Event CC-EDITED",
+        "type": "E",
+        "typeName": null
+      }
+    },
+    {
+      "class": "Modifications",
+      "changes": [
+        {
+          "class": "HashEdit",
+          "field": "hash",
+          "old_value": "dc95d9d3703e2602ef5fff0e7b3149d74a20c6d5",
+          "new_value": "a1dbf58b88d869da74f24961e2177e452390c8cb"
+        },
+        {
+          "class": "ChildrenEdit",
+          "field": "children",
+          "old_value": [
+            "02d7a2e4aa8d06509fe0aaf42dd6ed0b04cc736d",
+            "e18d4c57447e138f4cae11f6dc0cafbae94c0ee9"
+          ],
+          "new_value": [
+            "f3accd6212b1466e64b72c514eff57e606e47c9c"
+          ]
+        }
+      ],
+      "code": "U1",
+      "uuid": "a783486f-5409-40ce-820e-d5b0d90e96a6",
+      "path": [
+        "457d1547-1857-422d-b743-0231c5c39bc2",
+        "a783486f-5409-40ce-820e-d5b0d90e96a6"
+      ],
+      "preview": "Test Unit",
+      "type": "U",
+      "typeName": null
+    },
+    {
+      "class": "Modifications",
+      "changes": [
+        {
+          "class": "HashEdit",
+          "field": "hash",
+          "old_value": "02d7a2e4aa8d06509fe0aaf42dd6ed0b04cc736d",
+          "new_value": "60d1c3c7b88d16ae66e9da414eb5f901de8b0c8e"
+        },
+        {
+          "class": "TextEdit",
+          "field": "title",
+          "old_value": "CC-TEST strand outcome",
+          "new_value": "Test Outcome",
+          "html_diff": "<del style=\"background:#ffe6e6;\">CC-TEST strand outcome</del><ins style=\"background:#e6ffe6;\">Test Outcome</ins>"
+        },
+        {
+          "class": "Move",
+          "from": {
+            "code": "U1",
+            "uuid": "a783486f-5409-40ce-820e-d5b0d90e96a6",
+            "path": [
+              "457d1547-1857-422d-b743-0231c5c39bc2",
+              "a783486f-5409-40ce-820e-d5b0d90e96a6"
+            ],
+            "preview": "Test Unit",
+            "type": "U",
+            "typeName": null
+          },
+          "to": {
+            "code": "E1",
+            "uuid": "c831e424-4502-49b2-a92f-00e662a7820a",
+            "path": [
+              "457d1547-1857-422d-b743-0231c5c39bc2",
+              "a783486f-5409-40ce-820e-d5b0d90e96a6",
+              "c831e424-4502-49b2-a92f-00e662a7820a"
+            ],
+            "preview": "Test Event",
+            "type": "E",
+            "typeName": null
+          }
+        }
+      ],
+      "code": "A2",
+      "uuid": "bf337f58-de08-4e8b-9d52-e31a718c7e6f",
+      "path": [
+        "457d1547-1857-422d-b743-0231c5c39bc2",
+        "a783486f-5409-40ce-820e-d5b0d90e96a6",
+        "c831e424-4502-49b2-a92f-00e662a7820a",
+        "bf337f58-de08-4e8b-9d52-e31a718c7e6f"
+      ],
+      "preview": "Test Outcome",
+      "type": "O",
+      "typeName": null
+    },
+    {
+      "class": "Modifications",
+      "changes": [
+        {
+          "class": "HashEdit",
+          "field": "hash",
+          "old_value": "e18d4c57447e138f4cae11f6dc0cafbae94c0ee9",
+          "new_value": "f3accd6212b1466e64b72c514eff57e606e47c9c"
+        },
+        {
+          "class": "TextEdit",
+          "field": "title",
+          "old_value": "Test Event CC-EDITED",
+          "new_value": "Test Event",
+          "html_diff": "<span>Test </span><ins style=\"background:#e6ffe6;\"></ins><span>Event</span><del style=\"background:#ffe6e6;\"> CC-EDITED</del>"
+        },
+        {
+          "class": "ChildrenEdit",
+          "field": "children",
+          "old_value": [
+            "a053160b2389c294c9c96fe21846595787a30c29"
+          ],
+          "new_value": [
+            "60d1c3c7b88d16ae66e9da414eb5f901de8b0c8e"
+          ]
+        }
+      ],
+      "code": "E1",
+      "uuid": "c831e424-4502-49b2-a92f-00e662a7820a",
+      "path": [
+        "457d1547-1857-422d-b743-0231c5c39bc2",
+        "a783486f-5409-40ce-820e-d5b0d90e96a6",
+        "c831e424-4502-49b2-a92f-00e662a7820a"
+      ],
+      "preview": "Test Event",
+      "type": "E",
+      "typeName": null
+    },
+    {
+      "class": "Add",
+      "changes": [
+        {
+          "class": "HashEdit",
+          "field": "hash",
+          "old_value": null,
+          "new_value": "33c72633816ef153526aa1d5e083d480b13378c8"
+        },
+        {
+          "class": "TextEdit",
+          "field": "code",
+          "old_value": "",
+          "new_value": "F1",
+          "html_diff": "<ins style=\"background:#e6ffe6;\">F1</ins>"
+        },
+        {
+          "class": "UUIDEdit",
+          "field": "uuid",
+          "old_value": null,
+          "new_value": "f8d51f27-bb45-4186-8eb8-31d62a70e13b",
+          "html_diff": "<ins style=\"background:#e6ffe6;\">f8d51f27-bb45-4186-8eb8-31d62a70e13b</ins>"
+        },
+        {
+          "class": "Edit",
+          "field": "owner",
+          "old_value": null,
+          "new_value": 9387
+        },
+        {
+          "class": "TextEdit",
+          "field": "type",
+          "old_value": "",
+          "new_value": "G",
+          "html_diff": "<ins style=\"background:#e6ffe6;\">G</ins>"
+        },
+        {
+          "class": "Edit",
+          "field": "created_at",
+          "old_value": null,
+          "new_value": "2026-07-07T07:55:51.513Z"
+        },
+        {
+          "class": "TextEdit",
+          "field": "title",
+          "old_value": "",
+          "new_value": "Folder 1",
+          "html_diff": "<ins style=\"background:#e6ffe6;\">Folder 1</ins>"
+        },
+        {
+          "class": "TextEdit",
+          "field": "text",
+          "old_value": "",
+          "new_value": "Resurrected folder 1",
+          "html_diff": "<ins style=\"background:#e6ffe6;\">Resurrected folder 1</ins>"
+        }
+      ],
+      "code": "F1",
+      "uuid": "f8d51f27-bb45-4186-8eb8-31d62a70e13b",
+      "path": [
+        "457d1547-1857-422d-b743-0231c5c39bc2",
+        "f8d51f27-bb45-4186-8eb8-31d62a70e13b"
+      ],
+      "preview": "Folder 1",
+      "type": "G",
+      "typeName": null,
+      "to": {
+        "code": "root",
+        "uuid": "457d1547-1857-422d-b743-0231c5c39bc2",
+        "path": [
+          "457d1547-1857-422d-b743-0231c5c39bc2"
+        ],
+        "preview": "",
+        "type": "r",
+        "typeName": null
+      }
+    }
+  ]
+}
