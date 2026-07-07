@@ -1,8 +1,9 @@
 # moodle-local_curricmap
 
-> **Status:** v0.1.0 · base scaffold · not for production
+> **Status:** v0.2.0 · schema + derivation (M2) · not for production
 > **Component:** `local_curricmap` (repo name follows the RVC `moodle-<component>` convention)
 > **Minimum Moodle:** 4.5 LTS
+> **Databases:** MySQL 8.4 (RVC production), MariaDB 10.6.7+, PostgreSQL 13+ — CI tests Postgres 14 and MySQL 8.4
 > **Licence:** GPL v3 or later
 
 The core Moodle local plugin of the RVC curriculum mapping suite. It will be the **only
@@ -34,18 +35,24 @@ services by the companion plugins:
   reporting come later as clients.
 - **Admin tooling** — sync status/trigger/log, statistics export, orphan reports.
 
-## What v0.1.0 actually contains
+## What v0.2.0 actually contains
 
-The installable base scaffold only:
+The base scaffold (M1) plus schema and derivation (M2):
 
-- `version.php`, plugin language strings
+- `version.php`, plugin language strings, placeholder admin settings page
 - Capability definitions (`managesync`, `importcsv`, `editmanual`, `viewstaffmeta`,
   `managebindings`)
-- Placeholder admin settings page
 - Privacy API null provider (no personal data stored yet)
-- CI workflow (moodle-plugin-ci: lint + PHPCS)
+- **Full database schema** (`db/install.xml` + upgrade path): nine tables — programme,
+  node, edge, tag schema (3), synclog, audit, binding
+- **`\local_curricmap\local\derive`**: role derivation, grouping-label extraction,
+  tree assembly; natural sort for csv/manual rows
+- **PHPUnit suite + recorded Sofia fixture corpus** (three revisions of the vet-med
+  test programme with verified deltas)
+- CI workflow (moodle-plugin-ci: lint, PHPCS, savepoints, PHPUnit on Postgres 14 and
+  MySQL 8.4)
 
-No database tables, no Sofia client, no sync — those land per [PLAN.md](PLAN.md).
+No Sofia client or sync yet — those land per [PLAN.md](PLAN.md) (M3/M4).
 
 ## Installation
 

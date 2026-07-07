@@ -22,6 +22,8 @@ umbrella repo.
   sub-activity ↔ any node, soft-typed relations), no mapping UIs.
 - Moodle 4.5 LTS baseline; no runtime dependencies beyond core (`\core\http_client` for
   HTTP so the Sofia client is mockable in PHPUnit).
+- Databases: **MySQL 8.4 (RVC production)**, MariaDB 10.6.7+, PostgreSQL 13+ (dev/CI).
+  CI matrix runs Postgres 14 and MySQL 8.4; anything DB-specific is a bug.
 
 ## Milestones
 
@@ -52,8 +54,13 @@ across syncs (upsert by UUID), edges/nodetags rebuilt wholesale.
 - [x] Golden fixture corpus copied into `tests/fixtures/` with provenance notes (repo is
       private — approved for inclusion), plus the natural-sort test vectors; PHPUnit
       suite in `tests/local/derive_test.php`; PHPUnit step added to CI
-- [ ] Install/uninstall clean on Moodle 4.5 (verify on the docker playground after
-      submodule update); PHPCS zero errors in CI
+- [x] Install/uninstall clean on Moodle 4.5.3/Postgres 14 — verified 8 July 2026 on the
+      docker playground: upgrade path created all nine tables (incl. `grouplabel` and
+      the unique uuid / dual-direction edge indexes); CLI uninstall removed all tables,
+      capabilities and config; reinstall from install.xml restored version 2026070710,
+      9 tables, 5 capabilities, 9 role grants — both creation paths proven
+- [ ] CI green on GitHub (PHPCS zero errors + PHPUnit) — confirm on the Actions run for
+      the M2 push
 
 ### M3 — Sofia client
 
