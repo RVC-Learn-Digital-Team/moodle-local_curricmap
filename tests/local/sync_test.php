@@ -137,6 +137,7 @@ final class sync_test extends \advanced_testcase {
         $log = $this->sync_revision($programme, 'a', self::HASH_A);
 
         $this->assertSame('ok', $log->status);
+        $this->assertSame('Initial full sync.', $log->message);
         $this->assertSame(1497, (int) $log->nodesfetched);
         $this->assertSame(1496, (int) $log->nodesinserted);
         $this->assertSame(0, (int) $log->nodesupdated);
@@ -222,6 +223,8 @@ final class sync_test extends \advanced_testcase {
         $this->assertSame(3, (int) $log->nodesdeleted, 'Test Outcome, Test Assessment, Test Folder.');
         // Compare reported 3 modifications incl. the root, which we do not store.
         $this->assertSame(2, (int) $log->nodesupdated, 'Test Unit and Test Event.');
+        $this->assertNotEmpty($log->message, 'A change report is stored for non-initial syncs.');
+        $this->assertStringContainsString(substr(self::HASH_A, 0, 12), $log->message);
 
         // Soft-deleted rows keep their content.
         foreach ([self::TESTOUTCOME_UUID, self::TESTASSESSMENT_UUID, self::TESTFOLDER_UUID] as $uuid) {

@@ -28,11 +28,22 @@ if ($hassiteconfig) {
     $settings = new admin_settingpage('local_curricmap', get_string('pluginname', 'local_curricmap'));
     $ADMIN->add('localplugins', $settings);
 
-    // Sofia API connection.
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_curricmap_status',
+        get_string('statuspage', 'local_curricmap'),
+        new moodle_url('/local/curricmap/status.php'),
+        'local/curricmap:managesync'
+    ));
+
+    // Sofia API connection, with a link to the status page for connection testing.
+    $statuslink = html_writer::link(
+        new moodle_url('/local/curricmap/status.php'),
+        get_string('statuspage_link', 'local_curricmap')
+    );
     $settings->add(new admin_setting_heading(
         'local_curricmap/sofia_heading',
         get_string('settings:sofia_heading', 'local_curricmap'),
-        get_string('settings:sofia_heading_desc', 'local_curricmap')
+        get_string('settings:sofia_heading_desc', 'local_curricmap') . ' ' . $statuslink
     ));
 
     $settings->add(new admin_setting_configtext(

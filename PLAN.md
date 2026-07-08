@@ -125,10 +125,27 @@ M5 upgrades this to a full change report + admin UI.
 
 ### M5 — Change detection + admin UI
 
-- [ ] Compare-API change check before apply (1 request when unchanged)
-- [ ] Golden-master: sync B-over-A applies exactly the known captured delta
-- [ ] Admin pages: sync status, trigger-now, log view, statistics CSV export
-- [ ] Behat: admin flows
+- [x] Compare-API change check before apply — shipped with M4; M5 upgrades it to
+      compare **from the stored hash**, so each changed sync also records a
+      human-readable delta report (counts + first 15 change summaries) in the synclog
+      ("Initial full sync." on first run)
+- [x] Golden-master: B-over-A applies the captured delta (M4) — now also asserts the
+      change report is stored
+- [x] Admin **status page** (`status.php`, registered as an external admin page and
+      linked from settings): connection **Test button** (1 compare request → revision
+      hash, latency, remaining budget, or the error), per-programme Sync now / Force
+      full sync (inline, FR-SOF-5), programme table (revision, status, active nodes),
+      recent sync runs with reports, recent API errors, sync-log **CSV export**
+      (FR-SOF-3/7)
+- [x] Robustness fix found by the pre-push harness running against a live-synced site:
+      node upsert now keys on uuid **globally**, so a programme slug rename adopts
+      existing rows instead of colliding on the unique uuid index; soft-delete strictly
+      scoped to the synced programme (csv/manual rows with null programmeid are
+      untouchable by sync)
+- [ ] Behat admin flows — deferred to M9 hardening (CI has no Behat lane yet; the
+      status page logic is exercised manually and via the underlying engine's PHPUnit)
+- [ ] Verify on playground after push: upgrade to 2026071000, status page renders,
+      Test connection button green, Sync now buttons work, CSV downloads; CI green
 
 ### M6 — Service API + caching
 

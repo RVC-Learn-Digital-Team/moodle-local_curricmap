@@ -107,7 +107,11 @@ class sync {
         $log->id = $DB->insert_record('local_curricmap_synclog', $log);
 
         try {
-            $compare = $this->client->compare($programme->slug, $programme->versionlabel, $programme->versionlabel);
+            // Comparing from the stored hash (when we have one) both detects change
+            // and yields the human-readable delta report; the fallback of comparing
+            // a label with itself still resolves the current hash.
+            $comparefrom = $log->fromhash ?: $programme->versionlabel;
+            $compare = $this->client->compare($programme->slug, $comparefrom, $programme->versionlabel);
             $tohash = $compare['meta']['compare']['to'] ?? ($compare['meta']['compare']['from'] ?? null);
             if (!is_string($tohash) || $tohash === '') {
                 throw new \moodle_exception('errorsyncnohash', 'local_curricmap');
@@ -117,6 +121,8 @@ class sync {
             if (!$force && ($programme->revisionhash ?? null) === $tohash) {
                 return $this->finish($log, $programme, 'noop');
             }
+
+            $log->message = $this->change_report($compare, $log->fromhash);
 
             $nodespayload = $this->client->nodes($programme->slug, $programme->versionlabel);
             $metadatapayload = $this->client->metadata($programme->slug, $programme->versionlabel);
@@ -159,7 +165,10 @@ class sync {
 
             $optionids = $this->sync_tag_schema($programme, $metadatapayload);
 
-            $existing = $DB->get_records('local_curricmap_node', ['programmeid' => $programme->id]);
+            // Keyed by uuid GLOBALLY, not per programme: uuid is the unique key,
+            // so a node whose programme row was re-created (e.g. a slug rename)
+            // is adopted by update rather than colliding on insert.
+            $existing = $DB->get_records('local_curricmap_node');
             $byuuid = [];
             foreach ($existing as $record) {
                 $byuuid[$record->uuid] = $record;
@@ -174,7 +183,7 @@ class sync {
                 $now
             );
 
-            $deleted = $this->soft_delete_missing($byuuid, $derived, $tohash, $now);
+            $deleted = $this->soft_delete_missing($programme->id, $byuuid, $derived, $tohash, $now);
             $edges = $this->insert_edges($programme, $nodespayload, $idbyuuid);
             $tags = $this->insert_nodetags($nodespayload, $idbyuuid, $optionids);
 
@@ -288,7 +297,7 @@ class sync {
      * @return bool
      */
     private function node_changed(\stdClass $current, \stdClass $candidate): bool {
-        $intfields = ['parentid', 'depth', 'sortorder', 'deleted'];
+        $intfields = ['programmeid', 'parentid', 'depth', 'sortorder', 'deleted'];
         foreach ($intfields as $field) {
             $currentvalue = $current->$field === null ? null : (int) $current->$field;
             $candidatevalue = $candidate->$field === null ? null : (int) $candidate->$field;
@@ -307,19 +316,26 @@ class sync {
     }
 
     /**
-     * Soft-delete rows whose uuid is absent from the new snapshot.
+     * Soft-delete this programme's rows whose uuid is absent from the new snapshot.
      *
-     * @param array $byuuid Existing records keyed by uuid.
+     * Scoped strictly to the programme: other programmes' nodes and csv/manual
+     * rows (null programmeid) are never touched by sync.
+     *
+     * @param int $programmeid Programme id being synced.
+     * @param array $byuuid Existing records keyed by uuid (global).
      * @param array $derived Derived rows keyed by uuid.
      * @param string $tohash Revision hash being applied.
      * @param int $now Timestamp.
      * @return int Number of rows soft-deleted.
      */
-    private function soft_delete_missing(array $byuuid, array $derived, string $tohash, int $now): int {
+    private function soft_delete_missing(int $programmeid, array $byuuid, array $derived, string $tohash, int $now): int {
         global $DB;
 
         $count = 0;
         foreach ($byuuid as $uuid => $record) {
+            if ((int) $record->programmeid !== $programmeid) {
+                continue;
+            }
             if (!isset($derived[$uuid]) && !(int) $record->deleted) {
                 $update = new \stdClass();
                 $update->id = $record->id;
@@ -538,6 +554,41 @@ class sync {
         } else {
             $DB->delete_records_select($table, $scopesql, $scopeparams);
         }
+    }
+
+    /**
+     * Build a human-readable change report from a Compare API payload.
+     *
+     * @param array $compare Compare API payload.
+     * @param string|null $fromhash The stored hash the comparison ran from, if any.
+     * @return string
+     */
+    private function change_report(array $compare, ?string $fromhash): string {
+        if (!$fromhash) {
+            return 'Initial full sync.';
+        }
+        $meta = $compare['meta'] ?? [];
+        $lines = [sprintf(
+            '%d added, %d removed, %d modified since %s',
+            (int) ($meta['added'] ?? 0),
+            (int) ($meta['removed'] ?? 0),
+            (int) ($meta['modified'] ?? 0),
+            substr($fromhash, 0, 12)
+        )];
+        $changes = $compare['changes'] ?? [];
+        foreach (array_slice($changes, 0, 15) as $change) {
+            $parts = [
+                $change['class'] ?? '?',
+                $change['type'] ?? '',
+                $change['code'] ?? '',
+                isset($change['preview']) ? '"' . $change['preview'] . '"' : '',
+            ];
+            $lines[] = trim(implode(' ', array_filter($parts)));
+        }
+        if (count($changes) > 15) {
+            $lines[] = '... and ' . (count($changes) - 15) . ' more';
+        }
+        return implode("\n", $lines);
     }
 
     /**
