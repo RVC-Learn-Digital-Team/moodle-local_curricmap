@@ -32,4 +32,12 @@ $definitions = [
         'simpledata' => true,
         'staticacceleration' => true,
     ],
+    // Curriculum query results, keyed on programme revision hashes so a sync
+    // invalidates by key change rather than purge.
+    'queries' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 100,
+    ],
 ];

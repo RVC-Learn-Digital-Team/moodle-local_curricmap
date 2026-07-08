@@ -24,6 +24,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+$string['cachedef_queries'] = 'Curriculum query results';
 $string['cachedef_token'] = 'Sofia API OAuth2 bearer token';
 $string['curricmap:editmanual'] = 'Create and edit manual curriculum entries';
 $string['curricmap:importcsv'] = 'Import curriculum data from CSV';

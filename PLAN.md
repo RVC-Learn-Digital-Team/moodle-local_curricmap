@@ -149,11 +149,25 @@ M5 upgrades this to a full change report + admin UI.
 
 ### M6 — Service API + caching
 
-- [ ] Query surface: programmes/years/strands/strand_outcomes/units/sessions/
-      session_outcomes/node/subtree/implements/implemented_by/tags/tag_schema/search
-- [ ] MUC caches keyed on (programmeid, revisionhash, query, args)
-- [ ] Read-only external functions for AJAX + external consumers
-- [ ] Query-count ceilings (perfdebug) protecting the presenter's render budget
+- [x] Query surface (`\local_curricmap\api\curriculum`): programmes / years / strands /
+      strand_outcomes / units (grouplabel roll-up with counts, first-appearance order) /
+      sessions (grouplabel+subtype filters) / session_outcomes / node (resolves
+      soft-deleted, flagged) / children / subtree (path-based, depth-limited) /
+      implements_targets / implemented_by (reverse edge index) / tags / tag_schema /
+      search (title+code, case-insensitive). Note: `implements()` from the design doc
+      is named `implements_targets()` — reserved word
+- [x] MUC `queries` cache keyed on a stamp of all programme revision hashes — sync
+      invalidates by key change, no purging
+- [x] Read-only external functions (`get_programmes`, `get_children`, `search`) for the
+      picker/AJAX, capability-gated (`viewstaffmeta`) in the calling course context
+- [x] PHPUnit: full query surface against revision A (incl. Locomotor no-labels
+      fallback, AH unit ordering, traceability in connection order, 102-node subtree),
+      soft-delete + cache invalidation across an A→B resync, external function shapes +
+      student-refusal
+- [ ] Query-count ceilings (perfdebug) — deferred until the presenter's render path
+      exists to measure against (M9 with NFR-2)
+- [ ] Verify after push: upgrade to 2026071100 registers services + query cache; CI
+      green on both DBs
 
 ### M7 — Mutable sources
 

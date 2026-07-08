@@ -1,0 +1,225 @@
+<?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+namespace local_curricmap\api;
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/../fixtures/fake_sofia_client.php');
+
+use local_curricmap\local\fake_sofia_client;
+use local_curricmap\local\sync;
+
+/**
+ * Tests for the curriculum query service and its external functions, against
+ * the synced revision-A fixture corpus.
+ *
+ * @package   local_curricmap
+ * @copyright 2026 The Royal Veterinary College
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers    \local_curricmap\api\curriculum
+ * @covers    \local_curricmap\external\get_children
+ * @covers    \local_curricmap\external\get_programmes
+ * @covers    \local_curricmap\external\search
+ */
+final class curriculum_test extends \advanced_testcase {
+    /** @var string Year 1 uuid. */
+    const YEAR_UUID = 'e1e70820-6c4b-4ddf-a478-7c1b2db0cabe';
+
+    /** @var string Locomotor strand uuid. */
+    const LOCO_UUID = '15629971-00d5-428a-944e-e94142c86088';
+
+    /** @var string A session outcome implementing two strand outcomes. */
+    const URINARY_LO4_UUID = 'ec917dc5-4dc3-4d58-b619-b2921eef1976';
+
+    /** @var string First implements target of URINARY_LO4 (strand outcome LO58). */
+    const URINARY_LO58_UUID = '091a0a73-331e-45b0-9f50-9e3503217602';
+
+    /** @var string Second implements target of URINARY_LO4 (strand outcome LO59). */
+    const URINARY_LO59_UUID = 'd7541e7f-04a8-4e65-8bfa-25138e2c107f';
+
+    /** @var string Test Folder uuid (removed in revision B). */
+    const TESTFOLDER_UUID = 'bb4e6dea-a72b-4785-9918-8093395174cd';
+
+    /**
+     * Reset per test.
+     */
+    public function setUp(): void {
+        parent::setUp();
+        $this->resetAfterTest();
+    }
+
+    /**
+     * Sync a fixture revision and return the programme record.
+     *
+     * @param string $revision Fixture revision letter.
+     * @param string $hash Revision hash to report.
+     * @param \stdClass|null $programme Existing programme to reuse.
+     * @return \stdClass
+     */
+    private function sync_fixture(string $revision, string $hash, ?\stdClass $programme = null): \stdClass {
+        global $DB;
+        if ($programme === null) {
+            $programme = new \stdClass();
+            $programme->slug = 'vet-med';
+            $programme->versionlabel = 'LATEST';
+            $programme->enabled = 1;
+            $programme->lastsyncstatus = 'never';
+            $programme->id = $DB->insert_record('local_curricmap_programme', $programme);
+        }
+        $nodes = json_decode(file_get_contents(__DIR__ . "/../fixtures/vetmed_{$revision}_nodes.json"), true);
+        $metadata = json_decode(file_get_contents(__DIR__ . "/../fixtures/vetmed_{$revision}_metadata.json"), true);
+        $engine = new sync(new fake_sofia_client($nodes, $metadata, $hash));
+        $engine->sync_programme($programme);
+        return $DB->get_record('local_curricmap_programme', ['id' => $programme->id], '*', MUST_EXIST);
+    }
+
+    /**
+     * The whole query surface against revision A.
+     */
+    public function test_query_surface(): void {
+        $programme = $this->sync_fixture('a', 'aaaa1111');
+
+        // Years and strands, in sibling order.
+        $years = curriculum::years($programme->id);
+        $this->assertCount(1, $years);
+        $this->assertSame(self::YEAR_UUID, $years[0]->uuid);
+
+        $strands = curriculum::strands(self::YEAR_UUID);
+        $this->assertCount(14, $strands);
+        $sortorders = array_map(fn($s) => (int) $s->sortorder, $strands);
+        $sorted = $sortorders;
+        sort($sorted);
+        $this->assertSame($sorted, $sortorders, 'Strands come back in sibling order.');
+
+        // Locomotor: outcomes, sessions, subtype filter, no unit labels.
+        $outcomes = curriculum::strand_outcomes(self::LOCO_UUID);
+        $this->assertCount(3, $outcomes);
+
+        $sessions = curriculum::sessions(self::LOCO_UUID);
+        $this->assertCount(23, $sessions);
+        $lectures = curriculum::sessions(self::LOCO_UUID, null, 'Lecture');
+        $this->assertCount(11, $lectures);
+        $this->assertSame([], curriculum::units(self::LOCO_UUID), 'Locomotor has no unit labels.');
+
+        // Animal Husbandry: unit labels in first-appearance order.
+        $ah = null;
+        foreach ($strands as $strand) {
+            if ($strand->code === 'UG1-AH') {
+                $ah = $strand;
+            }
+        }
+        $this->assertNotNull($ah);
+        $units = curriculum::units($ah->uuid);
+        $this->assertNotEmpty($units);
+        $this->assertSame('Unit 1: Animal Management', $units[0]['grouplabel']);
+        $unit1 = curriculum::sessions($ah->uuid, 'Unit 1: Animal Management');
+        $this->assertCount($units[0]['sessioncount'], $unit1);
+
+        // Session outcomes and traceability, in connection order.
+        $lo4targets = curriculum::implements_targets(self::URINARY_LO4_UUID);
+        $this->assertSame([self::URINARY_LO58_UUID, self::URINARY_LO59_UUID],
+            array_map(fn($n) => $n->uuid, $lo4targets));
+
+        $implementers = curriculum::implemented_by(self::URINARY_LO58_UUID);
+        $this->assertNotEmpty($implementers);
+        $this->assertContains(self::URINARY_LO4_UUID, array_map(fn($n) => $n->uuid, $implementers));
+
+        // Tags with display names from the synced schema.
+        $lo58tags = curriculum::tags(self::URINARY_LO58_UUID);
+        $fieldkeys = array_column($lo58tags, 'fieldkey');
+        $this->assertContains('RCVS_DAY_ONE_COMPETENCIES', $fieldkeys);
+
+        $schema = curriculum::tag_schema($programme->id);
+        $this->assertCount(10, $schema);
+
+        // Subtree via the materialised path: Locomotor strand + 101 descendants.
+        $subtree = curriculum::subtree(self::LOCO_UUID);
+        $this->assertSame(self::LOCO_UUID, $subtree[0]->uuid);
+        $this->assertCount(102, $subtree);
+        $this->assertCount(28, curriculum::subtree(self::LOCO_UUID, 2), 'Depth-limited subtree.');
+
+        // Search by title and by code, case-insensitively.
+        $found = curriculum::search($programme->id, 'locomotor');
+        $this->assertContains(self::LOCO_UUID, array_map(fn($n) => $n->uuid, $found));
+        $found = curriculum::search($programme->id, 'ug1-loco-lo32');
+        $this->assertCount(1, $found);
+        $this->assertSame([], curriculum::search($programme->id, '  '));
+    }
+
+    /**
+     * Soft-deleted nodes vanish from lists but stay resolvable via node(), and
+     * cached results do not survive a revision change.
+     */
+    public function test_soft_delete_and_cache_invalidation(): void {
+        $programme = $this->sync_fixture('a', 'aaaa1111');
+
+        $topfolders = curriculum::node(self::TESTFOLDER_UUID);
+        $this->assertSame(0, (int) $topfolders->deleted);
+        $countbefore = count(curriculum::children(self::YEAR_UUID));
+
+        // Prime the cache with revision-A results, then move to revision B.
+        $this->assertCount(14, curriculum::strands(self::YEAR_UUID));
+        $this->sync_fixture('b', 'bbbb2222', $programme);
+
+        $folder = curriculum::node(self::TESTFOLDER_UUID);
+        $this->assertSame(1, (int) $folder->deleted, 'node() resolves soft-deleted rows, flagged.');
+        $this->assertSame('Test Folder', $folder->title);
+
+        // The strand list is re-read (new revision stamp), not served stale.
+        $this->assertCount(14, curriculum::strands(self::YEAR_UUID));
+        $this->assertSame($countbefore, count(curriculum::children(self::YEAR_UUID)));
+
+        // Unknown uuid resolves to null and empty lists.
+        $this->assertNull(curriculum::node('00000000-0000-0000-0000-000000000000'));
+        $this->assertSame([], curriculum::children('00000000-0000-0000-0000-000000000000'));
+    }
+
+    /**
+     * External functions: capability enforcement in course context and the
+     * exported node shape.
+     */
+    public function test_external_functions(): void {
+        $programme = $this->sync_fixture('a', 'aaaa1111');
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $student = $generator->create_and_enrol($course, 'student');
+
+        $this->setUser($teacher);
+        $programmes = \local_curricmap\external\get_programmes::execute($course->id);
+        $this->assertCount(1, $programmes);
+        $this->assertSame('vet-med', $programmes[0]['slug']);
+
+        $years = \local_curricmap\external\get_children::execute($course->id, $programme->id, '');
+        $this->assertCount(1, $years);
+        $this->assertSame('year', $years[0]['role']);
+        $this->assertTrue($years[0]['haschildren']);
+
+        $children = \local_curricmap\external\get_children::execute($course->id, $programme->id, self::LOCO_UUID);
+        $this->assertCount(27, $children);
+
+        $found = \local_curricmap\external\search::execute($course->id, $programme->id, 'Locomotor');
+        $this->assertNotEmpty($found);
+        $this->assertSame('strand', $found[0]['role']);
+
+        // Students hold no viewstaffmeta capability: refused.
+        $this->setUser($student);
+        $this->expectException(\required_capability_exception::class);
+        \local_curricmap\external\get_programmes::execute($course->id);
+    }
+}
