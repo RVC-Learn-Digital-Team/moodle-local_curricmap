@@ -184,12 +184,23 @@ M5 upgrades this to a full change report + admin UI.
 
 ### M8 — Binding API
 
-- [ ] Binding table + service API: bind/unbind, find_by_course/cm/node/subtree,
-      orphaned_bindings, anchor(courseid)
-- [ ] External functions with course-context permission checks
-- [ ] Event observers: course_module_deleted / course_section_deleted / course_deleted
-- [ ] Tests: all four address depths incl. sub-activity, permission denial, orphaning on
-      module deletion and on Sofia soft-delete
+Decisions (July 2026): five address levels — `categoryid` (nullable, nested categories
+resolved via ancestor walk) → course → section → cm → sub-activity; `courseid` nullable
+only for category bindings; `scope` column `central|course` — central = admin/API
+authored (locked for course staff), course = shared-editable by managebindings holders
+(editing teachers and up) with usermodified audit. Runs **after mod_curricmap's renderer
+(its M2)**, before the presenter's mapping-aware defaults.
+
+- [ ] Binding table (+categoryid, +scope) + service API: bind/unbind,
+      find_by_course/category/cm/node/subtree, orphaned_bindings, resolve(location) —
+      deepest-match incl. ancestor categories — and anchor(courseid)
+- [ ] Per-course "Curriculum mappings" view (grouped by location, scope badges, central
+      rows locked) + external functions with context permission checks
+- [ ] Event observers: course_module_deleted / course_section_deleted / course_deleted /
+      course_category_deleted
+- [ ] Tests: all five address depths, ancestor-category resolution, permission denial
+      (incl. non-editing teacher), central-scope lock, orphaning on module deletion and
+      on Sofia soft-delete
 - [ ] Investigate binding survival across course backup/restore/duplication
 
 ### M9 — Hardening (pre-pilot)
