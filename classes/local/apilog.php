@@ -54,8 +54,17 @@ class apilog {
      * @param string|null $message Error detail for failed requests.
      * @param string|null $body Response body; stored truncated, and only in debug mode.
      */
-    public static function record(string $method, string $url, ?int $httpcode, int $elapsedms,
-            ?int $ratecount, ?int $ratelimit, bool $ok, ?string $message = null, ?string $body = null): void {
+    public static function record(
+        string $method,
+        string $url,
+        ?int $httpcode,
+        int $elapsedms,
+        ?int $ratecount,
+        ?int $ratelimit,
+        bool $ok,
+        ?string $message = null,
+        ?string $body = null
+    ): void {
         global $DB;
 
         $debug = (bool) get_config('local_curricmap', 'enabledebuglog');

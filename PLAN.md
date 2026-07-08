@@ -116,9 +116,12 @@ M5 upgrades this to a full change report + admin UI.
 - [x] Scheduled task (default hourly, 55-min self-guard per programme) + adhoc task +
       `cli/sync.php` (--programme, --force); `programmeslugs` setting +
       `ensure_programmes` (removing a slug disables, never deletes)
-- [ ] Verify on playground after push: upgrade to 2026070900, set
-      `programmeslugs = vet-med`, run `cli/sync.php` **live against Sofia** and check
-      row counts; CI green on both DBs
+- [x] Verified live on playground 9 July 2026: upgrade to 2026070900, tasks
+      registered; **first live sync mirrored vet-med in 4 seconds** (1,495 nodes,
+      3,791 edges, 1,186 tags, 3 requests, 57/60 remaining) at revision `12ac3c30…`
+      (= change-control revision C — role counts match it exactly, including the
+      moved outcome as a sessionoutcome); live noop rerun = 1 request, zero rows
+- [ ] CI green on both DBs for the M4 push — confirm on the Actions run
 
 ### M5 — Change detection + admin UI
 

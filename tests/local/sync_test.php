@@ -334,6 +334,11 @@ final class sync_test extends \advanced_testcase {
     public function test_midapply_failure_rolls_back(): void {
         global $DB;
 
+        // The engine's own transaction must be outermost for its rollback to be
+        // physically observable - otherwise PHPUnit's wrapping transaction defers
+        // it until after the assertions run.
+        $this->preventResetByRollback();
+
         $programme = $this->make_programme();
         $this->sync_revision($programme, 'a', self::HASH_A);
         $programme = $DB->get_record('local_curricmap_programme', ['id' => $programme->id]);

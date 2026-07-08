@@ -57,8 +57,9 @@ class sync_task extends \core\task\scheduled_task {
 
         $engine = new \local_curricmap\local\sync($client);
         foreach ($programmes as $programme) {
-            if ($programme->timelastsynced && (time() - $programme->timelastsynced) < self::GUARD_SECONDS
-                    && $programme->lastsyncstatus !== 'error') {
+            $recent = $programme->timelastsynced
+                && (time() - $programme->timelastsynced) < self::GUARD_SECONDS;
+            if ($recent && $programme->lastsyncstatus !== 'error') {
                 mtrace("local_curricmap: {$programme->slug} synced recently, skipping (guard).");
                 continue;
             }

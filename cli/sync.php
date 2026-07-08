@@ -67,10 +67,19 @@ $engine = new \local_curricmap\local\sync($client);
 $exitcode = 0;
 foreach ($programmes as $programme) {
     $log = $engine->sync_programme($programme, (bool) $options['force']);
-    $line = sprintf('%s: %s (fetched=%d +%d ~%d -%d edges=%d tags=%d requests=%d remaining=%s)',
-        $programme->slug, $log->status, $log->nodesfetched ?? 0, $log->nodesinserted ?? 0,
-        $log->nodesupdated ?? 0, $log->nodesdeleted ?? 0, $log->edgeschanged ?? 0,
-        $log->tagschanged ?? 0, $log->requestcount ?? 0, $log->ratelimitremaining ?? '-');
+    $line = sprintf(
+        '%s: %s (fetched=%d +%d ~%d -%d edges=%d tags=%d requests=%d remaining=%s)',
+        $programme->slug,
+        $log->status,
+        $log->nodesfetched ?? 0,
+        $log->nodesinserted ?? 0,
+        $log->nodesupdated ?? 0,
+        $log->nodesdeleted ?? 0,
+        $log->edgeschanged ?? 0,
+        $log->tagschanged ?? 0,
+        $log->requestcount ?? 0,
+        $log->ratelimitremaining ?? '-'
+    );
     cli_writeln($line);
     if ($log->status === 'error') {
         cli_writeln('  error: ' . ($log->message ?? 'unknown'));

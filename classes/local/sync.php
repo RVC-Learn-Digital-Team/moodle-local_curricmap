@@ -208,8 +208,14 @@ class sync {
      * @param int $now Timestamp.
      * @return array{0: array, 1: int, 2: int} Map uuid => id, inserted count, updated count.
      */
-    private function upsert_nodes(\stdClass $programme, array $nodespayload, array $derived,
-            array $byuuid, string $tohash, int $now): array {
+    private function upsert_nodes(
+        \stdClass $programme,
+        array $nodespayload,
+        array $derived,
+        array $byuuid,
+        string $tohash,
+        int $now
+    ): array {
         global $DB;
 
         $idbyuuid = [];
@@ -457,8 +463,8 @@ class sync {
             }
             $fieldkey = (string) $field['key'];
 
-            $fieldrecord = $DB->get_record('local_curricmap_tagfield',
-                ['programmeid' => $programme->id, 'fieldkey' => $fieldkey]);
+            $fieldparams = ['programmeid' => $programme->id, 'fieldkey' => $fieldkey];
+            $fieldrecord = $DB->get_record('local_curricmap_tagfield', $fieldparams);
             $values = new \stdClass();
             $values->programmeid = $programme->id;
             $values->fieldkey = $fieldkey;
@@ -480,8 +486,8 @@ class sync {
                     continue;
                 }
                 $optionkey = (string) $option['key'];
-                $optionrecord = $DB->get_record('local_curricmap_tagoption',
-                    ['tagfieldid' => $fieldid, 'optionkey' => $optionkey]);
+                $optionparams = ['tagfieldid' => $fieldid, 'optionkey' => $optionkey];
+                $optionrecord = $DB->get_record('local_curricmap_tagoption', $optionparams);
                 $optionvalues = new \stdClass();
                 $optionvalues->tagfieldid = $fieldid;
                 $optionvalues->optionkey = $optionkey;
