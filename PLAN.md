@@ -84,19 +84,41 @@ configurable retention (default 30 days).
       compare path, log cleanup
 - [x] Secrets in Moodle secret config; TLS verification always on (core default, never
       touched)
-- [ ] Verify on playground after submodule update: upgrade to 2026070800 creates
-      `apilog`, settings page shows Sofia section, cleanup task registered; CI green on
-      both DBs; live smoke test against `rvc-vetmed-test` once credentials are entered
+- [x] Verified on playground 9 July 2026: upgrade to 2026070800 created `apilog`,
+      cleanup task registered, settings stored. **Live smoke test against
+      `rvc-vetmed-test` passed**: OAuth token obtained, 17 metadata fields,
+      `compare LATEST/LATEST` resolved hash `12ac3c30…` (= change-control revision C),
+      rate headers captured (49/60 remaining) and persisted; debug log recorded
+      token + 2 GETs correctly (no token body stored). First real-world error was
+      also captured correctly by apilog (401 on a corrupted 146-char secret —
+      re-pasting at the spec's 128 chars fixed it)
+- [ ] CI green on both DBs for the M3 push — confirm on the Actions run
 
 ### M4 — Sync engine (full sync)
 
-- [ ] Snapshot apply: upsert nodes by UUID, rebuild edges/tags, recompute
-      path/sortorder/role/grouping, soft-delete missing, transactional per programme
-- [ ] Synclog with per-run statistics and rate headroom
-- [ ] Golden-master tests against the captured fixture corpus: sync A → counts match
-      (1,497 nodes, 3,786 implements edges, 14 strands, 79 strand outcomes);
-      A-over-A → no-op; mid-transaction failure → previous revision intact
-- [ ] Scheduled task (default hourly, self-guarded bounds) + adhoc task + CLI trigger
+Note: the engine already uses `compare(label, label)` as its first request, so hash
+discovery **and** no-op change detection ship with M4 (1 request when nothing changed);
+M5 upgrades this to a full change report + admin UI.
+
+- [x] Snapshot apply: upsert nodes by UUID (ids stable — verified across a captured
+      move), rebuild edges/tags wholesale (two-pass), recompute
+      path/sortorder/role/grouplabel, soft-delete missing (content kept), tag schema
+      synced with pruning, transactional per programme
+- [x] Synclog with per-run statistics, request count and rate headroom
+- [x] Golden-master tests (PHPUnit + verified pre-push via a rollback harness on real
+      Postgres): sync A → exact corpus counts (1,496 stored, 3,786 implements, 14
+      strands, 79 strand outcomes, 10 tag fields / 259 options); resync → noop with 1
+      request; forced reapply → zero row changes; **B-over-A and C-over-B reproduce the
+      captured change-control deltas exactly** (incl. role re-derivation on a move, new
+      uuid for the recreated folder, schema field add/remove, and the sibling
+      sort-shift nuance); failure before write and mid-apply DB failure both roll back
+      with the previous revision intact
+- [x] Scheduled task (default hourly, 55-min self-guard per programme) + adhoc task +
+      `cli/sync.php` (--programme, --force); `programmeslugs` setting +
+      `ensure_programmes` (removing a slug disables, never deletes)
+- [ ] Verify on playground after push: upgrade to 2026070900, set
+      `programmeslugs = vet-med`, run `cli/sync.php` **live against Sofia** and check
+      row counts; CI green on both DBs
 
 ### M5 — Change detection + admin UI
 

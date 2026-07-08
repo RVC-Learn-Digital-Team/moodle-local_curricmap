@@ -34,4 +34,15 @@ $tasks = [
         'month' => '*',
         'dayofweek' => '*',
     ],
+    [
+        // Default hourly; agreed cadence bounds are at-most-hourly / at-least-daily.
+        // The task also self-guards per programme against tighter schedules.
+        'classname' => 'local_curricmap\task\sync_task',
+        'blocking' => 0,
+        'minute' => '15',
+        'hour' => '*',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
+    ],
 ];

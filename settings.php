@@ -66,6 +66,14 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
+    $settings->add(new admin_setting_configtext(
+        'local_curricmap/programmeslugs',
+        get_string('settings:programmeslugs', 'local_curricmap'),
+        get_string('settings:programmeslugs_desc', 'local_curricmap'),
+        '',
+        PARAM_RAW_TRIMMED
+    ));
+
     // Diagnostics.
     $settings->add(new admin_setting_heading(
         'local_curricmap/diagnostics_heading',
