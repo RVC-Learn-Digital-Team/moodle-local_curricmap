@@ -43,8 +43,7 @@ class get_children extends external_api {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Course id providing the permission context'),
             'programmeid' => new external_value(PARAM_INT, 'Programme id'),
-            'parentuuid' => new external_value(PARAM_ALPHANUMEXT, 'Parent node uuid, empty for years',
-                VALUE_DEFAULT, ''),
+            'parentuuid' => new external_value(PARAM_ALPHANUMEXT, 'Parent uuid, empty for years', VALUE_DEFAULT, ''),
         ]);
     }
 
@@ -57,8 +56,8 @@ class get_children extends external_api {
      * @return array
      */
     public static function execute(int $courseid, int $programmeid, string $parentuuid = ''): array {
-        $params = self::validate_parameters(self::execute_parameters(),
-            ['courseid' => $courseid, 'programmeid' => $programmeid, 'parentuuid' => $parentuuid]);
+        $data = ['courseid' => $courseid, 'programmeid' => $programmeid, 'parentuuid' => $parentuuid];
+        $params = self::validate_parameters(self::execute_parameters(), $data);
 
         $context = \context_course::instance($params['courseid']);
         self::validate_context($context);

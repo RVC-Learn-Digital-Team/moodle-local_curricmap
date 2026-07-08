@@ -166,8 +166,12 @@ M5 upgrades this to a full change report + admin UI.
       student-refusal
 - [ ] Query-count ceilings (perfdebug) — deferred until the presenter's render path
       exists to measure against (M9 with NFR-2)
-- [ ] Verify after push: upgrade to 2026071100 registers services + query cache; CI
-      green on both DBs
+- [x] Live-verified on playground 10 July 2026 against the real mirror: strands in
+      order, AH's 14 unit labels (Unit 1 first, 7 sessions), Locomotor no-label
+      fallback, implemented_by(LO58) = 14 session outcomes, accreditation tags with
+      display keys, 102-node subtree at 1.2ms cold / 0.2ms warm (≫ inside NFR-2)
+- [ ] CI green on both DBs for the M6 push (multi-line call style fixes included) —
+      confirm on the Actions run
 
 ### M7 — Mutable sources
 

@@ -131,8 +131,8 @@ final class curriculum_test extends \advanced_testcase {
 
         // Session outcomes and traceability, in connection order.
         $lo4targets = curriculum::implements_targets(self::URINARY_LO4_UUID);
-        $this->assertSame([self::URINARY_LO58_UUID, self::URINARY_LO59_UUID],
-            array_map(fn($n) => $n->uuid, $lo4targets));
+        $expectedtargets = [self::URINARY_LO58_UUID, self::URINARY_LO59_UUID];
+        $this->assertSame($expectedtargets, array_map(fn($n) => $n->uuid, $lo4targets));
 
         $implementers = curriculum::implemented_by(self::URINARY_LO58_UUID);
         $this->assertNotEmpty($implementers);

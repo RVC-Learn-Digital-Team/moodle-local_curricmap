@@ -53,8 +53,8 @@ class search extends external_api {
      * @return array
      */
     public static function execute(int $courseid, int $programmeid, string $query): array {
-        $params = self::validate_parameters(self::execute_parameters(),
-            ['courseid' => $courseid, 'programmeid' => $programmeid, 'query' => $query]);
+        $data = ['courseid' => $courseid, 'programmeid' => $programmeid, 'query' => $query];
+        $params = self::validate_parameters(self::execute_parameters(), $data);
 
         $context = \context_course::instance($params['courseid']);
         self::validate_context($context);
