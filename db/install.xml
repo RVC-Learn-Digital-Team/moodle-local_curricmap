@@ -9,6 +9,8 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="slug" TYPE="char" LENGTH="64" NOTNULL="true" SEQUENCE="false"
             COMMENT="Sofia programme slug, e.g. vet-med."/>
+        <FIELD NAME="displayname" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Human-friendly programme name, admin-entered (Sofia exposes only the slug)."/>
         <FIELD NAME="versionlabel" TYPE="char" LENGTH="64" NOTNULL="true" DEFAULT="LATEST" SEQUENCE="false"
             COMMENT="Version label or pinned version tracked by sync."/>
         <FIELD NAME="revisionhash" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false"
@@ -25,7 +27,7 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
       <INDEXES>
-        <INDEX NAME="slug_uq" UNIQUE="true" FIELDS="slug"/>
+        <INDEX NAME="slugversion_uq" UNIQUE="true" FIELDS="slug, versionlabel"/>
       </INDEXES>
     </TABLE>
 
@@ -34,8 +36,8 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="programmeid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
             COMMENT="Null for csv/manual rows."/>
-        <FIELD NAME="uuid" TYPE="char" LENGTH="36" NOTNULL="true" SEQUENCE="false"
-            COMMENT="Sofia UUID for sofia rows; locally generated otherwise. Stable across syncs."/>
+        <FIELD NAME="uuid" TYPE="char" LENGTH="128" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Composed node key: slug_academicyear_uuid, e.g. vet-med_2025_26_ec917dc5-.... Globally unique and programme-unambiguous; stable across syncs. Locally generated for csv/manual rows."/>
         <FIELD NAME="parentid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
             COMMENT="Null for top-level nodes (the Sofia root node is not stored)."/>
         <FIELD NAME="path" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
@@ -263,8 +265,8 @@
         <FIELD NAME="subitemid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
             COMMENT="Sub-activity id (discussion id, chapter id); requires component."/>
         <FIELD NAME="nodeid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="nodeuuid" TYPE="char" LENGTH="36" NOTNULL="true" SEQUENCE="false"
-            COMMENT="The durable end of the join - survives resync."/>
+        <FIELD NAME="nodeuuid" TYPE="char" LENGTH="128" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Composed node key (slug_academicyear_uuid) - the durable, programme-unambiguous end of the join."/>
         <FIELD NAME="relation" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="anchor" SEQUENCE="false"
             COMMENT="Soft-validated verb: anchor, teaches, covers, ..."/>
         <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="active" SEQUENCE="false"

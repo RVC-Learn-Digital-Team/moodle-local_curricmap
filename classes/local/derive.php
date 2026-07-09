@@ -57,6 +57,9 @@ class derive {
     /** @var string Role: generic container. */
     const ROLE_GROUP = 'group';
 
+    /** @var string Role: programme-level outcome (top-level O, e.g. the 15 slug-level outcomes on live). */
+    const ROLE_PROGRAMMEOUTCOME = 'programmeoutcome';
+
     /** @var string Role: anything unrecognised - admin-visible, consumer-hidden. */
     const ROLE_OTHER = 'other';
 
@@ -82,6 +85,9 @@ class derive {
      */
     const UNIT_SUBTYPE_ROLES = [
         'Strand' => self::ROLE_STRAND,
+        // The app now creates course/year containers as Unit+Course (legacy Y is
+        // import-only) - observed live, July 2026.
+        'Course' => self::ROLE_YEAR,
         'Year' => self::ROLE_YEAR,
     ];
 
@@ -150,6 +156,9 @@ class derive {
             }
             if (in_array($parentrole, self::SESSIONOUTCOME_PARENTS, true)) {
                 return self::ROLE_SESSIONOUTCOME;
+            }
+            if ($parentrole === null) {
+                return self::ROLE_PROGRAMMEOUTCOME;
             }
             return self::ROLE_OTHER;
         }

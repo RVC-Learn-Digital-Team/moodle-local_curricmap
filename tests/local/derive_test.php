@@ -68,6 +68,7 @@ final class derive_test extends \basic_testcase {
         return [
             'year (legacy Y)' => ['Y', null, null, 'year'],
             'year as future unit subtype' => ['U', 'Year', null, 'year'],
+            'course subtype is a year container' => ['U', 'Course', null, 'year'],
             'strand' => ['U', 'Strand', 'year', 'strand'],
             'unit without subtype is other' => ['U', null, null, 'other'],
             'unit with unknown subtype is other' => ['U', 'Module', 'year', 'other'],
@@ -78,7 +79,7 @@ final class derive_test extends \basic_testcase {
             'session outcome' => ['O', null, 'session', 'sessionoutcome'],
             'nested session outcome' => ['O', null, 'sessionoutcome', 'sessionoutcome'],
             'outcome under assessment is other' => ['O', null, 'assessment', 'other'],
-            'outcome at top level is other' => ['O', null, null, 'other'],
+            'outcome at top level is a programme outcome' => ['O', null, null, 'programmeoutcome'],
             'assessment' => ['Z', null, 'strand', 'assessment'],
             'group' => ['G', null, null, 'group'],
             'unknown type is other' => ['A', null, null, 'other'],

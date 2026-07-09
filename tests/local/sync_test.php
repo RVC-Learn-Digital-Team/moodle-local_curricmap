@@ -117,14 +117,24 @@ final class sync_test extends \advanced_testcase {
     }
 
     /**
-     * Fetch a node row by uuid.
+     * Compose the stored node key for a raw uuid (programme vet-med/LATEST).
      *
-     * @param string $uuid Node uuid.
+     * @param string $uuid Raw Sofia node uuid.
+     * @return string
+     */
+    private function key(string $uuid): string {
+        return 'vet-med_latest_' . $uuid;
+    }
+
+    /**
+     * Fetch a node row by raw Sofia uuid (composing the stored node key).
+     *
+     * @param string $uuid Raw Sofia node uuid.
      * @return \stdClass
      */
     private function node(string $uuid): \stdClass {
         global $DB;
-        return $DB->get_record('local_curricmap_node', ['uuid' => $uuid], '*', MUST_EXIST);
+        return $DB->get_record('local_curricmap_node', ['uuid' => $this->key($uuid)], '*', MUST_EXIST);
     }
 
     /**
@@ -347,13 +357,13 @@ final class sync_test extends \advanced_testcase {
         $programme = $DB->get_record('local_curricmap_programme', ['id' => $programme->id]);
         $edgecount = $DB->count_records('local_curricmap_edge');
 
-        // Corrupt one deep node (a depth-3 session outcome): an over-length uuid
-        // violates char(36) after hundreds of rows have already been written
+        // Corrupt one deep node (a depth-3 session outcome): an over-length key
+        // violates char(128) after hundreds of rows have already been written
         // inside the transaction.
         $deepuuid = 'ec917dc5-4dc3-4d58-b619-b2921eef1976';
         $payload = self::fixture('vetmed_a_nodes.json');
         $this->assertArrayHasKey($deepuuid, $payload);
-        $bomb = str_repeat('z', 60);
+        $bomb = str_repeat('z', 140);
         $payload[$bomb] = $payload[$deepuuid];
         unset($payload[$deepuuid]);
         foreach ($payload as $uuid => $candidate) {

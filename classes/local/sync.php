@@ -51,10 +51,43 @@ class sync {
     }
 
     /**
-     * Ensure programme rows exist for the configured slugs.
+     * The node-key prefix for a programme: slug plus academic year, underscored.
      *
-     * Slugs present in the programmeslugs setting are created/enabled; rows for
-     * slugs no longer configured are disabled (never deleted - their data stays).
+     * A numeric version label 2025 becomes 2025_26; non-numeric labels (LATEST,
+     * UPCOMING) are lowercased. Example prefix: vet-med_2025_26.
+     *
+     * @param \stdClass $programme Programme record.
+     * @return string
+     */
+    public static function programme_prefix(\stdClass $programme): string {
+        $label = trim((string) $programme->versionlabel);
+        if (preg_match('/^\d{4}$/', $label)) {
+            $label = $label . '_' . sprintf('%02d', ((int) $label + 1) % 100);
+        } else {
+            $label = strtolower($label);
+        }
+        return $programme->slug . '_' . $label;
+    }
+
+    /**
+     * The globally unique node key for a Sofia uuid within a programme mirror:
+     * slug_academicyear_uuid, e.g. vet-med_2025_26_ec917dc5-....
+     *
+     * @param \stdClass $programme Programme record.
+     * @param string $uuid Raw Sofia node uuid.
+     * @return string
+     */
+    public static function nodekey(\stdClass $programme, string $uuid): string {
+        return self::programme_prefix($programme) . '_' . $uuid;
+    }
+
+    /**
+     * Ensure programme rows exist for the configured slug:version entries.
+     *
+     * Setting format: comma-separated "slug" (tracks LATEST) or "slug:version"
+     * (pinned academic year, recommended for delivery courses), e.g.
+     * "vet-med:2026, vet-med:2025". Rows no longer configured are disabled
+     * (never deleted - their data stays).
      *
      * @return \stdClass[] Enabled programme records.
      */
@@ -62,29 +95,38 @@ class sync {
         global $DB;
 
         $setting = (string) get_config('local_curricmap', 'programmeslugs');
-        $slugs = array_values(array_filter(array_map('trim', explode(',', $setting))));
-
-        foreach ($slugs as $slug) {
-            $existing = $DB->get_record('local_curricmap_programme', ['slug' => $slug]);
-            if (!$existing) {
-                $record = new \stdClass();
-                $record->slug = $slug;
-                $record->versionlabel = 'LATEST';
-                $record->enabled = 1;
-                $record->lastsyncstatus = 'never';
-                $DB->insert_record('local_curricmap_programme', $record);
-            } else if (!$existing->enabled) {
-                $DB->set_field('local_curricmap_programme', 'enabled', 1, ['id' => $existing->id]);
+        $wanted = [];
+        foreach (array_filter(array_map('trim', explode(',', $setting))) as $entry) {
+            $parts = explode(':', $entry, 2);
+            $slug = trim($parts[0]);
+            $version = trim($parts[1] ?? 'LATEST');
+            if ($slug !== '') {
+                $wanted[$slug . '|' . $version] = ['slug' => $slug, 'versionlabel' => $version];
             }
         }
-        if ($slugs) {
-            [$insql, $params] = $DB->get_in_or_equal($slugs, SQL_PARAMS_QM, 'param', false);
-            $DB->set_field_select('local_curricmap_programme', 'enabled', 0, "slug $insql", $params);
-        } else {
-            $DB->set_field('local_curricmap_programme', 'enabled', 0, []);
+
+        $existing = $DB->get_records('local_curricmap_programme');
+        foreach ($existing as $record) {
+            $key = $record->slug . '|' . $record->versionlabel;
+            if (isset($wanted[$key])) {
+                if (!$record->enabled) {
+                    $DB->set_field('local_curricmap_programme', 'enabled', 1, ['id' => $record->id]);
+                }
+                unset($wanted[$key]);
+            } else if ($record->enabled) {
+                $DB->set_field('local_curricmap_programme', 'enabled', 0, ['id' => $record->id]);
+            }
+        }
+        foreach ($wanted as $missing) {
+            $record = new \stdClass();
+            $record->slug = $missing['slug'];
+            $record->versionlabel = $missing['versionlabel'];
+            $record->enabled = 1;
+            $record->lastsyncstatus = 'never';
+            $DB->insert_record('local_curricmap_programme', $record);
         }
 
-        return $DB->get_records('local_curricmap_programme', ['enabled' => 1], 'slug ASC');
+        return $DB->get_records('local_curricmap_programme', ['enabled' => 1], 'slug ASC, versionlabel ASC');
     }
 
     /**
@@ -165,10 +207,9 @@ class sync {
 
             $optionids = $this->sync_tag_schema($programme, $metadatapayload);
 
-            // Keyed by uuid GLOBALLY, not per programme: uuid is the unique key,
-            // so a node whose programme row was re-created (e.g. a slug rename)
-            // is adopted by update rather than colliding on insert.
-            $existing = $DB->get_records('local_curricmap_node');
+            // Node keys are composed (slug_year_uuid), so mirrors of different
+            // versions coexist and lookups stay programme-unambiguous.
+            $existing = $DB->get_records('local_curricmap_node', ['programmeid' => $programme->id]);
             $byuuid = [];
             foreach ($existing as $record) {
                 $byuuid[$record->uuid] = $record;
@@ -183,7 +224,7 @@ class sync {
                 $now
             );
 
-            $deleted = $this->soft_delete_missing($programme->id, $byuuid, $derived, $tohash, $now);
+            $deleted = $this->soft_delete_missing(self::programme_prefix($programme), $byuuid, $derived, $tohash, $now);
             $edges = $this->insert_edges($programme, $nodespayload, $idbyuuid);
             $tags = $this->insert_nodetags($nodespayload, $idbyuuid, $optionids);
 
@@ -232,6 +273,7 @@ class sync {
         $inserted = 0;
         $updated = 0;
 
+        $prefix = self::programme_prefix($programme);
         foreach ($derived as $uuid => $row) {
             $node = $nodespayload[$uuid];
             $parentid = $row['parentuuid'] !== null ? ($idbyuuid[$row['parentuuid']] ?? null) : null;
@@ -239,7 +281,7 @@ class sync {
 
             $candidate = new \stdClass();
             $candidate->programmeid = $programme->id;
-            $candidate->uuid = $uuid;
+            $candidate->uuid = $prefix . '_' . $uuid;
             $candidate->parentid = $parentid;
             $candidate->depth = $row['depth'];
             $candidate->type = $row['type'] !== '' ? $row['type'] : null;
@@ -257,7 +299,7 @@ class sync {
             $candidate->metadata = !empty($node['doc']) ? json_encode($node['doc']) : null;
             $candidate->deleted = 0;
 
-            $current = $byuuid[$uuid] ?? null;
+            $current = $byuuid[$candidate->uuid] ?? null;
             if ($current === null) {
                 $candidate->sourceversion = $tohash;
                 $candidate->timecreated = $now;
@@ -316,27 +358,26 @@ class sync {
     }
 
     /**
-     * Soft-delete this programme's rows whose uuid is absent from the new snapshot.
+     * Soft-delete this programme's rows whose node is absent from the new snapshot.
      *
-     * Scoped strictly to the programme: other programmes' nodes and csv/manual
-     * rows (null programmeid) are never touched by sync.
+     * The records are already scoped to the programme by the caller's fetch;
+     * their stored keys are composed (prefix_uuid), so the prefix is stripped to
+     * compare against the payload's raw uuids.
      *
-     * @param int $programmeid Programme id being synced.
-     * @param array $byuuid Existing records keyed by uuid (global).
-     * @param array $derived Derived rows keyed by uuid.
+     * @param string $prefix The programme's node-key prefix.
+     * @param array $byuuid Existing programme records keyed by composed node key.
+     * @param array $derived Derived rows keyed by raw uuid.
      * @param string $tohash Revision hash being applied.
      * @param int $now Timestamp.
      * @return int Number of rows soft-deleted.
      */
-    private function soft_delete_missing(int $programmeid, array $byuuid, array $derived, string $tohash, int $now): int {
+    private function soft_delete_missing(string $prefix, array $byuuid, array $derived, string $tohash, int $now): int {
         global $DB;
 
         $count = 0;
-        foreach ($byuuid as $uuid => $record) {
-            if ((int) $record->programmeid !== $programmeid) {
-                continue;
-            }
-            if (!isset($derived[$uuid]) && !(int) $record->deleted) {
+        foreach ($byuuid as $key => $record) {
+            $raw = substr((string) $key, strlen($prefix) + 1);
+            if (!isset($derived[$raw]) && !(int) $record->deleted) {
                 $update = new \stdClass();
                 $update->id = $record->id;
                 $update->deleted = 1;

@@ -63,6 +63,16 @@ final class curriculum_test extends \advanced_testcase {
     }
 
     /**
+     * Compose the stored node key for a raw uuid (programme vet-med/LATEST).
+     *
+     * @param string $uuid Raw Sofia node uuid.
+     * @return string
+     */
+    private function key(string $uuid): string {
+        return 'vet-med_latest_' . $uuid;
+    }
+
+    /**
      * Sync a fixture revision and return the programme record.
      *
      * @param string $revision Fixture revision letter.
@@ -96,9 +106,9 @@ final class curriculum_test extends \advanced_testcase {
         // Years and strands, in sibling order.
         $years = curriculum::years($programme->id);
         $this->assertCount(1, $years);
-        $this->assertSame(self::YEAR_UUID, $years[0]->uuid);
+        $this->assertSame($this->key(self::YEAR_UUID), $years[0]->uuid);
 
-        $strands = curriculum::strands(self::YEAR_UUID);
+        $strands = curriculum::strands($this->key(self::YEAR_UUID));
         $this->assertCount(14, $strands);
         $sortorders = array_map(fn($s) => (int) $s->sortorder, $strands);
         $sorted = $sortorders;
@@ -106,14 +116,14 @@ final class curriculum_test extends \advanced_testcase {
         $this->assertSame($sorted, $sortorders, 'Strands come back in sibling order.');
 
         // Locomotor: outcomes, sessions, subtype filter, no unit labels.
-        $outcomes = curriculum::strand_outcomes(self::LOCO_UUID);
+        $outcomes = curriculum::strand_outcomes($this->key(self::LOCO_UUID));
         $this->assertCount(3, $outcomes);
 
-        $sessions = curriculum::sessions(self::LOCO_UUID);
+        $sessions = curriculum::sessions($this->key(self::LOCO_UUID));
         $this->assertCount(23, $sessions);
-        $lectures = curriculum::sessions(self::LOCO_UUID, null, 'Lecture');
+        $lectures = curriculum::sessions($this->key(self::LOCO_UUID), null, 'Lecture');
         $this->assertCount(11, $lectures);
-        $this->assertSame([], curriculum::units(self::LOCO_UUID), 'Locomotor has no unit labels.');
+        $this->assertSame([], curriculum::units($this->key(self::LOCO_UUID)), 'Locomotor has no unit labels.');
 
         // Animal Husbandry: unit labels in first-appearance order.
         $ah = null;
@@ -130,16 +140,16 @@ final class curriculum_test extends \advanced_testcase {
         $this->assertCount($units[0]['sessioncount'], $unit1);
 
         // Session outcomes and traceability, in connection order.
-        $lo4targets = curriculum::implements_targets(self::URINARY_LO4_UUID);
-        $expectedtargets = [self::URINARY_LO58_UUID, self::URINARY_LO59_UUID];
+        $lo4targets = curriculum::implements_targets($this->key(self::URINARY_LO4_UUID));
+        $expectedtargets = [$this->key(self::URINARY_LO58_UUID), $this->key(self::URINARY_LO59_UUID)];
         $this->assertSame($expectedtargets, array_map(fn($n) => $n->uuid, $lo4targets));
 
-        $implementers = curriculum::implemented_by(self::URINARY_LO58_UUID);
+        $implementers = curriculum::implemented_by($this->key(self::URINARY_LO58_UUID));
         $this->assertNotEmpty($implementers);
-        $this->assertContains(self::URINARY_LO4_UUID, array_map(fn($n) => $n->uuid, $implementers));
+        $this->assertContains($this->key(self::URINARY_LO4_UUID), array_map(fn($n) => $n->uuid, $implementers));
 
         // Tags with display names from the synced schema.
-        $lo58tags = curriculum::tags(self::URINARY_LO58_UUID);
+        $lo58tags = curriculum::tags($this->key(self::URINARY_LO58_UUID));
         $fieldkeys = array_column($lo58tags, 'fieldkey');
         $this->assertContains('RCVS_DAY_ONE_COMPETENCIES', $fieldkeys);
 
@@ -147,14 +157,14 @@ final class curriculum_test extends \advanced_testcase {
         $this->assertCount(10, $schema);
 
         // Subtree via the materialised path: Locomotor strand + 101 descendants.
-        $subtree = curriculum::subtree(self::LOCO_UUID);
-        $this->assertSame(self::LOCO_UUID, $subtree[0]->uuid);
+        $subtree = curriculum::subtree($this->key(self::LOCO_UUID));
+        $this->assertSame($this->key(self::LOCO_UUID), $subtree[0]->uuid);
         $this->assertCount(102, $subtree);
-        $this->assertCount(28, curriculum::subtree(self::LOCO_UUID, 2), 'Depth-limited subtree.');
+        $this->assertCount(28, curriculum::subtree($this->key(self::LOCO_UUID), 2), 'Depth-limited subtree.');
 
         // Search by title and by code, case-insensitively.
         $found = curriculum::search($programme->id, 'locomotor');
-        $this->assertContains(self::LOCO_UUID, array_map(fn($n) => $n->uuid, $found));
+        $this->assertContains($this->key(self::LOCO_UUID), array_map(fn($n) => $n->uuid, $found));
         $found = curriculum::search($programme->id, 'ug1-loco-lo32');
         $this->assertCount(1, $found);
         $this->assertSame([], curriculum::search($programme->id, '  '));
@@ -167,21 +177,21 @@ final class curriculum_test extends \advanced_testcase {
     public function test_soft_delete_and_cache_invalidation(): void {
         $programme = $this->sync_fixture('a', 'aaaa1111');
 
-        $topfolders = curriculum::node(self::TESTFOLDER_UUID);
+        $topfolders = curriculum::node($this->key(self::TESTFOLDER_UUID));
         $this->assertSame(0, (int) $topfolders->deleted);
-        $countbefore = count(curriculum::children(self::YEAR_UUID));
+        $countbefore = count(curriculum::children($this->key(self::YEAR_UUID)));
 
         // Prime the cache with revision-A results, then move to revision B.
-        $this->assertCount(14, curriculum::strands(self::YEAR_UUID));
+        $this->assertCount(14, curriculum::strands($this->key(self::YEAR_UUID)));
         $this->sync_fixture('b', 'bbbb2222', $programme);
 
-        $folder = curriculum::node(self::TESTFOLDER_UUID);
+        $folder = curriculum::node($this->key(self::TESTFOLDER_UUID));
         $this->assertSame(1, (int) $folder->deleted, 'node() resolves soft-deleted rows, flagged.');
         $this->assertSame('Test Folder', $folder->title);
 
         // The strand list is re-read (new revision stamp), not served stale.
-        $this->assertCount(14, curriculum::strands(self::YEAR_UUID));
-        $this->assertSame($countbefore, count(curriculum::children(self::YEAR_UUID)));
+        $this->assertCount(14, curriculum::strands($this->key(self::YEAR_UUID)));
+        $this->assertSame($countbefore, count(curriculum::children($this->key(self::YEAR_UUID))));
 
         // Unknown uuid resolves to null and empty lists.
         $this->assertNull(curriculum::node('00000000-0000-0000-0000-000000000000'));
@@ -210,7 +220,7 @@ final class curriculum_test extends \advanced_testcase {
         $this->assertSame('year', $years[0]['role']);
         $this->assertTrue($years[0]['haschildren']);
 
-        $children = \local_curricmap\external\get_children::execute($course->id, $programme->id, self::LOCO_UUID);
+        $children = \local_curricmap\external\get_children::execute($course->id, $programme->id, $this->key(self::LOCO_UUID));
         $this->assertCount(27, $children);
 
         $found = \local_curricmap\external\search::execute($course->id, $programme->id, 'Locomotor');
