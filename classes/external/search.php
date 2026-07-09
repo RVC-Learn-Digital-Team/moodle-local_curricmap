@@ -39,8 +39,14 @@ class search extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Course id providing the permission context'),
-            'programmeid' => new external_value(PARAM_INT, 'Programme id'),
+            'programmeid' => new external_value(PARAM_INT, 'Programme id, 0 for all enabled programmes'),
             'query' => new external_value(PARAM_TEXT, 'Search text'),
+            'roles' => new external_multiple_structure(
+                new external_value(PARAM_ALPHA, 'Role to include'),
+                'Restrict results to these roles; empty for all',
+                VALUE_DEFAULT,
+                []
+            ),
         ]);
     }
 
@@ -48,19 +54,21 @@ class search extends external_api {
      * Execute.
      *
      * @param int $courseid Course id for the capability check.
-     * @param int $programmeid Programme id.
+     * @param int $programmeid Programme id (0 = all enabled).
      * @param string $query Search text.
+     * @param array $roles Roles to include; empty for all.
      * @return array
      */
-    public static function execute(int $courseid, int $programmeid, string $query): array {
-        $data = ['courseid' => $courseid, 'programmeid' => $programmeid, 'query' => $query];
+    public static function execute(int $courseid, int $programmeid, string $query, array $roles = []): array {
+        $data = ['courseid' => $courseid, 'programmeid' => $programmeid, 'query' => $query, 'roles' => $roles];
         $params = self::validate_parameters(self::execute_parameters(), $data);
 
         $context = \context_course::instance($params['courseid']);
         self::validate_context($context);
         require_capability('local/curricmap:viewstaffmeta', $context);
 
-        return helper::export_nodes(curriculum::search($params['programmeid'], $params['query']));
+        $roles = $params['roles'] ? array_values($params['roles']) : null;
+        return helper::export_nodes(curriculum::search($params['programmeid'], $params['query'], $roles));
     }
 
     /**
