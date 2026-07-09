@@ -82,51 +82,123 @@ class sync {
     }
 
     /**
-     * Ensure programme rows exist for the configured slug:version entries.
+     * The configured slugs (the programmeslugs setting holds slugs only; academic
+     * years are auto-discovered). Legacy slug:version entries are tolerated by
+     * stripping the version part.
      *
-     * Setting format: comma-separated "slug" (tracks LATEST) or "slug:version"
-     * (pinned academic year, recommended for delivery courses), e.g.
-     * "vet-med:2026, vet-med:2025". Rows no longer configured are disabled
-     * (never deleted - their data stays).
+     * @return string[]
+     */
+    public static function configured_slugs(): array {
+        $setting = (string) get_config('local_curricmap', 'programmeslugs');
+        $slugs = [];
+        foreach (array_filter(array_map('trim', explode(',', $setting))) as $entry) {
+            $slug = trim(explode(':', $entry, 2)[0]);
+            if ($slug !== '') {
+                $slugs[$slug] = $slug;
+            }
+        }
+        return array_values($slugs);
+    }
+
+    /**
+     * Reconcile programme rows against the configured slugs: rows for configured
+     * slugs are enabled, others disabled (never deleted - their data stays).
+     * Rows themselves are created by discover_programmes().
      *
      * @return \stdClass[] Enabled programme records.
      */
     public static function ensure_programmes(): array {
         global $DB;
 
-        $setting = (string) get_config('local_curricmap', 'programmeslugs');
-        $wanted = [];
-        foreach (array_filter(array_map('trim', explode(',', $setting))) as $entry) {
-            $parts = explode(':', $entry, 2);
-            $slug = trim($parts[0]);
-            $version = trim($parts[1] ?? 'LATEST');
-            if ($slug !== '') {
-                $wanted[$slug . '|' . $version] = ['slug' => $slug, 'versionlabel' => $version];
+        $slugs = self::configured_slugs();
+        foreach ($DB->get_records('local_curricmap_programme') as $record) {
+            $shouldenable = in_array($record->slug, $slugs, true) ? 1 : 0;
+            if ((int) $record->enabled !== $shouldenable) {
+                $DB->set_field('local_curricmap_programme', 'enabled', $shouldenable, ['id' => $record->id]);
             }
-        }
-
-        $existing = $DB->get_records('local_curricmap_programme');
-        foreach ($existing as $record) {
-            $key = $record->slug . '|' . $record->versionlabel;
-            if (isset($wanted[$key])) {
-                if (!$record->enabled) {
-                    $DB->set_field('local_curricmap_programme', 'enabled', 1, ['id' => $record->id]);
-                }
-                unset($wanted[$key]);
-            } else if ($record->enabled) {
-                $DB->set_field('local_curricmap_programme', 'enabled', 0, ['id' => $record->id]);
-            }
-        }
-        foreach ($wanted as $missing) {
-            $record = new \stdClass();
-            $record->slug = $missing['slug'];
-            $record->versionlabel = $missing['versionlabel'];
-            $record->enabled = 1;
-            $record->lastsyncstatus = 'never';
-            $DB->insert_record('local_curricmap_programme', $record);
         }
 
         return $DB->get_records('local_curricmap_programme', ['enabled' => 1], 'slug ASC, versionlabel ASC');
+    }
+
+    /**
+     * Discover academic-year versions for the configured slugs by probing the
+     * Compare API (Sofia has no list-versions endpoint; compare/YYYY/YYYY costs
+     * one request and 404s for absent years). Only years without an existing
+     * row are probed, so steady-state cost is one probe per slug per run (next
+     * year's slot) until Sofia rolls over - no annual settings visit needed.
+     *
+     * @param \local_curricmap\api\client|null $client Injectable client for tests.
+     * @return array{created: int, probed: int}
+     */
+    public static function discover_programmes(?\local_curricmap\api\client $client = null): array {
+        global $DB;
+
+        $client = $client ?? new \local_curricmap\api\client();
+        $result = ['created' => 0, 'probed' => 0];
+        if (!$client->is_configured()) {
+            return $result;
+        }
+
+        $floor = (int) get_config('local_curricmap', 'discoveryfloor');
+        if ($floor < 2000) {
+            $floor = 2020;
+        }
+        $ceiling = (int) date('Y') + 1;
+
+        foreach (self::configured_slugs() as $slug) {
+            $existing = $DB->get_records_menu('local_curricmap_programme', ['slug' => $slug], '', 'versionlabel, id');
+            for ($year = $floor; $year <= $ceiling; $year++) {
+                if (isset($existing[(string) $year])) {
+                    continue;
+                }
+                $result['probed']++;
+                try {
+                    $client->compare($slug, (string) $year, (string) $year);
+                } catch (\local_curricmap\api\client_exception $exception) {
+                    if ($exception->httpcode === 404) {
+                        continue;
+                    }
+                    throw $exception;
+                }
+                $record = new \stdClass();
+                $record->slug = $slug;
+                $record->versionlabel = (string) $year;
+                $record->enabled = 1;
+                $record->lastsyncstatus = 'never';
+                $DB->insert_record('local_curricmap_programme', $record);
+                $result['created']++;
+            }
+        }
+
+        set_config('lastdiscovery', time(), 'local_curricmap');
+        return $result;
+    }
+
+    /**
+     * Is this programme in the hourly sync tier?
+     *
+     * The two most recent discovered years per slug (on live: latest + upcoming)
+     * and any non-numeric labels sync hourly; older years are essentially frozen
+     * and sync daily (Sofia allows minor corrections to past versions).
+     *
+     * @param \stdClass $programme Programme record.
+     * @param \stdClass[] $allenabled All enabled programme records.
+     * @return bool
+     */
+    public static function is_hourly(\stdClass $programme, array $allenabled): bool {
+        if (!preg_match('/^\d{4}$/', (string) $programme->versionlabel)) {
+            return true;
+        }
+        $years = [];
+        foreach ($allenabled as $other) {
+            if ($other->slug === $programme->slug && preg_match('/^\d{4}$/', (string) $other->versionlabel)) {
+                $years[] = (int) $other->versionlabel;
+            }
+        }
+        rsort($years);
+        $cutoff = $years[min(1, count($years) - 1)] ?? (int) $programme->versionlabel;
+        return (int) $programme->versionlabel >= $cutoff;
     }
 
     /**

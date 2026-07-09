@@ -27,8 +27,14 @@ namespace local_curricmap\task;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class sync_task extends \core\task\scheduled_task {
-    /** @var int Minimum seconds between syncs of the same programme (55 minutes). */
+    /** @var int Minimum seconds between syncs of the same hourly-tier programme (55 minutes). */
     const GUARD_SECONDS = 55 * 60;
+
+    /** @var int Minimum seconds between syncs of a daily-tier (past-year) programme (20 hours). */
+    const DAILY_GUARD_SECONDS = 20 * 3600;
+
+    /** @var int Minimum seconds between version-discovery runs (20 hours). */
+    const DISCOVERY_GUARD_SECONDS = 20 * 3600;
 
     /**
      * Task name shown in the scheduled tasks admin screen.
@@ -49,6 +55,12 @@ class sync_task extends \core\task\scheduled_task {
             return;
         }
 
+        $lastdiscovery = (int) get_config('local_curricmap', 'lastdiscovery');
+        if ((time() - $lastdiscovery) > self::DISCOVERY_GUARD_SECONDS) {
+            $found = \local_curricmap\local\sync::discover_programmes($client);
+            mtrace("local_curricmap: discovery probed {$found['probed']}, created {$found['created']}.");
+        }
+
         $programmes = \local_curricmap\local\sync::ensure_programmes();
         if (!$programmes) {
             mtrace('local_curricmap: no programmes configured (programmeslugs setting).');
@@ -57,10 +69,13 @@ class sync_task extends \core\task\scheduled_task {
 
         $engine = new \local_curricmap\local\sync($client);
         foreach ($programmes as $programme) {
+            $hourly = \local_curricmap\local\sync::is_hourly($programme, $programmes);
+            $guard = $hourly ? self::GUARD_SECONDS : self::DAILY_GUARD_SECONDS;
             $recent = $programme->timelastsynced
-                && (time() - $programme->timelastsynced) < self::GUARD_SECONDS;
+                && (time() - $programme->timelastsynced) < $guard;
             if ($recent && $programme->lastsyncstatus !== 'error') {
-                mtrace("local_curricmap: {$programme->slug} synced recently, skipping (guard).");
+                $tier = $hourly ? 'hourly' : 'daily';
+                mtrace("local_curricmap: {$programme->slug}:{$programme->versionlabel} recent ({$tier} tier), skipping.");
                 continue;
             }
             $log = $engine->sync_programme($programme);

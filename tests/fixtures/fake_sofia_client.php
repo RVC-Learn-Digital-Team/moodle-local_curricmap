@@ -36,18 +36,23 @@ class fake_sofia_client extends \local_curricmap\api\client {
     /** @var int Simulated request counter. */
     private int $requests = 0;
 
+    /** @var array|null Version labels that exist; null means every reference resolves. */
+    private ?array $versions;
+
     /**
      * Constructor.
      *
      * @param array $nodespayload Nodes payload.
      * @param array $metadatapayload Metadata payload.
      * @param string $hash Revision hash for compare().
+     * @param array|null $versions Existing version labels; null = all resolve.
      */
-    public function __construct(array $nodespayload, array $metadatapayload, string $hash) {
+    public function __construct(array $nodespayload, array $metadatapayload, string $hash, ?array $versions = null) {
         parent::__construct();
         $this->nodespayload = $nodespayload;
         $this->metadatapayload = $metadatapayload;
         $this->hash = $hash;
+        $this->versions = $versions;
     }
 
     /**
@@ -69,6 +74,9 @@ class fake_sofia_client extends \local_curricmap\api\client {
      */
     public function compare(string $slug, string $from, string $to): array {
         $this->requests++;
+        if ($this->versions !== null && !in_array($to, $this->versions, true)) {
+            throw new \local_curricmap\api\client_exception('errorhttp', (object) ['url' => $to, 'code' => 404], 404);
+        }
         $meta = ['removed' => 0, 'added' => 0, 'modified' => 0, 'compare' => ['from' => $this->hash, 'to' => $this->hash]];
         return ['meta' => $meta, 'changes' => []];
     }

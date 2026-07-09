@@ -85,6 +85,14 @@ if ($hassiteconfig) {
         PARAM_RAW_TRIMMED
     ));
 
+    $settings->add(new admin_setting_configtext(
+        'local_curricmap/discoveryfloor',
+        get_string('settings:discoveryfloor', 'local_curricmap'),
+        get_string('settings:discoveryfloor_desc', 'local_curricmap'),
+        2020,
+        PARAM_INT
+    ));
+
     // Diagnostics.
     $settings->add(new admin_setting_heading(
         'local_curricmap/diagnostics_heading',

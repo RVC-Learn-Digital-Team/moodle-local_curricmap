@@ -386,18 +386,40 @@ final class sync_test extends \advanced_testcase {
     }
 
     /**
-     * ensure_programmes creates, enables and disables rows from the setting.
+     * Version discovery probes only missing years, creates rows for existing
+     * versions, and reconciliation enables/disables by slug. The two most
+     * recent years per slug are the hourly tier.
      */
-    public function test_ensure_programmes(): void {
+    public function test_discovery_and_tiers(): void {
         global $DB;
 
         set_config('programmeslugs', 'vet-med, vet-nur', 'local_curricmap');
-        $programmes = sync::ensure_programmes();
-        $this->assertSame(['vet-med', 'vet-nur'], array_values(array_map(fn($p) => $p->slug, $programmes)));
+        set_config('discoveryfloor', 2024, 'local_curricmap');
 
+        $client = new fake_sofia_client([], [], 'aabb', ['2025', '2026']);
+        $found = sync::discover_programmes($client);
+        $this->assertSame(2 * 2, $found['created'], 'Two years found for each of two slugs.');
+        $this->assertSame(4, $DB->count_records('local_curricmap_programme'));
+
+        // Second run probes only the still-missing slots and creates nothing.
+        $again = sync::discover_programmes($client);
+        $this->assertSame(0, $again['created']);
+        $this->assertLessThan($found['probed'], $again['probed'] + 1);
+
+        // Reconciliation by slug: dropping vet-nur disables its rows, data kept.
         set_config('programmeslugs', 'vet-med', 'local_curricmap');
         $programmes = sync::ensure_programmes();
-        $this->assertCount(1, $programmes);
-        $this->assertSame(0, (int) $DB->get_field('local_curricmap_programme', 'enabled', ['slug' => 'vet-nur']));
+        $this->assertCount(2, $programmes);
+        $this->assertSame(0, (int) $DB->get_field('local_curricmap_programme', 'enabled',
+            ['slug' => 'vet-nur', 'versionlabel' => '2025']));
+
+        // Tiering: with 2024 added, 2025+2026 are hourly, 2024 daily.
+        $old = (object) ['slug' => 'vet-med', 'versionlabel' => '2024', 'enabled' => 1, 'lastsyncstatus' => 'never'];
+        $old->id = $DB->insert_record('local_curricmap_programme', $old);
+        $enabled = sync::ensure_programmes();
+        foreach ($enabled as $programme) {
+            $expected = in_array($programme->versionlabel, ['2025', '2026'], true);
+            $this->assertSame($expected, sync::is_hourly($programme, $enabled), $programme->versionlabel);
+        }
     }
 }

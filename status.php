@@ -83,25 +83,39 @@ if ($action === 'test' && confirm_sesskey()) {
     }
 }
 
+if ($action === 'discover' && confirm_sesskey()) {
+    try {
+        $found = \local_curricmap\local\sync::discover_programmes();
+        $notifications[] = ['success', get_string('status_discoverresult', 'local_curricmap', (object) $found)];
+    } catch (\Throwable $exception) {
+        $notifications[] = ['error', s($exception->getMessage())];
+    }
+}
+
 if ($action === 'sync' && confirm_sesskey()) {
     $programmeid = required_param('programmeid', PARAM_INT);
     $force = optional_param('force', 0, PARAM_BOOL);
-    $programme = $DB->get_record('local_curricmap_programme', ['id' => $programmeid], '*', MUST_EXIST);
-    $engine = new \local_curricmap\local\sync();
-    $log = $engine->sync_programme($programme, (bool) $force);
-    $a = (object) [
-        'slug' => $programme->slug,
-        'status' => $log->status,
-        'inserted' => (int) ($log->nodesinserted ?? 0),
-        'updated' => (int) ($log->nodesupdated ?? 0),
-        'deleted' => (int) ($log->nodesdeleted ?? 0),
-    ];
-    $level = $log->status === 'error' ? 'error' : 'success';
-    $message = get_string('status_syncresult', 'local_curricmap', $a);
-    if ($log->status === 'error') {
-        $message .= ' — ' . s($log->message ?? '');
+    $programme = $DB->get_record('local_curricmap_programme', ['id' => $programmeid]);
+    if (!$programme) {
+        // Stale button from a previously rendered page; the row is gone.
+        $notifications[] = ['warning', get_string('status_programmegone', 'local_curricmap')];
+    } else {
+        $engine = new \local_curricmap\local\sync();
+        $log = $engine->sync_programme($programme, (bool) $force);
+        $a = (object) [
+            'slug' => $programme->slug . ':' . $programme->versionlabel,
+            'status' => $log->status,
+            'inserted' => (int) ($log->nodesinserted ?? 0),
+            'updated' => (int) ($log->nodesupdated ?? 0),
+            'deleted' => (int) ($log->nodesdeleted ?? 0),
+        ];
+        $level = $log->status === 'error' ? 'error' : 'success';
+        $message = get_string('status_syncresult', 'local_curricmap', $a);
+        if ($log->status === 'error') {
+            $message .= ' — ' . s($log->message ?? '');
+        }
+        $notifications[] = [$level, $message];
     }
-    $notifications[] = [$level, $message];
 }
 
 echo $OUTPUT->header();
@@ -133,9 +147,13 @@ if ($ratecount !== false && $ratelimit !== false && $rateseen) {
 $testurl = new moodle_url($pageurl, ['action' => 'test', 'sesskey' => sesskey()]);
 echo $OUTPUT->single_button($testurl, get_string('status_testconnection', 'local_curricmap'), 'post');
 
-// Programmes section.
+// Programmes section. Materialise rows from the programmeslugs setting first,
+// so setting changes are reflected here without waiting for the scheduled task.
 echo $OUTPUT->heading(get_string('status_programmes', 'local_curricmap'), 3);
-$programmes = $DB->get_records('local_curricmap_programme', [], 'slug ASC');
+\local_curricmap\local\sync::ensure_programmes();
+$discoverurl = new moodle_url($pageurl, ['action' => 'discover', 'sesskey' => sesskey()]);
+echo $OUTPUT->single_button($discoverurl, get_string('status_discover', 'local_curricmap'), 'post');
+$programmes = $DB->get_records('local_curricmap_programme', [], 'slug ASC, versionlabel ASC');
 if (!$programmes) {
     echo $OUTPUT->notification(get_string('status_noprogrammes', 'local_curricmap'), 'info');
 } else {
@@ -155,8 +173,13 @@ if (!$programmes) {
         $buttons = $OUTPUT->single_button($syncurl, get_string('status_syncnow', 'local_curricmap'), 'post')
             . $OUTPUT->single_button($forceurl, get_string('status_forcesync', 'local_curricmap'), 'post');
         $nodecount = $DB->count_records('local_curricmap_node', ['programmeid' => $programme->id, 'deleted' => 0]);
+        $label = $programme->versionlabel;
+        if (preg_match('/^\d{4}$/', $label)) {
+            $label = $label . '/' . sprintf('%02d', ((int) $label + 1) % 100);
+        }
+        $name = ($programme->displayname ?: $programme->slug) . ' ' . $label;
         $table->data[] = [
-            s($programme->slug) . ($programme->enabled ? '' : ' (' . get_string('disabled', 'moodle') . ')'),
+            s($name) . ($programme->enabled ? '' : ' (' . get_string('disabled', 'moodle') . ')'),
             $programme->revisionhash ? substr($programme->revisionhash, 0, 12) : '—',
             s($programme->lastsyncstatus),
             $programme->timelastsynced ? userdate($programme->timelastsynced) : '—',
