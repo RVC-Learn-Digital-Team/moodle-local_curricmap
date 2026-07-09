@@ -271,9 +271,9 @@ class curriculum {
     }
 
     /**
-     * Search a programme's nodes by title or code.
+     * Search nodes by title or code, within one programme or across all (id 0).
      *
-     * @param int $programmeid Programme id.
+     * @param int $programmeid Programme id, or 0 to search every enabled mirror.
      * @param string $query Search text.
      * @param string[]|null $roles Roles to include, null for all.
      * @param int $limit Maximum results.
@@ -287,12 +287,17 @@ class curriculum {
         }
         $titlelike = $DB->sql_like('title', ':titlequery', false);
         $codelike = $DB->sql_like('code', ':codequery', false);
-        $select = "programmeid = :programmeid AND deleted = 0 AND ($titlelike OR $codelike)";
+        $select = "deleted = 0 AND ($titlelike OR $codelike)";
         $params = [
-            'programmeid' => $programmeid,
             'titlequery' => '%' . $DB->sql_like_escape($query) . '%',
             'codequery' => '%' . $DB->sql_like_escape($query) . '%',
         ];
+        if ($programmeid > 0) {
+            $select .= ' AND programmeid = :programmeid';
+            $params['programmeid'] = $programmeid;
+        } else {
+            $select .= ' AND programmeid IN (SELECT id FROM {local_curricmap_programme} WHERE enabled = 1)';
+        }
         if ($roles !== null) {
             [$insql, $inparams] = $DB->get_in_or_equal($roles, SQL_PARAMS_NAMED, 'role');
             $select .= " AND role $insql";

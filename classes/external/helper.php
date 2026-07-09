@@ -44,8 +44,18 @@ class helper {
             $haschildren = $DB->get_records_sql_menu($sql, $params);
         }
 
+        $programmes = $DB->get_records('local_curricmap_programme');
         $out = [];
         foreach ($nodes as $node) {
+            $programme = $programmes[$node->programmeid] ?? null;
+            $label = '';
+            if ($programme) {
+                $year = $programme->versionlabel;
+                if (preg_match('/^\d{4}$/', $year)) {
+                    $year = $year . '/' . sprintf('%02d', ((int) $year + 1) % 100);
+                }
+                $label = ($programme->displayname ?: $programme->slug) . ' ' . $year;
+            }
             $out[] = [
                 'uuid' => $node->uuid,
                 'role' => $node->role,
@@ -53,6 +63,7 @@ class helper {
                 'code' => $node->code,
                 'title' => $node->title,
                 'grouplabel' => $node->grouplabel,
+                'programmelabel' => $label,
                 'haschildren' => !empty($haschildren[$node->id]),
             ];
         }
@@ -72,6 +83,7 @@ class helper {
             'code' => new external_value(PARAM_TEXT, 'Code', VALUE_OPTIONAL),
             'title' => new external_value(PARAM_RAW, 'Title'),
             'grouplabel' => new external_value(PARAM_TEXT, 'Unit grouping label', VALUE_OPTIONAL),
+            'programmelabel' => new external_value(PARAM_TEXT, 'Programme and academic year label', VALUE_OPTIONAL),
             'haschildren' => new external_value(PARAM_BOOL, 'Whether the node has children'),
         ];
     }
