@@ -127,6 +127,43 @@ class resources {
     }
 
     /**
+     * Flexible listing: filter by node, by type (case-insensitive), or both.
+     *
+     * Course scoping matches for_node(): institutional rows always, plus the
+     * given course's own additions.
+     *
+     * @param string|null $nodeuuid Composed node key, null for any node.
+     * @param string|null $type Resource type, null for any type.
+     * @param int|null $courseid Course context, null for institutional only.
+     * @return \stdClass[]
+     */
+    public static function query(?string $nodeuuid = null, ?string $type = null, ?int $courseid = null): array {
+        global $DB;
+        $where = [];
+        $params = [];
+        if ($nodeuuid !== null && $nodeuuid !== '') {
+            $where[] = 'nodeuuid = :nodeuuid';
+            $params['nodeuuid'] = $nodeuuid;
+        }
+        if ($type !== null && $type !== '') {
+            $where[] = 'LOWER(type) = LOWER(:type)';
+            $params['type'] = $type;
+        }
+        if ($courseid !== null) {
+            $where[] = '(courseid IS NULL OR courseid = :courseid)';
+            $params['courseid'] = $courseid;
+        } else {
+            $where[] = 'courseid IS NULL';
+        }
+        return array_values($DB->get_records_select(
+            'local_curricmap_resource',
+            implode(' AND ', $where),
+            $params,
+            'nodeuuid ASC, sortorder ASC, id ASC'
+        ));
+    }
+
+    /**
      * Bulk fetch resources for many nodes (one query, for renderers).
      *
      * @param string[] $nodeuuids Composed node keys.

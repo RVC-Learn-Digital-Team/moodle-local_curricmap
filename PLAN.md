@@ -202,16 +202,25 @@ tested from the `moodle_mapping_api_test` Python repo; bulk relationship import 
 separate follow-on work; the presenter's programme/scope picker consumes `resolve()` for
 defaults once this lands.
 
-- [ ] Binding table (+categoryid, +scope) + service API: bind/unbind,
-      find_by_course/category/cm/node/subtree, orphaned_bindings, resolve(location) —
-      deepest-match incl. ancestor categories — and anchor(courseid)
+- [x] Binding table (+categoryid, +scope, +sortorder) + resource/group/groupitem tables;
+      service API: bind/unbind (idempotent), for_course/for_node, orphaned,
+      resolve(location) — deepest-match incl. ancestor categories — anchors(courseid);
+      resources API (add/delete/for_node/for_nodes/query with case-insensitive type
+      filter, suggested_types from the resourcetypes setting) (v0.8.0)
+- [x] Event observers: course_module_deleted / course_section_deleted / course_deleted /
+      course_category_deleted → bindings marked orphaned, never silently deleted (v0.8.0)
+- [x] Tests: all five address depths, ancestor-category resolution, permission denial,
+      central-scope lock, orphaning on module deletion and on Sofia soft-delete (v0.8.0)
+- [x] External functions (bind, unbind, resolve, list_bindings, add_resource,
+      delete_resource, list_resources — by node and/or type with optional course scope —
+      list_resource_types) + declared service `curricmap_mapping` (enabled, authorised
+      users) bundling the curriculum read functions and core_course_get_categories/
+      _get_courses/_get_contents so one manual token drives address building; ws
+      round-trip + permission tests (v0.9.0)
 - [ ] Per-course "Curriculum mappings" view (grouped by location, scope badges, central
-      rows locked) + external functions with context permission checks
-- [ ] Event observers: course_module_deleted / course_section_deleted / course_deleted /
-      course_category_deleted
-- [ ] Tests: all five address depths, ancestor-category resolution, permission denial
-      (incl. non-editing teacher), central-scope lock, orphaning on module deletion and
-      on Sofia soft-delete
+      rows locked)
+- [ ] Contract tests from the `moodle_mapping_api_test` Python repo against the ws API
+- [ ] Named node groups (phase 2, optional)
 - [ ] Investigate binding survival across course backup/restore/duplication
 
 ### M9 — Hardening (pre-pilot)

@@ -16,6 +16,7 @@
 
 namespace local_curricmap\external;
 
+use core_external\external_single_structure;
 use core_external\external_value;
 
 /**
@@ -68,6 +69,114 @@ class helper {
             ];
         }
         return $out;
+    }
+
+    /**
+     * Export binding records (with any attached ->node) for external consumption.
+     *
+     * @param \stdClass[] $bindings Binding records, optionally carrying ->node.
+     * @return array[]
+     */
+    public static function export_bindings(array $bindings): array {
+        $nodes = [];
+        foreach ($bindings as $binding) {
+            if (!empty($binding->node)) {
+                $nodes[$binding->node->uuid] = $binding->node;
+            }
+        }
+        $exported = [];
+        foreach (self::export_nodes(array_values($nodes)) as $node) {
+            $exported[$node['uuid']] = $node;
+        }
+        $out = [];
+        foreach ($bindings as $binding) {
+            $row = [
+                'id' => (int) $binding->id,
+                'nodeuuid' => $binding->nodeuuid,
+                'relation' => $binding->relation,
+                'scope' => $binding->scope,
+                'sortorder' => (int) $binding->sortorder,
+                'status' => $binding->status,
+            ];
+            foreach (['categoryid', 'courseid', 'sectionid', 'cmid', 'subitemid'] as $key) {
+                if (!empty($binding->$key)) {
+                    $row[$key] = (int) $binding->$key;
+                }
+            }
+            if (!empty($binding->component)) {
+                $row['component'] = $binding->component;
+            }
+            if (isset($exported[$binding->nodeuuid])) {
+                $row['node'] = $exported[$binding->nodeuuid];
+            }
+            $out[] = $row;
+        }
+        return $out;
+    }
+
+    /**
+     * The exported binding structure definition.
+     *
+     * @return array
+     */
+    public static function binding_structure(): array {
+        return [
+            'id' => new external_value(PARAM_INT, 'Binding id'),
+            'categoryid' => new external_value(PARAM_INT, 'Category id', VALUE_OPTIONAL),
+            'courseid' => new external_value(PARAM_INT, 'Course id', VALUE_OPTIONAL),
+            'sectionid' => new external_value(PARAM_INT, 'Course section id', VALUE_OPTIONAL),
+            'cmid' => new external_value(PARAM_INT, 'Course module id', VALUE_OPTIONAL),
+            'component' => new external_value(PARAM_COMPONENT, 'Sub-activity component', VALUE_OPTIONAL),
+            'subitemid' => new external_value(PARAM_INT, 'Sub-activity id', VALUE_OPTIONAL),
+            'nodeuuid' => new external_value(PARAM_ALPHANUMEXT, 'Composed node key'),
+            'relation' => new external_value(PARAM_ALPHANUMEXT, 'Relation verb'),
+            'scope' => new external_value(PARAM_ALPHA, 'central or course'),
+            'sortorder' => new external_value(PARAM_INT, 'Order among bindings sharing the address'),
+            'status' => new external_value(PARAM_ALPHA, 'active or orphaned'),
+            'node' => new external_single_structure(self::node_structure(), 'The bound node', VALUE_OPTIONAL),
+        ];
+    }
+
+    /**
+     * Export resource records for external consumption.
+     *
+     * @param \stdClass[] $resources Resource records.
+     * @return array[]
+     */
+    public static function export_resources(array $resources): array {
+        $out = [];
+        foreach ($resources as $resource) {
+            $row = [
+                'id' => (int) $resource->id,
+                'nodeuuid' => $resource->nodeuuid,
+                'type' => $resource->type,
+                'label' => $resource->label,
+                'url' => $resource->url,
+                'sortorder' => (int) $resource->sortorder,
+            ];
+            if (!empty($resource->courseid)) {
+                $row['courseid'] = (int) $resource->courseid;
+            }
+            $out[] = $row;
+        }
+        return $out;
+    }
+
+    /**
+     * The exported resource structure definition.
+     *
+     * @return array
+     */
+    public static function resource_structure(): array {
+        return [
+            'id' => new external_value(PARAM_INT, 'Resource id'),
+            'nodeuuid' => new external_value(PARAM_ALPHANUMEXT, 'Composed node key'),
+            'courseid' => new external_value(PARAM_INT, 'Course id; absent when institutional', VALUE_OPTIONAL),
+            'type' => new external_value(PARAM_TEXT, 'Free-string type, e.g. Panopto'),
+            'label' => new external_value(PARAM_TEXT, 'Display label'),
+            'url' => new external_value(PARAM_URL, 'Resource URL'),
+            'sortorder' => new external_value(PARAM_INT, 'Display order within the node'),
+        ];
     }
 
     /**

@@ -46,4 +46,88 @@ $functions = [
         'ajax' => true,
         'capabilities' => 'local/curricmap:viewstaffmeta',
     ],
+    'local_curricmap_bind' => [
+        'classname' => 'local_curricmap\external\bind',
+        'description' => 'Bind a Moodle address to a curriculum node (idempotent).',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:managebindings',
+    ],
+    'local_curricmap_unbind' => [
+        'classname' => 'local_curricmap\external\unbind',
+        'description' => 'Delete a binding by id.',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:managebindings',
+    ],
+    'local_curricmap_resolve' => [
+        'classname' => 'local_curricmap\external\resolve',
+        'description' => 'Resolve the bindings applying to a Moodle location, deepest level first.',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:viewstaffmeta',
+    ],
+    'local_curricmap_list_bindings' => [
+        'classname' => 'local_curricmap\external\list_bindings',
+        'description' => 'List bindings by course or by node.',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:viewstaffmeta',
+    ],
+    'local_curricmap_add_resource' => [
+        'classname' => 'local_curricmap\external\add_resource',
+        'description' => 'Attach a resource to a curriculum node (idempotent).',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:managebindings',
+    ],
+    'local_curricmap_delete_resource' => [
+        'classname' => 'local_curricmap\external\delete_resource',
+        'description' => 'Delete a node resource by id.',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:managebindings',
+    ],
+    'local_curricmap_list_resources' => [
+        'classname' => 'local_curricmap\external\list_resources',
+        'description' => 'List node resources by node and/or type, with optional course scope.',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:viewstaffmeta',
+    ],
+    'local_curricmap_list_resource_types' => [
+        'classname' => 'local_curricmap\external\list_resource_types',
+        'description' => 'The suggested resource type vocabulary.',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:viewstaffmeta',
+    ],
+];
+
+$services = [
+    'Curriculum mapping API' => [
+        'shortname' => 'curricmap_mapping',
+        'enabled' => 1,
+        'restrictedusers' => 1,
+        'downloadfiles' => 0,
+        'uploadfiles' => 0,
+        'functions' => [
+            'local_curricmap_get_programmes',
+            'local_curricmap_get_children',
+            'local_curricmap_search',
+            'local_curricmap_bind',
+            'local_curricmap_unbind',
+            'local_curricmap_resolve',
+            'local_curricmap_list_bindings',
+            'local_curricmap_add_resource',
+            'local_curricmap_delete_resource',
+            'local_curricmap_list_resources',
+            'local_curricmap_list_resource_types',
+            // Core lookups so one token can browse Moodle structure to build
+            // binding addresses (independent of the Mobile service).
+            'core_course_get_categories',
+            'core_course_get_courses',
+            'core_course_get_contents',
+        ],
+    ],
 ];
