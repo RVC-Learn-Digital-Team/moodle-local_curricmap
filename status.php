@@ -179,7 +179,7 @@ if (!$programmes) {
         }
         $name = ($programme->displayname ?: $programme->slug) . ' ' . $label;
         $table->data[] = [
-            s($name) . ($programme->enabled ? '' : ' (' . get_string('disabled', 'moodle') . ')'),
+            s($name) . ($programme->enabled ? '' : ' (' . get_string('status_disabled', 'local_curricmap') . ')'),
             $programme->revisionhash ? substr($programme->revisionhash, 0, 12) : '—',
             s($programme->lastsyncstatus),
             $programme->timelastsynced ? userdate($programme->timelastsynced) : '—',

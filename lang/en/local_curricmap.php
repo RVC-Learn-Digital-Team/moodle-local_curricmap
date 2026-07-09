@@ -61,6 +61,7 @@ $string['settings:sofia_heading'] = 'Sofia API connection';
 $string['settings:sofia_heading_desc'] = 'OAuth2 client-credentials connection to the Sofia curriculum management system.';
 $string['status_configured'] = 'Configured';
 $string['status_connection'] = 'Sofia connection';
+$string['status_disabled'] = 'disabled';
 $string['status_discover'] = 'Discover years';
 $string['status_discoverresult'] = 'Discovery complete: {$a->probed} year(s) probed, {$a->created} new programme year(s) found.';
 $string['status_downloadcsv'] = 'Download sync log (CSV)';

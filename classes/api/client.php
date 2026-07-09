@@ -45,6 +45,9 @@ class client {
     /** @var int Default rate-limit floor when the setting is unset. */
     const DEFAULT_RATE_FLOOR = 10;
 
+    /** @var int Persisted rate headers younger than this seed a new client's budget. */
+    const RATE_SEED_WINDOW = 900;
+
     /** @var \core\http_client HTTP client (injectable for tests). */
     private \core\http_client $http;
 
@@ -79,6 +82,16 @@ class client {
         $this->clientsecret = (string) ($config->sofia_clientsecret ?? '');
         $floor = (int) ($config->ratelimitfloor ?? self::DEFAULT_RATE_FLOOR);
         $this->ratefloor = $floor > 0 ? $floor : self::DEFAULT_RATE_FLOOR;
+
+        // Seed the budget from recently persisted headers so a fresh instance
+        // (e.g. an admin page click) refuses politely instead of collecting a
+        // rate-limit 403 from the server. Sofia's window is an hour; headers
+        // older than the seed window are ignored as probably stale.
+        $seen = (int) ($config->lastrateseen ?? 0);
+        if ($seen && (time() - $seen) < self::RATE_SEED_WINDOW
+                && isset($config->lastratecount, $config->lastratelimit)) {
+            $this->remaining = max(0, (int) $config->lastratelimit - (int) $config->lastratecount);
+        }
     }
 
     /**
