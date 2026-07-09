@@ -256,8 +256,10 @@
     <TABLE NAME="local_curricmap_binding" COMMENT="Join surface between Moodle locations and curriculum nodes. Addressing is deepest-non-null-wins: course, section, cm, sub-activity. Uniqueness of address+node+relation is enforced in code (nullable columns make a DB unique index unreliable cross-db).">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"
-            COMMENT="Required - permission context and cleanup anchor."/>
+        <FIELD NAME="categoryid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Category-level mapping; categories nest, resolution walks ancestors."/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Null only for category-level bindings; otherwise the permission context and cleanup anchor."/>
         <FIELD NAME="sectionid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="cmid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
         <FIELD NAME="component" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false"
@@ -267,8 +269,12 @@
         <FIELD NAME="nodeid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="nodeuuid" TYPE="char" LENGTH="128" NOTNULL="true" SEQUENCE="false"
             COMMENT="Composed node key (slug_academicyear_uuid) - the durable, programme-unambiguous end of the join."/>
-        <FIELD NAME="relation" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="anchor" SEQUENCE="false"
-            COMMENT="Soft-validated verb: anchor, teaches, covers, ..."/>
+        <FIELD NAME="relation" TYPE="char" LENGTH="32" NOTNULL="true" DEFAULT="related" SEQUENCE="false"
+            COMMENT="Soft-validated verb; v1 vocabulary: anchor (machine-consumed default scope), related."/>
+        <FIELD NAME="scope" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="course" SEQUENCE="false"
+            COMMENT="central (admin/API authored, locked for course staff) or course."/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"
+            COMMENT="Order among bindings sharing an address."/>
         <FIELD NAME="status" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="active" SEQUENCE="false"
             COMMENT="active or orphaned."/>
         <FIELD NAME="source" TYPE="char" LENGTH="16" NOTNULL="true" DEFAULT="manual" SEQUENCE="false"
@@ -285,8 +291,70 @@
       </KEYS>
       <INDEXES>
         <INDEX NAME="course_relation_ix" UNIQUE="false" FIELDS="courseid, relation"/>
+        <INDEX NAME="category_relation_ix" UNIQUE="false" FIELDS="categoryid, relation"/>
         <INDEX NAME="nodeuuid_relation_ix" UNIQUE="false" FIELDS="nodeuuid, relation"/>
         <INDEX NAME="cmid_ix" UNIQUE="false" FIELDS="cmid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_resource" COMMENT="Resources attached to curriculum nodes (Panopto, PebblePad, ebooks, ...). courseid null = institutional; set = visible only in that course. Type is a free string seeded from a settings vocabulary, never a code enum.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="nodeuuid" TYPE="char" LENGTH="128" NOTNULL="true" SEQUENCE="false"
+            COMMENT="Composed node key the resource belongs to."/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Null = institutional, set = course-scoped addition."/>
+        <FIELD NAME="type" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="label" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="url" TYPE="char" LENGTH="1024" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+        <KEY NAME="usermodified" TYPE="foreign" FIELDS="usermodified" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="nodeuuid_ix" UNIQUE="false" FIELDS="nodeuuid"/>
+        <INDEX NAME="course_ix" UNIQUE="false" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_group" COMMENT="Optional named, ordered sets of nodes; bindings or placeholders may target a group instead of a node (phase 2).">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Null = central, set = course-scoped."/>
+        <FIELD NAME="usermodified" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="course_ix" UNIQUE="false" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="local_curricmap_groupitem" COMMENT="Ordered members of a node group.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="groupid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="nodeuuid" TYPE="char" LENGTH="128" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="groupid" TYPE="foreign" FIELDS="groupid" REFTABLE="local_curricmap_group" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="group_sort_ix" UNIQUE="false" FIELDS="groupid, sortorder"/>
       </INDEXES>
     </TABLE>
   </TABLES>

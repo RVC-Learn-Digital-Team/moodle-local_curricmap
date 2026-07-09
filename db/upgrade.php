@@ -119,5 +119,65 @@ function xmldb_local_curricmap_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026071300, 'local', 'curricmap');
     }
 
+    if ($oldversion < 2026071330) {
+        // M8: binding gains category level, scope tier and sort order; resource
+        // and (optional) group tables arrive.
+        $table = new xmldb_table('local_curricmap_binding');
+
+        $field = new xmldb_field('categoryid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'id');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // The dbman refuses to alter a field any index or key covers, so the
+        // indexes over courseid/relation and the courseid foreign key step
+        // aside while courseid becomes nullable and relation's default flips.
+        $courserelationix = new xmldb_index('course_relation_ix', XMLDB_INDEX_NOTUNIQUE, ['courseid', 'relation']);
+        $noderelationix = new xmldb_index('nodeuuid_relation_ix', XMLDB_INDEX_NOTUNIQUE, ['nodeuuid', 'relation']);
+        $categoryrelationix = new xmldb_index('category_relation_ix', XMLDB_INDEX_NOTUNIQUE, ['categoryid', 'relation']);
+        foreach ([$courserelationix, $noderelationix, $categoryrelationix] as $index) {
+            if ($dbman->index_exists($table, $index)) {
+                $dbman->drop_index($table, $index);
+            }
+        }
+        $courseidkey = new xmldb_key('courseid', XMLDB_KEY_FOREIGN, ['courseid'], 'course', ['id']);
+        if ($dbman->find_key_name($table, $courseidkey)) {
+            $dbman->drop_key($table, $courseidkey);
+        }
+
+        $field = new xmldb_field('courseid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'categoryid');
+        $dbman->change_field_notnull($table, $field);
+        $field = new xmldb_field('relation', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, 'related', 'nodeuuid');
+        $dbman->change_field_default($table, $field);
+        $field = new xmldb_field('scope', XMLDB_TYPE_CHAR, '16', null, XMLDB_NOTNULL, null, 'course', 'relation');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $field = new xmldb_field('sortorder', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'scope');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // find_key_name() cannot be trusted to report the key's underlying
+        // index, so check for the index itself before re-adding the key.
+        $courseidix = new xmldb_index('courseid', XMLDB_INDEX_NOTUNIQUE, ['courseid']);
+        if (!$dbman->index_exists($table, $courseidix)) {
+            $dbman->add_key($table, $courseidkey);
+        }
+        foreach ([$courserelationix, $noderelationix, $categoryrelationix] as $index) {
+            if (!$dbman->index_exists($table, $index)) {
+                $dbman->add_index($table, $index);
+            }
+        }
+
+        foreach (['local_curricmap_resource', 'local_curricmap_group', 'local_curricmap_groupitem'] as $tablename) {
+            if (!$dbman->table_exists($tablename)) {
+                $dbman->install_one_table_from_xmldb_file(__DIR__ . '/install.xml', $tablename);
+            }
+        }
+
+        upgrade_plugin_savepoint(true, 2026071330, 'local', 'curricmap');
+    }
+
     return true;
 }

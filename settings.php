@@ -86,6 +86,14 @@ if ($hassiteconfig) {
     ));
 
     $settings->add(new admin_setting_configtext(
+        'local_curricmap/resourcetypes',
+        get_string('settings:resourcetypes', 'local_curricmap'),
+        get_string('settings:resourcetypes_desc', 'local_curricmap'),
+        'panopto, pebblepad, ebook, images, link',
+        PARAM_RAW_TRIMMED
+    ));
+
+    $settings->add(new admin_setting_configtext(
         'local_curricmap/discoveryfloor',
         get_string('settings:discoveryfloor', 'local_curricmap'),
         get_string('settings:discoveryfloor_desc', 'local_curricmap'),

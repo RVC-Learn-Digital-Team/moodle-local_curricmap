@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version details for local_curricmap.
+ * Event observer registrations for local_curricmap.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
@@ -24,8 +24,21 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_curricmap';
-$plugin->version   = 2026071330;
-$plugin->requires  = 2024100700; // Moodle 4.5 LTS.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.8.0';
+$observers = [
+    [
+        'eventname' => '\core\event\course_module_deleted',
+        'callback' => '\local_curricmap\observer::course_module_deleted',
+    ],
+    [
+        'eventname' => '\core\event\course_section_deleted',
+        'callback' => '\local_curricmap\observer::course_section_deleted',
+    ],
+    [
+        'eventname' => '\core\event\course_deleted',
+        'callback' => '\local_curricmap\observer::course_deleted',
+    ],
+    [
+        'eventname' => '\core\event\course_category_deleted',
+        'callback' => '\local_curricmap\observer::course_category_deleted',
+    ],
+];

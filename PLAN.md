@@ -191,6 +191,17 @@ authored (locked for course staff), course = shared-editable by managebindings h
 (editing teachers and up) with usermodified audit. Runs **after mod_curricmap's renderer
 (its M2)**, before the presenter's mapping-aware defaults.
 
+Further decisions (July 2026, pre-build discussion): no users in mappings; relations v1
+= `anchor` (default course scope, multiple allowed/ordered) + `related`; binding rows
+carry `sortorder`; bindings are year-pinned (rollover = bulk-create new mappings for new
+courses; old courses/bindings stay intact); **node resources** in the same milestone
+(`_resource`: node + optional course scope + free-string type from a seeded vocabulary +
+label/url) so mapped locations inherit "related learning content"; **named node groups**
+as optional phase 2; external access via declared ws + manual service account, contract-
+tested from the `moodle_mapping_api_test` Python repo; bulk relationship import is
+separate follow-on work; the presenter's programme/scope picker consumes `resolve()` for
+defaults once this lands.
+
 - [ ] Binding table (+categoryid, +scope) + service API: bind/unbind,
       find_by_course/category/cm/node/subtree, orphaned_bindings, resolve(location) —
       deepest-match incl. ancestor categories — and anchor(courseid)
