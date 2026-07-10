@@ -244,11 +244,11 @@ if ($mode === 'course') {
             if ($row->score > 0) {
                 $row->fit = matcher::STATUS_SUGGEST;
                 $row->rank = 3;
-            } else if ($keywords || $searchyear !== null) {
-                $row->fit = 'searchresult';
-                $row->rank = 4;
             } else {
-                continue;
+                // Blank search is open search: every course stays pickable,
+                // ranked below the matches and suggestions.
+                $row->fit = ($keywords || $searchyear !== null) ? 'searchresult' : 'candidate';
+                $row->rank = 4;
             }
         }
         $ranked[] = $row;
@@ -263,7 +263,8 @@ $total = count($rows);
 $rows = array_slice($rows, $page * $perpage, $perpage);
 
 $PAGE->requires->js_call_amd('core/checkbox-toggleall', 'init');
-$PAGE->requires->js_call_amd('local_curricmap/course_mapping', 'init');
+$typetosearch = get_string('coursemapping_typetosearch', 'local_curricmap');
+$PAGE->requires->js_call_amd('local_curricmap/course_mapping', 'init', [$typetosearch]);
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('coursemapping', 'local_curricmap'));
@@ -324,7 +325,8 @@ if ($mode === 'sofia' && $target) {
     foreach ($candidates as $candidate) {
         $nodeoptions[$candidate->node->uuid] = local_curricmap_course_mapping_label($candidate);
     }
-    $nodeattrs = ['aria-label' => get_string('coursemapping_sofianode', 'local_curricmap')];
+    $nodeattrs = ['aria-label' => get_string('coursemapping_sofianode', 'local_curricmap'),
+        'id' => 'curricmap-node', 'data-curricmap-node' => 1];
     echo html_writer::select($nodeoptions, 'node', $target->node->uuid, false, $nodeattrs);
 }
 
@@ -391,9 +393,14 @@ foreach ($rows as $row) {
             $fitcell = html_writer::tag('span', $donelabel, ['class' => 'badge badge-secondary']);
         } else {
             $tick = html_writer::empty_tag('input', $tickattrs);
-            $fitcell = local_curricmap_course_mapping_badge($row->fit);
-            if (($row->score ?? 0) > 0) {
-                $fitcell .= ' ' . html_writer::tag('span', '[' . $row->score . ']', ['class' => 'small text-muted']);
+            if ($row->fit === 'candidate') {
+                $fitcell = html_writer::tag('span', '—', ['class' => 'text-muted']);
+            } else {
+                $fitcell = local_curricmap_course_mapping_badge($row->fit);
+                if (($row->score ?? 0) > 0) {
+                    $scoretag = '[' . $row->score . ']';
+                    $fitcell .= ' ' . html_writer::tag('span', $scoretag, ['class' => 'small text-muted']);
+                }
             }
         }
         $table->data[] = [$tick, $coursecell, $yearcell, $currentcell, $fitcell];
@@ -435,7 +442,7 @@ foreach ($rows as $row) {
     if ($result->note) {
         $proposalcell .= ' ' . html_writer::tag('span', s($result->note), ['class' => 'small text-muted']);
     }
-    $bindattrs = ['data-curricmap-row' => $courseid];
+    $bindattrs = ['data-curricmap-row' => $courseid, 'id' => 'curricmap-bind-' . $courseid];
     $proposalcell .= html_writer::div(html_writer::select($options, "bind[$courseid]", $selected, false, $bindattrs));
 
     $tick = html_writer::empty_tag('input', $tickattrs);

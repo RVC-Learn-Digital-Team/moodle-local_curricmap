@@ -269,7 +269,8 @@ evolve without releases; UI language says "match" — "anchor" stays internal.
       word overlap ranks it above the year node — amends the year-level-only
       rule); delete icon per entry in Current matches (central course-level
       rows only) so the page covers create/read/delete — "update" = remove +
-      re-match
+      re-match; proposal dropdowns and the Sofia node select enhanced with
+      core form-autocomplete (type-to-search, substring match anywhere)
 - [ ] `section_module_mapping.php`: per-course drill-down matching sections and
       modules against nodes at or below the course's anchored programme-year
       (section names are the signal; skip-list housekeeping sections)

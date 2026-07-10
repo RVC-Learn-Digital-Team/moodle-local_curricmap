@@ -63,6 +63,7 @@ $string['coursemapping_status_noyear'] = 'No year detected';
 $string['coursemapping_status_searchresult'] = 'Search result';
 $string['coursemapping_status_skipped'] = 'Skipped';
 $string['coursemapping_status_suggest'] = 'Suggestions';
+$string['coursemapping_typetosearch'] = 'Type to search';
 $string['coursemapping_year'] = 'Academic year';
 $string['curricmap:editmanual'] = 'Create and edit manual curriculum entries';
 $string['curricmap:importcsv'] = 'Import curriculum data from CSV';

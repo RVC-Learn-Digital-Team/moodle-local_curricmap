@@ -19,14 +19,18 @@
  * The whole toolbar is one GET form: changing any select or checkbox
  * resubmits it, so the current search text and every other filter always
  * travel together. Picking a proposed match in a row ticks that row's
- * apply checkbox (and clearing it unticks).
+ * apply checkbox (and clearing it unticks). The proposal dropdowns and the
+ * Sofia programme-year select are enhanced with the core autocomplete, so
+ * long node lists are searchable by typing (substring match anywhere).
  *
  * @module     local_curricmap/course_mapping
  * @copyright  2026 The Royal Veterinary College
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-export const init = () => {
+import * as Autocomplete from 'core/form-autocomplete';
+
+export const init = (placeholder) => {
     const form = document.querySelector('.local-curricmap-filterform');
     if (form) {
         form.querySelectorAll('select, input[type=checkbox]').forEach((control) => {
@@ -40,5 +44,8 @@ export const init = () => {
                 tick.checked = select.value !== '';
             }
         });
+    });
+    document.querySelectorAll('select[data-curricmap-row], select[data-curricmap-node]').forEach((select) => {
+        Autocomplete.enhance('#' + select.id, false, '', placeholder);
     });
 };
