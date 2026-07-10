@@ -1,0 +1,213 @@
+<?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+namespace local_curricmap\local;
+
+/**
+ * Tests for the central course matcher.
+ *
+ * Fixture idnumbers/names mirror the production conventions documented in
+ * the moodle_mapping_api_test repo's MATCHING_SIGNALS.md.
+ *
+ * @package   local_curricmap
+ * @covers    \local_curricmap\local\matcher
+ * @copyright 2026 The Royal Veterinary College
+ * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+final class matcher_test extends \advanced_testcase {
+    /**
+     * Insert a programme with one year node per given (yearstart, title).
+     *
+     * @param string $slug Programme slug.
+     * @param string $displayname Programme display name.
+     * @param array $years yearstart => title.
+     */
+    private function seed_programme(string $slug, string $displayname, array $years): void {
+        global $DB;
+        $programmeid = $DB->insert_record('local_curricmap_programme', (object) [
+            'slug' => $slug,
+            'displayname' => $displayname,
+            'versionlabel' => 'TEST',
+            'enabled' => 1,
+        ]);
+        $sortorder = 0;
+        foreach ($years as $yearstart => $title) {
+            $academicyear = $yearstart . '_' . sprintf('%02d', ($yearstart + 1) % 100);
+            $DB->insert_record('local_curricmap_node', (object) [
+                'programmeid' => $programmeid,
+                'uuid' => $slug . '_' . $academicyear . '_' . sprintf('%08x', crc32($slug . $title . $yearstart)),
+                'role' => 'year',
+                'title' => $title,
+                'sortorder' => $sortorder++,
+                'source' => 'sofia',
+                'timecreated' => time(),
+                'timemodified' => time(),
+            ]);
+        }
+    }
+
+    /**
+     * A course row shaped like the page's SQL result.
+     *
+     * @param string $idnumber Course idnumber.
+     * @param string $shortname Course shortname.
+     * @param string $fullname Course fullname.
+     * @param string $categoryname Category name.
+     * @return \stdClass
+     */
+    private function course(
+        string $idnumber,
+        string $shortname = '',
+        string $fullname = '',
+        string $categoryname = ''
+    ): \stdClass {
+        return (object) [
+            'idnumber' => $idnumber,
+            'shortname' => $shortname,
+            'fullname' => $fullname,
+            'categoryname' => $categoryname,
+        ];
+    }
+
+    /**
+     * Both idnumber dialects, name/category fallbacks and the en-dash gotcha.
+     */
+    public function test_harmonised_year_dialects(): void {
+        // Dialect A, incl. the seq and range spellings.
+        $this->assertSame([2022, 'idnumber'], matcher::harmonised_year($this->course('RVC_FD_BSC_VN3_2022_3')));
+        $this->assertSame([2020, 'idnumber'], matcher::harmonised_year($this->course('RVC_BVETMED45_ROT_2020_21')));
+        // Dialect B (SRS/SITS).
+        $this->assertSame([2025, 'idnumber'], matcher::harmonised_year($this->course('VN1202_A_Y_202526')));
+        // Name fallbacks, including the production en-dash.
+        $this->assertSame(
+            [2021, 'shortname'],
+            matcher::harmonised_year($this->course('RVC_NOYEAR', "VN Yr 1 2021\u{2013}22"))
+        );
+        $this->assertSame(
+            [2024, 'categoryname'],
+            matcher::harmonised_year($this->course('RVC_NOYEAR', 'X', 'Y', 'BVetMed & BVSc 2024-2025'))
+        );
+        $this->assertSame([null, null], matcher::harmonised_year($this->course('RVC_BSC_EMPLOY_HUB', 'Hub')));
+    }
+
+    /**
+     * Year-like tokens never take part in word matching.
+     */
+    public function test_tokens_drop_year_like_words(): void {
+        $this->assertSame(
+            ['bvetmed', 'yr', '4'],
+            matcher::tokens('BVetMed Yr 4 2024-25', '202425')
+        );
+    }
+
+    /**
+     * Dialect A idnumber with embedded programme year matches deterministically.
+     */
+    public function test_exact_match_from_idnumber(): void {
+        $this->resetAfterTest();
+        $this->seed_programme('vet-nur', 'FdSc/BSc Veterinary Nursing', [2022 => 'Year 3']);
+        $candidates = matcher::candidates();
+
+        $result = matcher::match(
+            $this->course('RVC_FD_BSC_VN3_2022_3', 'VN Yr 3 2022-23'),
+            $candidates,
+            matcher::default_rules()
+        );
+        $this->assertSame(matcher::STATUS_MATCH, $result->status);
+        $this->assertSame('Year 3', $result->best->node->title);
+        $this->assertSame(2022, $result->year);
+    }
+
+    /**
+     * Dialect B (SITS module code) resolves programme and year via alias rules.
+     */
+    public function test_srs_dialect_matches_via_alias(): void {
+        $this->resetAfterTest();
+        $this->seed_programme('vet-nur', 'FdSc/BSc Veterinary Nursing', [2025 => 'Year 2']);
+        $result = matcher::match(
+            $this->course('VN2203_A_Y_202526', 'VN2203_A_Y_202526', 'Understanding Disease'),
+            matcher::candidates(),
+            matcher::default_rules()
+        );
+        $this->assertSame(matcher::STATUS_MATCH, $result->status);
+        $this->assertSame('Year 2', $result->best->node->title);
+    }
+
+    /**
+     * No idnumber, skip patterns and pre-floor years are all out of scope.
+     */
+    public function test_skip_rules(): void {
+        $this->resetAfterTest();
+        $rules = matcher::default_rules();
+
+        $this->assertSame(matcher::STATUS_SKIPPED, matcher::match($this->course(''), [], $rules)->status);
+        $this->assertSame(matcher::STATUS_SKIPPED, matcher::match($this->course('Temp_IDnumber_1'), [], $rules)->status);
+        // 201x years are below the default discovery floor (2020).
+        $this->assertSame(
+            matcher::STATUS_SKIPPED,
+            matcher::match($this->course('RVC_BVETMED1_2019_0'), [], $rules)->status
+        );
+    }
+
+    /**
+     * Missing mirror coverage is reported, never guessed around.
+     */
+    public function test_no_coverage_and_ambiguity(): void {
+        $this->resetAfterTest();
+        $this->seed_programme('vet-med', 'Bachelor of Veterinary Medicine', [2026 => 'Year 1']);
+        $candidates = matcher::candidates();
+        $rules = matcher::default_rules();
+
+        // Year synced but the aliased programme's year absent.
+        $nocoverage = matcher::match($this->course('RVC_GATEWAY_2026_7'), $candidates, $rules);
+        $this->assertSame(matcher::STATUS_NOCOVERAGE, $nocoverage->status);
+
+        // Year not synced at all.
+        $noyearnodes = matcher::match($this->course('RVC_BVETMED1_2024_5'), $candidates, $rules);
+        $this->assertSame(matcher::STATUS_NOCOVERAGE, $noyearnodes->status);
+    }
+
+    /**
+     * Unknown conventions fall back to lowercase whole-word overlap.
+     */
+    public function test_word_overlap_suggestions(): void {
+        $this->resetAfterTest();
+        $this->seed_programme('vet-med', 'Bachelor of Veterinary Medicine', [2026 => 'Year 1']);
+        $result = matcher::match(
+            $this->course('UNKNOWN_CONVENTION_202627', 'Veterinary Medicine intro', 'Veterinary Medicine intro'),
+            matcher::candidates(),
+            matcher::default_rules()
+        );
+        $this->assertSame(matcher::STATUS_SUGGEST, $result->status);
+        $this->assertNotEmpty($result->suggestions);
+        $this->assertSame('Year 1', $result->suggestions[0]->candidate->node->title);
+        $this->assertGreaterThanOrEqual(2, $result->suggestions[0]->score);
+    }
+
+    /**
+     * Broken setting JSON falls back to defaults; partial JSON overlays them.
+     */
+    public function test_rules_setting_fallback(): void {
+        $this->resetAfterTest();
+        set_config('matchingrules', 'not valid json {', 'local_curricmap');
+        $this->assertSame(matcher::default_rules(), matcher::rules());
+
+        set_config('matchingrules', '{"minscore": 3}', 'local_curricmap');
+        $rules = matcher::rules();
+        $this->assertSame(3, $rules['minscore']);
+        $this->assertNotEmpty($rules['aliases']);
+    }
+}

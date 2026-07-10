@@ -35,6 +35,13 @@ if ($hassiteconfig) {
         'local/curricmap:managesync'
     ));
 
+    $ADMIN->add('localplugins', new admin_externalpage(
+        'local_curricmap_coursemapping',
+        get_string('coursemapping', 'local_curricmap'),
+        new moodle_url('/local/curricmap/course_mapping.php'),
+        'local/curricmap:managebindings'
+    ));
+
     // Sofia API connection, with a link to the status page for connection testing.
     $statuslink = html_writer::link(
         new moodle_url('/local/curricmap/status.php'),
@@ -99,6 +106,14 @@ if ($hassiteconfig) {
         get_string('settings:discoveryfloor_desc', 'local_curricmap'),
         2020,
         PARAM_INT
+    ));
+
+    $settings->add(new admin_setting_configtextarea(
+        'local_curricmap/matchingrules',
+        get_string('settings:matchingrules', 'local_curricmap'),
+        get_string('settings:matchingrules_desc', 'local_curricmap'),
+        \local_curricmap\local\matcher::default_rules_json(),
+        PARAM_RAW
     ));
 
     // Diagnostics.

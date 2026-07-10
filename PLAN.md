@@ -142,7 +142,7 @@ M5 upgrades this to a full change report + admin UI.
       existing rows instead of colliding on the unique uuid index; soft-delete strictly
       scoped to the synced programme (csv/manual rows with null programmeid are
       untouchable by sync)
-- [ ] Behat admin flows — deferred to M9 hardening (CI has no Behat lane yet; the
+- [ ] Behat admin flows — deferred to M10 hardening (CI has no Behat lane yet; the
       status page logic is exercised manually and via the underlying engine's PHPUnit)
 - [ ] Verify on playground after push: upgrade to 2026071000, status page renders,
       Test connection button green, Sync now buttons work, CSV downloads; CI green
@@ -165,7 +165,7 @@ M5 upgrades this to a full change report + admin UI.
       soft-delete + cache invalidation across an A→B resync, external function shapes +
       student-refusal
 - [ ] Query-count ceilings (perfdebug) — deferred until the presenter's render path
-      exists to measure against (M9 with NFR-2)
+      exists to measure against (M10 with NFR-2)
 - [x] Live-verified on playground 10 July 2026 against the real mirror: strands in
       order, AH's 14 unit labels (Unit 1 first, 7 sessions), Locomotor no-label
       fallback, implemented_by(LO58) = 14 session outcomes, accreditation tags with
@@ -227,7 +227,40 @@ defaults once this lands.
 - [ ] Named node groups (phase 2, optional)
 - [ ] Investigate binding survival across course backup/restore/duplication
 
-### M9 — Hardening (pre-pilot)
+### M9 — Central course matching (site admin)
+
+Signals evidence base and rule derivation live in the `moodle_mapping_api_test`
+repo (`MATCHING_SIGNALS.md`, the Python matcher prototype and the production
+extract fixtures) — the prototype stays the offline rules lab. Agreed scope
+(July 2026): course matches target programme-year nodes ONLY (the anchor = the
+affiliation); courses without an idnumber or below the discovery-floor year are
+out of scope; fuzzy = lowercase whole-word overlap, suggestion-only; harmonised
+academic year = first four digits of the year token; rules are data (the
+`matchingrules` setting), so conventions evolve without releases.
+
+- [x] Matching engine (`local\matcher`): idnumber year parsing (both estate
+      dialects + the range-spelling exception), name/category year fallback with
+      unicode-dash normalisation, alias rule table -> slug + year-node narrowing,
+      whole-word overlap fallback, statuses match/suggest/nocoverage/noyear/
+      nomatch/skipped; `matchingrules` admin setting (JSON, shipped defaults);
+      PHPUnit over the production conventions (v0.11.0)
+- [x] `course_mapping.php` admin page (managebindings at system context): paged,
+      searchable course list with proposed anchors (matched rows preselected,
+      suggestions scored), existing central anchors shown, confirm creates
+      central-scope anchor bindings (idempotent); per-course link to the
+      mappings page (v0.11.0)
+- [ ] `section_module_mapping.php`: per-course drill-down matching sections and
+      modules against nodes at or below the course's anchored programme-year
+      (section names are the signal; skip-list housekeeping sections)
+- [ ] Picker locking: course staff node pickers offer only the anchored
+      programme-year(s) once anchors exist (strict-lock decision)
+- [ ] Rollover assist: year-swap successor proposal from existing anchors
+      (dry-run report first)
+- [ ] Verify on playground after push: upgrade to 2026071360, matching page
+      proposes correct anchors for the seeded test estate, confirm round-trip,
+      CI green on both DBs
+
+### M10 — Hardening (pre-pilot)
 
 - [ ] Webhook receiver (HMAC-signed, event_at dedupe) queuing adhoc sync
 - [ ] Error-path testing: Sofia 5xx, partial payloads, expired credentials
