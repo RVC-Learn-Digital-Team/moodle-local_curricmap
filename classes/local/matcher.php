@@ -27,8 +27,10 @@ use local_curricmap\api\curriculum;
  * SRS/SITS VN1202_A_Y_202526); the harmonised year is its first four digits.
  * Programme identity comes from an alias rule table (data, not code — the
  * matchingrules setting), with lowercase whole-word overlap as the fallback.
- * Courses without an idnumber, and years below the discovery floor, are
- * skipped. Nothing here writes: results are proposals for an admin to confirm.
+ * Courses without an idnumber match on name/category signals alone (support
+ * courses may need mappings too — visibility is the page's concern, not
+ * ours); years below the discovery floor are skipped. Nothing here writes:
+ * results are proposals for an admin to confirm.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
@@ -202,11 +204,6 @@ class matcher {
         ];
 
         $idnumber = trim((string) $course->idnumber);
-        if ($idnumber === '') {
-            $result->status = self::STATUS_SKIPPED;
-            $result->note = 'no idnumber';
-            return $result;
-        }
         foreach ($rules['skip'] as $pattern) {
             if (preg_match('/' . $pattern . '/i', $idnumber)) {
                 $result->status = self::STATUS_SKIPPED;

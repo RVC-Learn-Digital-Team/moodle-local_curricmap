@@ -147,19 +147,36 @@ final class matcher_test extends \advanced_testcase {
     }
 
     /**
-     * No idnumber, skip patterns and pre-floor years are all out of scope.
+     * Skip patterns and pre-floor years are out of scope; a missing idnumber
+     * is not (support courses match on name signals).
      */
     public function test_skip_rules(): void {
         $this->resetAfterTest();
         $rules = matcher::default_rules();
 
-        $this->assertSame(matcher::STATUS_SKIPPED, matcher::match($this->course(''), [], $rules)->status);
         $this->assertSame(matcher::STATUS_SKIPPED, matcher::match($this->course('Temp_IDnumber_1'), [], $rules)->status);
         // 201x years are below the default discovery floor (2020).
         $this->assertSame(
             matcher::STATUS_SKIPPED,
             matcher::match($this->course('RVC_BVETMED1_2019_0'), [], $rules)->status
         );
+        // No idnumber and no other signals: reported, not skipped.
+        $this->assertSame(matcher::STATUS_NOYEAR, matcher::match($this->course(''), [], $rules)->status);
+    }
+
+    /**
+     * A support course without an idnumber still matches from its name.
+     */
+    public function test_no_idnumber_matches_from_names(): void {
+        $this->resetAfterTest();
+        $this->seed_programme('vet-med', 'Bachelor of Veterinary Medicine', [2025 => 'Year 1']);
+        $result = matcher::match(
+            $this->course('', 'Vet Medicine skills 2025-26', 'Veterinary Medicine clinical skills 2025-26'),
+            matcher::candidates(),
+            matcher::default_rules()
+        );
+        $this->assertSame(matcher::STATUS_SUGGEST, $result->status);
+        $this->assertSame(2025, $result->year);
     }
 
     /**

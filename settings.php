@@ -25,17 +25,38 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
-    $settings = new admin_settingpage('local_curricmap', get_string('pluginname', 'local_curricmap'));
-    $ADMIN->add('localplugins', $settings);
+    // The plugin's pages live in their own category (like Quiz or Accessibility):
+    // general settings, matching settings, status, and the matching page itself.
+    $ADMIN->add('localplugins', new admin_category(
+        'local_curricmap_category',
+        get_string('pluginname', 'local_curricmap')
+    ));
 
-    $ADMIN->add('localplugins', new admin_externalpage(
+    // Keep the page name 'local_curricmap' so the plugins-overview Settings link resolves.
+    $settings = new admin_settingpage('local_curricmap', get_string('settings:generalpage', 'local_curricmap'));
+    $ADMIN->add('local_curricmap_category', $settings);
+
+    $matchingsettings = new admin_settingpage(
+        'local_curricmap_matchingsettings',
+        get_string('settings:matchingpage', 'local_curricmap')
+    );
+    $matchingsettings->add(new admin_setting_configtextarea(
+        'local_curricmap/matchingrules',
+        get_string('settings:matchingrules', 'local_curricmap'),
+        get_string('settings:matchingrules_desc', 'local_curricmap'),
+        \local_curricmap\local\matcher::default_rules_json(),
+        PARAM_RAW
+    ));
+    $ADMIN->add('local_curricmap_category', $matchingsettings);
+
+    $ADMIN->add('local_curricmap_category', new admin_externalpage(
         'local_curricmap_status',
         get_string('statuspage', 'local_curricmap'),
         new moodle_url('/local/curricmap/status.php'),
         'local/curricmap:managesync'
     ));
 
-    $ADMIN->add('localplugins', new admin_externalpage(
+    $ADMIN->add('local_curricmap_category', new admin_externalpage(
         'local_curricmap_coursemapping',
         get_string('coursemapping', 'local_curricmap'),
         new moodle_url('/local/curricmap/course_mapping.php'),
@@ -106,14 +127,6 @@ if ($hassiteconfig) {
         get_string('settings:discoveryfloor_desc', 'local_curricmap'),
         2020,
         PARAM_INT
-    ));
-
-    $settings->add(new admin_setting_configtextarea(
-        'local_curricmap/matchingrules',
-        get_string('settings:matchingrules', 'local_curricmap'),
-        get_string('settings:matchingrules_desc', 'local_curricmap'),
-        \local_curricmap\local\matcher::default_rules_json(),
-        PARAM_RAW
     ));
 
     // Diagnostics.

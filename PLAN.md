@@ -233,10 +233,12 @@ Signals evidence base and rule derivation live in the `moodle_mapping_api_test`
 repo (`MATCHING_SIGNALS.md`, the Python matcher prototype and the production
 extract fixtures) — the prototype stays the offline rules lab. Agreed scope
 (July 2026): course matches target programme-year nodes ONLY (the anchor = the
-affiliation); courses without an idnumber or below the discovery-floor year are
-out of scope; fuzzy = lowercase whole-word overlap, suggestion-only; harmonised
-academic year = first four digits of the year token; rules are data (the
-`matchingrules` setting), so conventions evolve without releases.
+affiliation); no-idnumber courses are matchable (support courses need mappings
+too) but hidden by default behind the "Only courses with idnumber" toggle;
+years below the discovery floor are out of scope; fuzzy = lowercase whole-word
+overlap, suggestion-only; harmonised academic year = first four digits of the
+year token; rules are data (the `matchingrules` setting), so conventions
+evolve without releases; UI language says "match" — "anchor" stays internal.
 
 - [x] Matching engine (`local\matcher`): idnumber year parsing (both estate
       dialects + the range-spelling exception), name/category year fallback with
@@ -244,11 +246,18 @@ academic year = first four digits of the year token; rules are data (the
       whole-word overlap fallback, statuses match/suggest/nocoverage/noyear/
       nomatch/skipped; `matchingrules` admin setting (JSON, shipped defaults);
       PHPUnit over the production conventions (v0.11.0)
-- [x] `course_mapping.php` admin page (managebindings at system context): paged,
-      searchable course list with proposed anchors (matched rows preselected,
-      suggestions scored), existing central anchors shown, confirm creates
-      central-scope anchor bindings (idempotent); per-course link to the
-      mappings page (v0.11.0)
+- [x] `course_mapping.php` admin page (managebindings at system context), UI
+      designed with Brian via mockups, two directions: match by Moodle course
+      (per-row proposal dropdown: proposals + all programme years) and match by
+      Sofia curriculum (pick a programme year, courses ranked by fit — already
+      matched / matched / suggestions / search results); toolbar = keyword+year
+      search, idnumber toggle (default off in Sofia mode), show filter
+      (matched / unmatched / already matched / all incl. skipped); explicit
+      per-row tick + select-all, nothing preselected for apply; confirm creates
+      central-scope anchor bindings (idempotent) (v0.11.0)
+- [x] Admin settings restructured into a plugin category (General settings /
+      Course matching settings / status page / matching page) per the Quiz
+      pattern (v0.11.0)
 - [ ] `section_module_mapping.php`: per-course drill-down matching sections and
       modules against nodes at or below the course's anchored programme-year
       (section names are the signal; skip-list housekeeping sections)
