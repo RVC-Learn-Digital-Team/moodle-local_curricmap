@@ -258,6 +258,18 @@ evolve without releases; UI language says "match" — "anchor" stays internal.
 - [x] Admin settings restructured into a plugin category (General settings /
       Course matching settings / status page / matching page) per the Quiz
       pattern (v0.11.0)
+- [x] Click-test round 1 fixes (v0.11.1): toolbar unified into one auto-
+      submitting GET form (search text + every filter travel together — the
+      old split forms lost checkbox state on select change); picking a
+      proposed match ticks the row's apply checkbox (AMD
+      `local_curricmap/course_mapping`, hand-built artifact); Show options
+      carry live row counts so empty views explain themselves; checkbox
+      renamed "idnumber only"; new "include strands" toggle adds strand nodes
+      as match targets (strand-shaped courses like PVP match their strand,
+      word overlap ranks it above the year node — amends the year-level-only
+      rule); delete icon per entry in Current matches (central course-level
+      rows only) so the page covers create/read/delete — "update" = remove +
+      re-match
 - [ ] `section_module_mapping.php`: per-course drill-down matching sections and
       modules against nodes at or below the course's anchored programme-year
       (section names are the signal; skip-list housekeeping sections)

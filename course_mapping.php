@@ -42,11 +42,15 @@ $search = trim(optional_param('search', '', PARAM_RAW_TRIMMED));
 // Support courses often have no idnumber, so the Sofia-first mode includes them by default.
 $requireid = optional_param('requireid', $mode === 'sofia' ? 0 : 1, PARAM_BOOL);
 $show = optional_param('show', 'matched', PARAM_ALPHA);
+if (!in_array($show, ['matched', 'unmatched', 'existing', 'all'])) {
+    $show = 'matched';
+}
+$strands = optional_param('strands', 0, PARAM_BOOL);
 $nodeparam = optional_param('node', '', PARAM_RAW_TRIMMED);
 $page = optional_param('page', 0, PARAM_INT);
 $perpage = 50;
 
-$candidates = matcher::candidates();
+$candidates = matcher::candidates($strands);
 $rules = matcher::rules();
 
 // The Sofia-first target node, defaulting to the first synced programme year.
@@ -60,11 +64,24 @@ if ($mode === 'sofia' && $target === null && $candidates) {
     $target = $candidates[0];
 }
 
-$urlparams = ['mode' => $mode, 'search' => $search, 'requireid' => $requireid, 'show' => $show, 'page' => $page];
+$urlparams = ['mode' => $mode, 'search' => $search, 'requireid' => $requireid, 'show' => $show,
+    'strands' => $strands, 'page' => $page];
 if ($target) {
     $urlparams['node'] = $target->node->uuid;
 }
 $pageurl = new moodle_url('/local/curricmap/course_mapping.php', $urlparams);
+
+// Remove one central match (the delete icon in the Current matches column).
+$unbind = optional_param('unbind', 0, PARAM_INT);
+if ($unbind && confirm_sesskey()) {
+    require_capability('local/curricmap:managebindings', context_system::instance());
+    $binding = $DB->get_record('local_curricmap_binding', ['id' => $unbind], '*', MUST_EXIST);
+    if ($binding->scope === 'central' && $binding->courseid !== null) {
+        bindings::unbind((int) $binding->id);
+        redirect($pageurl, get_string('coursemapping_removed', 'local_curricmap'));
+    }
+    redirect($pageurl);
+}
 
 // Apply: create central-scope matches for the ticked rows.
 $apply = optional_param_array('apply', [], PARAM_INT);
@@ -87,7 +104,8 @@ if ($apply && confirm_sesskey()) {
 }
 
 /**
- * A candidate's display label: programme, node title, academic year.
+ * A candidate's display label: programme, year context for strands, node
+ * title, academic year.
  *
  * @param stdClass $candidate Matcher candidate.
  * @return string
@@ -95,7 +113,8 @@ if ($apply && confirm_sesskey()) {
 function local_curricmap_course_mapping_label(stdClass $candidate): string {
     $programme = $candidate->programme->displayname ?: $candidate->programme->slug;
     $year = $candidate->yearstart . '-' . sprintf('%02d', ($candidate->yearstart + 1) % 100);
-    return $programme . ' / ' . $candidate->node->title . ' (' . $year . ')';
+    $middle = $candidate->yeartitle !== null ? $candidate->yeartitle . ' / ' : '';
+    return $programme . ' / ' . $middle . $candidate->node->title . ' (' . $year . ')';
 }
 
 /**
@@ -173,23 +192,34 @@ foreach ($courses as $course) {
     $rows[] = (object) ['course' => $course, 'result' => $result];
 }
 
+$showcounts = ['matched' => 0, 'unmatched' => 0, 'existing' => 0, 'all' => 0];
 if ($mode === 'course') {
-    $rows = array_values(array_filter($rows, function ($row) use ($show, $currentmatches) {
+    // Count every band first so the Show options can carry their row counts.
+    $band = function ($row) use ($currentmatches) {
+        if ($row->result->status === matcher::STATUS_SKIPPED) {
+            return 'skipped';
+        }
+        return in_array($row->result->status, [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST])
+            ? 'matched' : 'unmatched';
+    };
+    foreach ($rows as $row) {
+        $showcounts['all']++;
+        $rowband = $band($row);
+        if ($rowband !== 'skipped') {
+            $showcounts[$rowband]++;
+        }
+        if (!empty($currentmatches[(int) $row->course->id])) {
+            $showcounts['existing']++;
+        }
+    }
+    $rows = array_values(array_filter($rows, function ($row) use ($show, $currentmatches, $band) {
         if ($show === 'all') {
             return true;
         }
-        if ($row->result->status === matcher::STATUS_SKIPPED) {
-            return false;
+        if ($show === 'existing') {
+            return !empty($currentmatches[(int) $row->course->id]);
         }
-        $unmatched = [matcher::STATUS_NOCOVERAGE, matcher::STATUS_NOYEAR, matcher::STATUS_NOMATCH];
-        switch ($show) {
-            case 'unmatched':
-                return in_array($row->result->status, $unmatched);
-            case 'existing':
-                return !empty($currentmatches[(int) $row->course->id]);
-            default:
-                return in_array($row->result->status, [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST]);
-        }
+        return $band($row) === $show;
     }));
 } else if ($target) {
     // Rank each course's fit for the target node: already matched to it,
@@ -233,78 +263,79 @@ $total = count($rows);
 $rows = array_slice($rows, $page * $perpage, $perpage);
 
 $PAGE->requires->js_call_amd('core/checkbox-toggleall', 'init');
+$PAGE->requires->js_call_amd('local_curricmap/course_mapping', 'init');
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('coursemapping', 'local_curricmap'));
 echo html_writer::tag('p', get_string('coursemapping_intro', 'local_curricmap'));
 
-// Toolbar: search + idnumber toggle (GET form), then auto-submitting selects.
+// The whole toolbar is ONE GET form: any select or checkbox change resubmits
+// it (see the course_mapping AMD module), so the current search text and every
+// filter always travel together. Unchecked checkboxes fall back to the hidden
+// zero inputs.
 $formurl = new moodle_url('/local/curricmap/course_mapping.php');
-echo html_writer::start_div('d-flex flex-wrap align-items-center mb-3', ['style' => 'gap: 8px;']);
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => $formurl->out_omit_querystring(),
-    'class' => 'd-flex align-items-center', 'style' => 'gap: 8px;']);
-echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'mode', 'value' => $mode]);
-echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'show', 'value' => $show]);
-if ($target) {
-    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'node', 'value' => $target->node->uuid]);
-}
+    'class' => 'local-curricmap-filterform d-flex flex-wrap align-items-center mb-3', 'style' => 'gap: 8px;']);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'requireid', 'value' => 0]);
+echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'strands', 'value' => 0]);
 $searchattrs = ['type' => 'text', 'name' => 'search', 'value' => $search,
     'placeholder' => get_string('coursemapping_search', 'local_curricmap'), 'class' => 'form-control',
-    'style' => 'width: 240px;'];
+    'style' => 'width: 220px;'];
 echo html_writer::empty_tag('input', $searchattrs);
-$checkboxattrs = ['type' => 'checkbox', 'name' => 'requireid', 'value' => 1, 'class' => 'mr-1'];
+
+$requireidattrs = ['type' => 'checkbox', 'name' => 'requireid', 'value' => 1, 'class' => 'mr-1'];
 if ($requireid) {
-    $checkboxattrs['checked'] = 'checked';
+    $requireidattrs['checked'] = 'checked';
 }
 echo html_writer::start_tag('label', ['class' => 'mb-0 d-flex align-items-center text-nowrap']);
-echo html_writer::empty_tag('input', $checkboxattrs);
+echo html_writer::empty_tag('input', $requireidattrs);
 echo get_string('coursemapping_onlyidnumber', 'local_curricmap');
 echo html_writer::end_tag('label');
-echo html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('search'),
-    'class' => 'btn btn-secondary']);
-echo html_writer::end_tag('form');
+
+$strandsattrs = ['type' => 'checkbox', 'name' => 'strands', 'value' => 1, 'class' => 'mr-1'];
+if ($strands) {
+    $strandsattrs['checked'] = 'checked';
+}
+echo html_writer::start_tag('label', ['class' => 'mb-0 d-flex align-items-center text-nowrap']);
+echo html_writer::empty_tag('input', $strandsattrs);
+echo get_string('coursemapping_includestrands', 'local_curricmap');
+echo html_writer::end_tag('label');
 
 if ($mode === 'course') {
     $showoptions = [
-        'matched' => get_string('coursemapping_show_matched', 'local_curricmap'),
-        'unmatched' => get_string('coursemapping_show_unmatched', 'local_curricmap'),
-        'existing' => get_string('coursemapping_show_existing', 'local_curricmap'),
-        'all' => get_string('coursemapping_show_all', 'local_curricmap'),
+        'matched' => get_string('coursemapping_show_matched', 'local_curricmap', $showcounts['matched']),
+        'unmatched' => get_string('coursemapping_show_unmatched', 'local_curricmap', $showcounts['unmatched']),
+        'existing' => get_string('coursemapping_show_existing', 'local_curricmap', $showcounts['existing']),
+        'all' => get_string('coursemapping_show_all', 'local_curricmap', $showcounts['all']),
     ];
-    $showurl = new moodle_url($pageurl, ['page' => 0]);
-    $showurl->remove_params(['show']);
-    $showselect = new single_select($showurl, 'show', $showoptions, $show, null);
-    $showselect->set_label(get_string('coursemapping_show', 'local_curricmap'), ['class' => 'sr-only']);
-    echo $OUTPUT->render($showselect);
+    $showattrs = ['aria-label' => get_string('coursemapping_show', 'local_curricmap')];
+    echo html_writer::select($showoptions, 'show', $show, false, $showattrs);
 }
 
 $modeoptions = [
     'course' => get_string('coursemapping_mode_course', 'local_curricmap'),
     'sofia' => get_string('coursemapping_mode_sofia', 'local_curricmap'),
 ];
-$modeurl = new moodle_url($pageurl, ['page' => 0]);
-$modeurl->remove_params(['mode']);
-$modeselect = new single_select($modeurl, 'mode', $modeoptions, $mode, null);
-$modeselect->set_label(get_string('coursemapping_mode', 'local_curricmap'), ['class' => 'sr-only']);
-echo $OUTPUT->render($modeselect);
-echo html_writer::end_div();
+$modeattrs = ['aria-label' => get_string('coursemapping_mode', 'local_curricmap')];
+echo html_writer::select($modeoptions, 'mode', $mode, false, $modeattrs);
 
-if ($mode === 'sofia') {
-    if (!$target) {
-        echo $OUTPUT->notification(get_string('coursemapping_nonodes', 'local_curricmap'), 'info');
-        echo $OUTPUT->footer();
-        exit;
-    }
+if ($mode === 'sofia' && $target) {
     $nodeoptions = [];
     foreach ($candidates as $candidate) {
         $nodeoptions[$candidate->node->uuid] = local_curricmap_course_mapping_label($candidate);
     }
-    $nodeurl = new moodle_url($pageurl, ['page' => 0]);
-    $nodeurl->remove_params(['node']);
-    $nodeselect = new single_select($nodeurl, 'node', $nodeoptions, $target->node->uuid, null);
-    $nodeselect->set_label(get_string('coursemapping_sofianode', 'local_curricmap'));
-    echo html_writer::div($OUTPUT->render($nodeselect), 'mb-3');
+    $nodeattrs = ['aria-label' => get_string('coursemapping_sofianode', 'local_curricmap')];
+    echo html_writer::select($nodeoptions, 'node', $target->node->uuid, false, $nodeattrs);
+}
+
+echo html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('search'),
+    'class' => 'btn btn-secondary']);
+echo html_writer::end_tag('form');
+
+if ($mode === 'sofia' && !$target) {
+    echo $OUTPUT->notification(get_string('coursemapping_nonodes', 'local_curricmap'), 'info');
+    echo $OUTPUT->footer();
+    exit;
 }
 
 // The table, wrapped in the apply form.
@@ -341,10 +372,13 @@ foreach ($rows as $row) {
         ? $result->year . '-' . sprintf('%02d', ($result->year + 1) % 100)
         : local_curricmap_course_mapping_badge(matcher::STATUS_NOYEAR);
 
-    $currentcell = implode(html_writer::empty_tag('br'), array_map(
-        fn($binding) => s($binding->title ?? $binding->nodeuuid),
-        $currentmatches[$courseid] ?? []
-    ));
+    $currententries = [];
+    foreach ($currentmatches[$courseid] ?? [] as $binding) {
+        $removeurl = new moodle_url($pageurl, ['unbind' => $binding->id, 'sesskey' => sesskey()]);
+        $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
+        $currententries[] = s($binding->title ?? $binding->nodeuuid) . ' ' . html_writer::link($removeurl, $removeicon);
+    }
+    $currentcell = implode(html_writer::empty_tag('br'), $currententries);
 
     $tickattrs = ['type' => 'checkbox', 'name' => "apply[$courseid]", 'value' => 1,
         'data-action' => 'toggle', 'data-toggle' => 'slave', 'data-togglegroup' => 'coursematch',
@@ -401,7 +435,8 @@ foreach ($rows as $row) {
     if ($result->note) {
         $proposalcell .= ' ' . html_writer::tag('span', s($result->note), ['class' => 'small text-muted']);
     }
-    $proposalcell .= html_writer::div(html_writer::select($options, "bind[$courseid]", $selected, false));
+    $bindattrs = ['data-curricmap-row' => $courseid];
+    $proposalcell .= html_writer::div(html_writer::select($options, "bind[$courseid]", $selected, false, $bindattrs));
 
     $tick = html_writer::empty_tag('input', $tickattrs);
     $table->data[] = [$tick, $coursecell, $yearcell, $currentcell, $proposalcell];

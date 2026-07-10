@@ -104,28 +104,50 @@ class matcher {
     }
 
     /**
-     * All (programme, year node) anchor candidates in the synced mirror.
+     * All match target candidates in the synced mirror: programme-year nodes,
+     * plus each year's strand nodes when requested (strand-shaped courses
+     * like the PVP Strand course match a strand, not a whole year).
      *
-     * @return \stdClass[] Each with programme, node, yearstart and tokens.
+     * @param bool $includestrands Also offer strand nodes as targets.
+     * @return \stdClass[] Each with programme, node, yearstart, yeartitle and tokens.
      */
-    public static function candidates(): array {
+    public static function candidates(bool $includestrands = false): array {
         $out = [];
         foreach (curriculum::programmes() as $programme) {
-            foreach (curriculum::years((int) $programme->id) as $node) {
+            foreach (curriculum::years((int) $programme->id) as $yearnode) {
                 $pattern = '/^' . preg_quote($programme->slug, '/') . '_(20\d\d)_\d\d_/';
-                if (!preg_match($pattern, $node->uuid, $matches)) {
+                if (!preg_match($pattern, $yearnode->uuid, $matches)) {
                     continue;
                 }
+                $yearstart = (int) $matches[1];
                 $out[] = (object) [
                     'programme' => $programme,
-                    'node' => $node,
-                    'yearstart' => (int) $matches[1],
+                    'node' => $yearnode,
+                    'yearstart' => $yearstart,
+                    'yeartitle' => null,
                     'tokens' => self::tokens(
                         (string) ($programme->displayname ?? ''),
                         str_replace('-', ' ', $programme->slug),
-                        (string) $node->title
+                        (string) $yearnode->title
                     ),
                 ];
+                if (!$includestrands) {
+                    continue;
+                }
+                foreach (curriculum::strands($yearnode->uuid) as $strand) {
+                    $out[] = (object) [
+                        'programme' => $programme,
+                        'node' => $strand,
+                        'yearstart' => $yearstart,
+                        'yeartitle' => (string) $yearnode->title,
+                        'tokens' => self::tokens(
+                            (string) ($programme->displayname ?? ''),
+                            str_replace('-', ' ', $programme->slug),
+                            (string) $yearnode->title,
+                            (string) $strand->title
+                        ),
+                    ];
+                }
             }
         }
         return $out;

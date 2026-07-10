@@ -215,6 +215,39 @@ final class matcher_test extends \advanced_testcase {
     }
 
     /**
+     * Strand nodes become targets only when requested, and strand-shaped
+     * courses reach them by word overlap ranking above the year node.
+     */
+    public function test_strand_candidates(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->seed_programme('vet-med', 'Bachelor of Veterinary Medicine', [2025 => 'Year 1']);
+        $year = $DB->get_record('local_curricmap_node', ['role' => 'year']);
+        $DB->insert_record('local_curricmap_node', (object) [
+            'programmeid' => $year->programmeid,
+            'uuid' => 'vet-med_2025_26_' . sprintf('%08x', crc32('pvp')),
+            'parentid' => $year->id,
+            'role' => 'strand',
+            'title' => 'Principles of Veterinary Practice (PVP) Strand',
+            'source' => 'sofia',
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        $this->assertCount(1, matcher::candidates());
+        $candidates = matcher::candidates(true);
+        $this->assertCount(2, $candidates);
+
+        $result = matcher::match(
+            $this->course('UBVETMD_202526', 'PVP Strand 2025-26', 'Principles of Veterinary Practice (PVP) Strand'),
+            $candidates,
+            matcher::default_rules()
+        );
+        $this->assertSame(matcher::STATUS_SUGGEST, $result->status);
+        $this->assertSame('strand', $result->suggestions[0]->candidate->node->role);
+    }
+
+    /**
      * Broken setting JSON falls back to defaults; partial JSON overlays them.
      */
     public function test_rules_setting_fallback(): void {
