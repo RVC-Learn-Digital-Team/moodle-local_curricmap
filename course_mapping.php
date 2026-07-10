@@ -407,7 +407,9 @@ foreach ($rows as $row) {
         continue;
     }
 
-    // Course mode: proposal dropdown — proposals on top, all programme years below.
+    // Course mode: the proposal dropdown holds only the engine's proposals —
+    // a short native select for fast confirmation. Mapping a course to an
+    // arbitrary node is Sofia mode's job (pick the node, search, tick).
     $bounduuids = array_map(fn($binding) => $binding->nodeuuid, $currentmatches[$courseid] ?? []);
     $proposals = [];
     $selected = '';
@@ -424,19 +426,7 @@ foreach ($rows as $row) {
         }
         $proposals[$suggestion->candidate->node->uuid] = $label;
     }
-    $allyears = [];
-    foreach ($candidates as $candidate) {
-        if ($searchyear !== null && $candidate->yearstart !== $searchyear) {
-            continue;
-        }
-        if (!isset($proposals[$candidate->node->uuid])) {
-            $allyears[$candidate->node->uuid] = local_curricmap_course_mapping_label($candidate);
-        }
-    }
     $options = ['' => get_string('coursemapping_noaction', 'local_curricmap')] + $proposals;
-    if ($allyears) {
-        $options[] = [get_string('coursemapping_allyears', 'local_curricmap') => $allyears];
-    }
 
     $proposalcell = local_curricmap_course_mapping_badge($result->status);
     if ($result->note) {

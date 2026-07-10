@@ -16,12 +16,13 @@
 /**
  * Toolbar and row behaviour for the central course matching page.
  *
- * The whole toolbar is one GET form: changing any select or checkbox
- * resubmits it, so the current search text and every other filter always
- * travel together. Picking a proposed match in a row ticks that row's
- * apply checkbox (and clearing it unticks). The proposal dropdowns and the
- * Sofia programme-year select are enhanced with the core autocomplete, so
- * long node lists are searchable by typing (substring match anywhere).
+ * The toolbar is one GET form: changing a filter control resubmits it, so
+ * the current search text and every other filter always travel together.
+ * The Sofia programme-year select is the one long list on the page, so it
+ * alone gets the core autocomplete (substring search) — and it only
+ * resubmits on a real selection, never on clearing, so the server can't
+ * "helpfully" default it back to the first node. Picking a proposed match
+ * in a row ticks that row's apply checkbox (and clearing it unticks).
  *
  * @module     local_curricmap/course_mapping
  * @copyright  2026 The Royal Veterinary College
@@ -33,9 +34,18 @@ import * as Autocomplete from 'core/form-autocomplete';
 export const init = (placeholder) => {
     const form = document.querySelector('.local-curricmap-filterform');
     if (form) {
-        form.querySelectorAll('select, input[type=checkbox]').forEach((control) => {
+        form.querySelectorAll('select:not([data-curricmap-node]), input[type=checkbox]').forEach((control) => {
             control.addEventListener('change', () => form.submit());
         });
+        const nodeselect = form.querySelector('select[data-curricmap-node]');
+        if (nodeselect) {
+            nodeselect.addEventListener('change', () => {
+                if (nodeselect.value !== '') {
+                    form.submit();
+                }
+            });
+            Autocomplete.enhance('#' + nodeselect.id, false, '', placeholder);
+        }
     }
     document.querySelectorAll('select[data-curricmap-row]').forEach((select) => {
         select.addEventListener('change', () => {
@@ -44,8 +54,5 @@ export const init = (placeholder) => {
                 tick.checked = select.value !== '';
             }
         });
-    });
-    document.querySelectorAll('select[data-curricmap-row], select[data-curricmap-node]').forEach((select) => {
-        Autocomplete.enhance('#' + select.id, false, '', placeholder);
     });
 };

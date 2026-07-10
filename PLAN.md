@@ -269,8 +269,14 @@ evolve without releases; UI language says "match" — "anchor" stays internal.
       word overlap ranks it above the year node — amends the year-level-only
       rule); delete icon per entry in Current matches (central course-level
       rows only) so the page covers create/read/delete — "update" = remove +
-      re-match; proposal dropdowns and the Sofia node select enhanced with
-      core form-autocomplete (type-to-search, substring match anywhere)
+      re-match
+- [x] Round-3 simplification (v0.11.3) after widget regressions: rich search
+      lives in exactly ONE place — the Sofia node select (core autocomplete,
+      substring anywhere; resubmits only on a real selection, never on clear).
+      Course-mode row dropdowns are short native selects holding only the
+      engine's proposals (form-autocomplete cannot see optgroup children, which
+      had blanked them); manual map-course-to-anything is Sofia mode's job.
+      Auto-submit only on controls whose change requires new data
 - [ ] `section_module_mapping.php`: per-course drill-down matching sections and
       modules against nodes at or below the course's anchored programme-year
       (section names are the signal; skip-list housekeeping sections)

@@ -27,7 +27,6 @@ defined('MOODLE_INTERNAL') || die();
 $string['cachedef_queries'] = 'Curriculum query results';
 $string['cachedef_token'] = 'Sofia API OAuth2 bearer token';
 $string['coursemapping'] = 'Central course matching';
-$string['coursemapping_allyears'] = 'All programme years';
 $string['coursemapping_alreadymatched'] = 'Already matched';
 $string['coursemapping_applied'] = '{$a} central match(es) created.';
 $string['coursemapping_apply'] = 'Create matches for selected';
