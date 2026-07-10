@@ -15,17 +15,34 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version details for local_curricmap.
+ * Moodle callbacks for local_curricmap.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component = 'local_curricmap';
-$plugin->version   = 2026071350;
-$plugin->requires  = 2024100700; // Moodle 4.5 LTS.
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.10.0';
+/**
+ * Add the per-course "Curriculum mappings" page to the course navigation.
+ *
+ * @param navigation_node $parentnode The course navigation node.
+ * @param stdClass $course The course record.
+ * @param context_course $context The course context.
+ */
+function local_curricmap_extend_navigation_course(
+    navigation_node $parentnode,
+    stdClass $course,
+    context_course $context
+): void {
+    if (!has_capability('local/curricmap:viewstaffmeta', $context)) {
+        return;
+    }
+    $url = new moodle_url('/local/curricmap/mappings.php', ['courseid' => $course->id]);
+    $parentnode->add(
+        get_string('mappings', 'local_curricmap'),
+        $url,
+        navigation_node::TYPE_SETTING,
+        null,
+        'curricmapmappings'
+    );
+}

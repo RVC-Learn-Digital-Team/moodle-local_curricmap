@@ -217,9 +217,13 @@ defaults once this lands.
       users) bundling the curriculum read functions and core_course_get_categories/
       _get_courses/_get_contents so one manual token drives address building; ws
       round-trip + permission tests (v0.9.0)
-- [ ] Per-course "Curriculum mappings" view (grouped by location, scope badges, central
-      rows locked)
-- [ ] Contract tests from the `moodle_mapping_api_test` Python repo against the ws API
+- [x] Per-course "Curriculum mappings" page (mappings.php via course navigation):
+      grouped by location (inherited categories read-only, whole course, sections,
+      activities), anchors summary, scope badges with central rows locked for course
+      staff, orphaned section, add-mapping form (location + programme year + all-roles
+      node autocomplete incl. outcomes + relation, central scope admins only) (v0.10.0)
+- [x] Contract tests from the `moodle_mapping_api_test` Python repo against the ws API
+      (13 tests green against the live playground; contracttest-tagged rows self-clean)
 - [ ] Named node groups (phase 2, optional)
 - [ ] Investigate binding survival across course backup/restore/duplication
 
