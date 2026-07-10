@@ -18,11 +18,13 @@
  *
  * The toolbar is one GET form: changing a filter control resubmits it, so
  * the current search text and every other filter always travel together.
- * The Sofia programme-year select is the one long list on the page, so it
- * alone gets the core autocomplete (substring search) — and it only
- * resubmits on a real selection, never on clearing, so the server can't
- * "helpfully" default it back to the first node. Picking a proposed match
- * in a row ticks that row's apply checkbox (and clearing it unticks).
+ * Long flat node lists get the core autocomplete (substring search
+ * anywhere): the Sofia programme-year select always, and the row proposal
+ * dropdowns once a slug-year filter has filled them (flat lists only —
+ * the autocomplete cannot see optgroup children). The node select only
+ * resubmits on a real selection, never on clearing, so the server cannot
+ * default it back to the first node. Picking a proposed match in a row
+ * ticks that row's apply checkbox (and clearing it unticks).
  *
  * @module     local_curricmap/course_mapping
  * @copyright  2026 The Royal Veterinary College
@@ -54,5 +56,8 @@ export const init = (placeholder) => {
                 tick.checked = select.value !== '';
             }
         });
+        if (select.dataset.curricmapSearch) {
+            Autocomplete.enhance('#' + select.id, false, '', placeholder);
+        }
     });
 };

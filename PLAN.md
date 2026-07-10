@@ -277,6 +277,14 @@ evolve without releases; UI language says "match" — "anchor" stays internal.
       engine's proposals (form-autocomplete cannot see optgroup children, which
       had blanked them); manual map-course-to-anything is Sofia mode's job.
       Auto-submit only on controls whose change requires new data
+- [x] Slug-year selector (v0.11.4, Brian's design): one programme×year filter
+      in the toolbar, both modes, blank = everything. Narrows what nodes are
+      OFFERED (never what the engine proposes): Sofia node select options, and
+      course-mode row dropdowns — blank keeps rows proposals-only (native),
+      a selected slug-year adds that year's nodes (+strands when toggled) as a
+      flat searchable list (autocomplete works on flat lists). Also: unmatched
+      band redefined = no proposal AND no current match (already-matched
+      courses stop counting as unmatched)
 - [ ] `section_module_mapping.php`: per-course drill-down matching sections and
       modules against nodes at or below the course's anchored programme-year
       (section names are the signal; skip-list housekeeping sections)

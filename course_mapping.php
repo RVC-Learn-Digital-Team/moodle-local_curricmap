@@ -46,6 +46,7 @@ if (!in_array($show, ['matched', 'unmatched', 'existing', 'all'])) {
     $show = 'matched';
 }
 $strands = optional_param('strands', 0, PARAM_BOOL);
+$slugyear = optional_param('slugyear', '', PARAM_RAW_TRIMMED);
 $nodeparam = optional_param('node', '', PARAM_RAW_TRIMMED);
 $page = optional_param('page', 0, PARAM_INT);
 $perpage = 50;
@@ -53,19 +54,39 @@ $perpage = 50;
 $candidates = matcher::candidates($strands);
 $rules = matcher::rules();
 
-// The Sofia-first target node, defaulting to the first synced programme year.
-$target = null;
+// The slug-year filter narrows which nodes are OFFERED (row dropdowns, the
+// Sofia node select) — never which proposals the engine makes. Blank = all.
+$slugyears = [];
 foreach ($candidates as $candidate) {
+    $key = $candidate->programme->slug . ':' . $candidate->yearstart;
+    $yearlabel = $candidate->yearstart . '-' . sprintf('%02d', ($candidate->yearstart + 1) % 100);
+    $slugyears[$key] = $candidate->programme->slug . ' ' . $yearlabel;
+}
+ksort($slugyears);
+if ($slugyear !== '' && !isset($slugyears[$slugyear])) {
+    $slugyear = '';
+}
+$offered = $candidates;
+if ($slugyear !== '') {
+    $offered = array_values(array_filter(
+        $candidates,
+        fn($c) => $c->programme->slug . ':' . $c->yearstart === $slugyear
+    ));
+}
+
+// The Sofia-first target node, defaulting to the first offered programme year.
+$target = null;
+foreach ($offered as $candidate) {
     if ($candidate->node->uuid === $nodeparam) {
         $target = $candidate;
     }
 }
-if ($mode === 'sofia' && $target === null && $candidates) {
-    $target = $candidates[0];
+if ($mode === 'sofia' && $target === null && $offered) {
+    $target = $offered[0];
 }
 
 $urlparams = ['mode' => $mode, 'search' => $search, 'requireid' => $requireid, 'show' => $show,
-    'strands' => $strands, 'page' => $page];
+    'strands' => $strands, 'slugyear' => $slugyear, 'page' => $page];
 if ($target) {
     $urlparams['node'] = $target->node->uuid;
 }
@@ -194,18 +215,22 @@ foreach ($courses as $course) {
 
 $showcounts = ['matched' => 0, 'unmatched' => 0, 'existing' => 0, 'all' => 0];
 if ($mode === 'course') {
-    // Count every band first so the Show options can carry their row counts.
+    // Band per row: matched = the engine proposed something; unmatched = no
+    // proposal AND no current match (courses already matched are not
+    // "unmatched", whatever their proposal status); skipped only shows in all.
     $band = function ($row) use ($currentmatches) {
         if ($row->result->status === matcher::STATUS_SKIPPED) {
             return 'skipped';
         }
-        return in_array($row->result->status, [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST])
-            ? 'matched' : 'unmatched';
+        if (in_array($row->result->status, [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST])) {
+            return 'matched';
+        }
+        return empty($currentmatches[(int) $row->course->id]) ? 'unmatched' : 'existingonly';
     };
     foreach ($rows as $row) {
         $showcounts['all']++;
         $rowband = $band($row);
-        if ($rowband !== 'skipped') {
+        if (isset($showcounts[$rowband])) {
             $showcounts[$rowband]++;
         }
         if (!empty($currentmatches[(int) $row->course->id])) {
@@ -302,6 +327,10 @@ echo html_writer::empty_tag('input', $strandsattrs);
 echo get_string('coursemapping_includestrands', 'local_curricmap');
 echo html_writer::end_tag('label');
 
+$slugyearoptions = ['' => get_string('coursemapping_slugyear_all', 'local_curricmap')] + $slugyears;
+$slugyearattrs = ['aria-label' => get_string('coursemapping_slugyear', 'local_curricmap')];
+echo html_writer::select($slugyearoptions, 'slugyear', $slugyear, false, $slugyearattrs);
+
 if ($mode === 'course') {
     $showoptions = [
         'matched' => get_string('coursemapping_show_matched', 'local_curricmap', $showcounts['matched']),
@@ -322,7 +351,7 @@ echo html_writer::select($modeoptions, 'mode', $mode, false, $modeattrs);
 
 if ($mode === 'sofia' && $target) {
     $nodeoptions = [];
-    foreach ($candidates as $candidate) {
+    foreach ($offered as $candidate) {
         $nodeoptions[$candidate->node->uuid] = local_curricmap_course_mapping_label($candidate);
     }
     $nodeattrs = ['aria-label' => get_string('coursemapping_sofianode', 'local_curricmap'),
@@ -407,9 +436,9 @@ foreach ($rows as $row) {
         continue;
     }
 
-    // Course mode: the proposal dropdown holds only the engine's proposals —
-    // a short native select for fast confirmation. Mapping a course to an
-    // arbitrary node is Sofia mode's job (pick the node, search, tick).
+    // Course mode: the dropdown holds the engine's proposals, plus — when a
+    // slug-year is selected — that year's offered nodes as a flat, searchable
+    // list. Blank slug-year keeps rows to proposals only (confirm-fast view).
     $bounduuids = array_map(fn($binding) => $binding->nodeuuid, $currentmatches[$courseid] ?? []);
     $proposals = [];
     $selected = '';
@@ -427,12 +456,23 @@ foreach ($rows as $row) {
         $proposals[$suggestion->candidate->node->uuid] = $label;
     }
     $options = ['' => get_string('coursemapping_noaction', 'local_curricmap')] + $proposals;
+    if ($slugyear !== '') {
+        foreach ($offered as $candidate) {
+            if (!isset($options[$candidate->node->uuid])) {
+                $options[$candidate->node->uuid] = local_curricmap_course_mapping_label($candidate);
+            }
+        }
+    }
 
     $proposalcell = local_curricmap_course_mapping_badge($result->status);
     if ($result->note) {
         $proposalcell .= ' ' . html_writer::tag('span', s($result->note), ['class' => 'small text-muted']);
     }
     $bindattrs = ['data-curricmap-row' => $courseid, 'id' => 'curricmap-bind-' . $courseid];
+    if ($slugyear !== '') {
+        // The slug-year nodes make this a long flat list — enhance it searchable.
+        $bindattrs['data-curricmap-search'] = 1;
+    }
     $proposalcell .= html_writer::div(html_writer::select($options, "bind[$courseid]", $selected, false, $bindattrs));
 
     $tick = html_writer::empty_tag('input', $tickattrs);
