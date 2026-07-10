@@ -407,7 +407,11 @@ foreach ($rows as $row) {
     foreach ($currentmatches[$courseid] ?? [] as $binding) {
         $removeurl = new moodle_url($pageurl, ['unbind' => $binding->id, 'sesskey' => sesskey()]);
         $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
-        $currententries[] = s($binding->title ?? $binding->nodeuuid) . ' ' . html_writer::link($removeurl, $removeicon);
+        // The academic year lives in the composed node key (slug_YYYY_YY_uuid);
+        // without it two years of the same strand are indistinguishable.
+        $year = preg_match('/_(20\d\d)_\d\d_/', $binding->nodeuuid, $matches) ? ' - ' . $matches[1] : '';
+        $label = s(($binding->title ?? $binding->nodeuuid) . $year);
+        $currententries[] = $label . ' ' . html_writer::link($removeurl, $removeicon);
     }
     $currentcell = implode(html_writer::empty_tag('br'), $currententries);
 
