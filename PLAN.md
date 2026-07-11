@@ -285,13 +285,57 @@ evolve without releases; UI language says "match" — "anchor" stays internal.
       flat searchable list (autocomplete works on flat lists). Also: unmatched
       band redefined = no proposal AND no current match (already-matched
       courses stop counting as unmatched)
-- [ ] `section_module_mapping.php`: per-course drill-down matching sections and
-      modules against nodes at or below the course's anchored programme-year
-      (section names are the signal; skip-list housekeeping sections)
+Click-test findings 2026-07-11 (course mode; auto-match itself confirmed "right
+first choice every time"):
+
+- [ ] Show filter: "matched proposals" mixes already-applied and pending rows —
+      add a band for pending-only (proposal exists AND no current match, the
+      "unmapped matched"), so the working view empties as matches are applied
+- [ ] Slug-year filter leaks: with vet-nur 2023-24 selected, vet-med 2026
+      proposals (courses and strands) still appear in row dropdowns — decide:
+      when a slug-year is chosen, hide off-filter proposals from the dropdown
+      too (proposals were deliberately unfiltered in v0.11.4; Brian finds the
+      leak confusing, so filter them — the proposal still shows via the badge/
+      status, just not as a pickable option outside the filter)
+- [ ] Plugin admin pages need cross-navigation: each page in the Curriculum map
+      category (General settings / Course matching settings / Status / Central
+      course matching) gets links or a dropdown near the top pointing to the
+      others
+
+Deeper-mapping decisions (Brian, 2026-07-11 — full write-up in the umbrella
+overview §5): binding grains restricted to course / section / activity module /
+**book chapters only** (no other sub-module types); sections are usually weeks
+(week N = lectures + support material), so section bindings mostly mean "week N
+teaches these units/outcomes"; **mapping precedes material** (week bindings
+exist before the lecture is recorded — the platform's engine appends recordings
+as node resources later via the ws API, a separate external build); rollover is
+its own automation, not part of the matching pages.
+
+- [x] `section_module_mapping.php` (v0.12.0) — design agreed via corpus + live
+      mirror evidence (no `unit` nodes exist: units are session grouplabels,
+      so targets are strand/session/outcomes/assessment): entry from
+      course_mapping rows ("Map course content") or on-page course finder;
+      requires a central match (pool = subtree of the matched nodes); toolbar
+      = section filter + module-type filter + course switch; sections propose
+      strands via synonym-aware title containment (`matcher::match_title`,
+      `synonyms`/`mincontainment`/`skipsections` in the rules JSON — CVRS→
+      Cardiovascular & Respiratory etc., 100% hint rate on the GAB corpus
+      names vs live mirror); modules propose sessions AND outcomes with
+      cascading pools (section→strand narrows its modules; module→session
+      adds that session's outcomes; unnarrowed pools >300 offer hints only);
+      housekeeping badge; same tick/apply/remove grammar; all bindings
+      central-scope anchors. Weeks never name-match (no week concept in
+      Sofia — weeks move; recordings arrive via the platform engine).
+      Grouplabel/unit filtering deferred (agreed)
+- [ ] Grouplabel ("unit") filtering on the content mapping page — narrow a
+      matched strand's session/outcome pool by unit label (deferred from
+      v0.12.0 by agreement)
+- [ ] `rollover_mapping.php`: input course → output course; recreate bindings
+      with the year segment swapped in composed keys, verified against the new
+      year's mirror; dry-run report first, needs-attention list for
+      restructured nodes
 - [ ] Picker locking: course staff node pickers offer only the anchored
       programme-year(s) once anchors exist (strict-lock decision)
-- [ ] Rollover assist: year-swap successor proposal from existing anchors
-      (dry-run report first)
 - [ ] Verify on playground after push: upgrade to 2026071360, matching page
       proposes correct anchors for the seeded test estate, confirm round-trip,
       CI green on both DBs

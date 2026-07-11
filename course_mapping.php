@@ -398,6 +398,11 @@ foreach ($rows as $row) {
         get_string('mappings', 'local_curricmap'),
         ['class' => 'small']
     );
+    $coursecell .= ' · ' . html_writer::link(
+        new moodle_url('/local/curricmap/section_module_mapping.php', ['courseid' => $courseid]),
+        get_string('contentmapping_link', 'local_curricmap'),
+        ['class' => 'small']
+    );
 
     $yearcell = $result->year
         ? $result->year . '-' . sprintf('%02d', ($result->year + 1) % 100)

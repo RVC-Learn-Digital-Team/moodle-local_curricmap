@@ -63,6 +63,13 @@ if ($hassiteconfig) {
         'local/curricmap:managebindings'
     ));
 
+    $ADMIN->add('local_curricmap_category', new admin_externalpage(
+        'local_curricmap_contentmapping',
+        get_string('contentmapping', 'local_curricmap'),
+        new moodle_url('/local/curricmap/section_module_mapping.php'),
+        'local/curricmap:managebindings'
+    ));
+
     // Sofia API connection, with a link to the status page for connection testing.
     $statuslink = html_writer::link(
         new moodle_url('/local/curricmap/status.php'),
@@ -127,6 +134,24 @@ if ($hassiteconfig) {
         get_string('settings:discoveryfloor_desc', 'local_curricmap'),
         2020,
         PARAM_INT
+    ));
+
+    // Which activity module types are offered on the content mapping page.
+    $modchoices = [];
+    foreach (core_plugin_manager::instance()->get_installed_plugins('mod') as $modname => $unused) {
+        $modchoices[$modname] = get_string('pluginname', 'mod_' . $modname);
+    }
+    asort($modchoices);
+    $moddefaults = array_intersect(
+        ['book', 'forum', 'lesson', 'lti', 'page', 'quiz', 'resource', 'url'],
+        array_keys($modchoices)
+    );
+    $settings->add(new admin_setting_configmultiselect(
+        'local_curricmap/mappablemodtypes',
+        get_string('settings:mappablemodtypes', 'local_curricmap'),
+        get_string('settings:mappablemodtypes_desc', 'local_curricmap'),
+        $moddefaults,
+        $modchoices
     ));
 
     // Diagnostics.

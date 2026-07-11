@@ -248,6 +248,36 @@ final class matcher_test extends \advanced_testcase {
     }
 
     /**
+     * Title containment with synonyms bridges local teaching vocabulary to
+     * Sofia strand titles (the GAB corpus evidence: CVRS, Locomotion, IAA).
+     */
+    public function test_match_title_synonyms(): void {
+        $rules = matcher::default_rules();
+        $candidates = [];
+        foreach (['Cardiovascular & Respiratory', 'Locomotor', 'Endocrine',
+            'Integrated and Applied Anatomy', 'Urinary'] as $index => $title) {
+            $candidates[] = (object) [
+                'node' => (object) ['uuid' => 'vet-med_2026_27_' . $index, 'title' => $title, 'role' => 'strand'],
+                'tokens' => matcher::tokens($title),
+            ];
+        }
+
+        $cvrs = matcher::match_title('PAFF: Unit 8 (CVRS)', $candidates, $rules);
+        $this->assertSame('Cardiovascular & Respiratory', $cvrs[0]->candidate->node->title);
+
+        $loco = matcher::match_title('Animal Form and Function: Unit 1 (Locomotion)', $candidates, $rules);
+        $this->assertSame('Locomotor', $loco[0]->candidate->node->title);
+
+        $iaa = matcher::match_title('Integrated & Applied Anatomy (IAA)', $candidates, $rules);
+        $this->assertSame('Integrated and Applied Anatomy', $iaa[0]->candidate->node->title);
+
+        // Housekeeping names are recognised and never hinted.
+        $this->assertTrue(matcher::is_housekeeping('To be archived', $rules));
+        $this->assertTrue(matcher::is_housekeeping('Weekly Guidance', $rules));
+        $this->assertFalse(matcher::is_housekeeping('Endocrine', $rules));
+    }
+
+    /**
      * Broken setting JSON falls back to defaults; partial JSON overlays them.
      */
     public function test_rules_setting_fallback(): void {

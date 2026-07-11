@@ -58,6 +58,9 @@ class matcher {
     /** @var int Suggestions kept per course. */
     const MAX_SUGGESTIONS = 5;
 
+    /** @var string[] Words carrying no signal in title containment scoring. */
+    const STOPWORDS = ['and', 'of', 'the', 'a', 'an', 'in', 'to', 'for'];
+
     /**
      * The shipped rule set (the matchingrules setting default).
      *
@@ -67,6 +70,22 @@ class matcher {
         return [
             'skip' => ['^Temp_', 'shell', '^catalyst_'],
             'minscore' => 2,
+            'mincontainment' => 0.6,
+            'skipsections' => [
+                'archive', 'to be classified', 'drop.?in', 'course overview', 'announcement',
+                'weekly guidance', 'attendance', 'module books?', 'pebblepad', 'learn kit',
+            ],
+            'synonyms' => [
+                'cvrs' => 'cardiovascular respiratory',
+                'digestion' => 'alimentary',
+                'digestive' => 'alimentary',
+                'ebm' => 'evidence based medicine',
+                'iaa' => 'integrated applied anatomy',
+                'locomotion' => 'locomotor',
+                'nervous' => 'neurology',
+                'noss' => 'neurology ophthalmology special senses',
+                'pvp' => 'principles veterinary practice',
+            ],
             'aliases' => [
                 ['pattern' => 'BVETMEDGA|GRADUATE ACCELERATED|\\bGAB\\b', 'slug' => 'vet-med',
                     'node' => 'accelerated|\\bGAB\\b'],
@@ -204,6 +223,90 @@ class matcher {
             }
         }
         return [null, null];
+    }
+
+    /**
+     * Match target candidates below the given nodes (the course's central
+     * matches), for section/module mapping: subtree nodes filtered by role,
+     * deduplicated across overlapping roots.
+     *
+     * @param string[] $rootuuids Composed keys of the course's matched nodes.
+     * @param string[]|null $roles Roles to include, null for all.
+     * @return \stdClass[] Each with node and tokens.
+     */
+    public static function content_candidates(array $rootuuids, ?array $roles = null): array {
+        $out = [];
+        $seen = [];
+        foreach ($rootuuids as $rootuuid) {
+            foreach (curriculum::subtree($rootuuid) as $node) {
+                if (isset($seen[$node->uuid])) {
+                    continue;
+                }
+                if ($roles !== null && !in_array($node->role, $roles)) {
+                    continue;
+                }
+                $seen[$node->uuid] = true;
+                $out[] = (object) [
+                    'node' => $node,
+                    'tokens' => self::tokens((string) $node->title),
+                ];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Score candidates against a Moodle section/module name by containment:
+     * the fraction of the candidate title's words (stopwords dropped) present
+     * in the name, after expanding the name's words through the synonym table
+     * — local teaching vocabulary differs from Sofia's titles ("Locomotion"
+     * vs "Locomotor", "CVRS" vs "Cardiovascular & Respiratory").
+     *
+     * @param string $name Section or module name.
+     * @param \stdClass[] $candidates From content_candidates().
+     * @param array|null $rules Rule set, null for the active setting.
+     * @return \stdClass[] score-descending {candidate, score}, best few only.
+     */
+    public static function match_title(string $name, array $candidates, ?array $rules = null): array {
+        $rules = $rules ?? self::rules();
+        $nametokens = self::tokens($name);
+        foreach ($nametokens as $token) {
+            if (isset($rules['synonyms'][$token])) {
+                $nametokens = array_merge($nametokens, explode(' ', $rules['synonyms'][$token]));
+            }
+        }
+        $nametokens = array_unique($nametokens);
+
+        $scored = [];
+        foreach ($candidates as $candidate) {
+            $words = array_diff($candidate->tokens, self::STOPWORDS);
+            if (!$words) {
+                continue;
+            }
+            $score = count(array_intersect($words, $nametokens)) / count($words);
+            if ($score >= (float) $rules['mincontainment']) {
+                $scored[] = (object) ['candidate' => $candidate, 'score' => $score];
+            }
+        }
+        usort($scored, fn($a, $b) => $b->score <=> $a->score);
+        return array_slice($scored, 0, self::MAX_SUGGESTIONS);
+    }
+
+    /**
+     * Is this section name housekeeping (never hinted)?
+     *
+     * @param string $name Section name.
+     * @param array|null $rules Rule set, null for the active setting.
+     * @return bool
+     */
+    public static function is_housekeeping(string $name, ?array $rules = null): bool {
+        $rules = $rules ?? self::rules();
+        foreach ($rules['skipsections'] as $pattern) {
+            if (preg_match('/' . $pattern . '/i', $name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
