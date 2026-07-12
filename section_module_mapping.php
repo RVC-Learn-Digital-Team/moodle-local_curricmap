@@ -251,9 +251,16 @@ function local_curricmap_content_current(array $rowbindings, moodle_url $pageurl
  * @param string $name The Moodle name being matched.
  * @param array $hints Scored hints from matcher::match_title().
  * @param array $pool Full candidate pool offered below the hints.
+ * @param bool $narrowed Whether the pool is already below a match (changes the capped-pool message).
  * @return string HTML.
  */
-function local_curricmap_content_proposal(string $key, string $name, array $hints, array $pool): string {
+function local_curricmap_content_proposal(
+    string $key,
+    string $name,
+    array $hints,
+    array $pool,
+    bool $narrowed = false
+): string {
     $options = ['' => get_string('coursemapping_noaction', 'local_curricmap')];
     foreach ($hints as $hint) {
         $percent = (int) round($hint->score * 100);
@@ -279,7 +286,8 @@ function local_curricmap_content_proposal(string $key, string $name, array $hint
         $cell = html_writer::select($options, "bind[$key]", '', false, $attrs);
     }
     if ($capped) {
-        $narrownote = get_string('contentmapping_narrowfirst', 'local_curricmap');
+        $notekey = $narrowed ? 'contentmapping_toolarge' : 'contentmapping_narrowfirst';
+        $narrownote = get_string($notekey, 'local_curricmap');
         $cell .= ' ' . html_writer::tag('span', $narrownote, ['class' => 'small text-muted']);
     } else if ($cell === '') {
         $poolnote = get_string('contentmapping_nopool', 'local_curricmap');
@@ -308,11 +316,19 @@ foreach ($sections as $section) {
     }
     $sectionname = get_section_name($course, $section);
     $showmodules = ($sectionid === $sid) || $modtype !== '';
+    $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[$sid] ?? []);
 
     // Section row (hidden when filtering by module type only).
     if ($modtype === '' || $sectionid === $sid) {
+        // Once the section is matched, its dropdown deepens: the matched
+        // node's own sessions and outcomes become secondary targets, so
+        // specific objectives and events can be added to the same section.
+        $sectionpool = $strandpool;
+        if ($sectionroots) {
+            $sectionpool = array_merge($strandpool, matcher::content_candidates($sectionroots, $outcomeroles));
+        }
         $housekeeping = matcher::is_housekeeping($sectionname, $rules);
-        $hints = $housekeeping ? [] : matcher::match_title($sectionname, $strandpool, $rules);
+        $hints = $housekeeping ? [] : matcher::match_title($sectionname, $sectionpool, $rules);
         $key = 's' . $sid;
         $tickattrs = ['type' => 'checkbox', 'name' => "apply[$key]", 'value' => 1,
             'data-action' => 'toggle', 'data-toggle' => 'slave', 'data-togglegroup' => 'contentmatch',
@@ -322,11 +338,22 @@ foreach ($sections as $section) {
             $hklabel = get_string('contentmapping_housekeeping', 'local_curricmap');
             $namecell .= ' ' . html_writer::tag('span', $hklabel, ['class' => 'badge badge-secondary']);
         }
+        $mappablecount = 0;
+        foreach ($modinfo->sections[(int) $section->section] ?? [] as $cmid) {
+            if (in_array($modinfo->cms[$cmid]->modname, $mappabletypes)) {
+                $mappablecount++;
+            }
+        }
+        if ($sectionid !== $sid && $mappablecount) {
+            $drillurl = new moodle_url($pageurl, ['sectionid' => $sid]);
+            $drilllabel = get_string('contentmapping_drill', 'local_curricmap', $mappablecount);
+            $namecell .= html_writer::div(html_writer::link($drillurl, $drilllabel, ['class' => 'small']));
+        }
         $table->data[] = [
             html_writer::empty_tag('input', $tickattrs),
             $namecell,
             local_curricmap_content_current($bysection[$sid] ?? [], $pageurl),
-            local_curricmap_content_proposal($key, $sectionname, $hints, $strandpool),
+            local_curricmap_content_proposal($key, $sectionname, $hints, $sectionpool, !empty($sectionroots)),
         ];
     }
 
@@ -336,7 +363,6 @@ foreach ($sections as $section) {
 
     // Module rows: pool cascades — a section matched to a node narrows its
     // modules to that subtree; a module matched to a session adds outcomes.
-    $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[$sid] ?? []);
     $modulepool = matcher::content_candidates($sectionroots ?: $rootuuids, $outcomeroles);
     foreach ($modinfo->sections[(int) $section->section] ?? [] as $cmid) {
         $cm = $modinfo->cms[$cmid];
@@ -353,6 +379,7 @@ foreach ($sections as $section) {
             $rowpool = array_merge($rowpool, matcher::content_candidates($ownroots, ['sessionoutcome']));
         }
         $hints = matcher::match_title($cmname, $rowpool, $rules);
+        $rownarrowed = !empty($sectionroots) || !empty($ownroots);
         $key = 'c' . (int) $cm->id;
         $tickattrs = ['type' => 'checkbox', 'name' => "apply[$key]", 'value' => 1,
             'data-action' => 'toggle', 'data-toggle' => 'slave', 'data-togglegroup' => 'contentmatch',
@@ -363,7 +390,7 @@ foreach ($sections as $section) {
             html_writer::empty_tag('input', $tickattrs),
             $namecell,
             local_curricmap_content_current($bycm[(int) $cm->id] ?? [], $pageurl),
-            local_curricmap_content_proposal($key, $cmname, $hints, $rowpool),
+            local_curricmap_content_proposal($key, $cmname, $hints, $rowpool, $rownarrowed),
         ];
     }
 }
