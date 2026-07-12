@@ -73,15 +73,14 @@ if ($unbind && $courseid && confirm_sesskey()) {
     redirect($pageurl);
 }
 
-// Apply: keys are s<sectionid> or c<cmid>.
+// Apply: keys are s<sectionid> or c<cmid>; each row's select is multiple, so
+// its picks arrive as bind<key>[] and every pick becomes one binding.
 $apply = optional_param_array('apply', [], PARAM_INT);
-$selections = optional_param_array('bind', [], PARAM_RAW_TRIMMED);
 if ($apply && $courseid && confirm_sesskey()) {
     require_capability('local/curricmap:managebindings', context_system::instance());
     $created = 0;
     foreach ($apply as $key => $ticked) {
-        $nodeuuid = $selections[$key] ?? '';
-        if (!$ticked || $nodeuuid === '') {
+        if (!$ticked) {
             continue;
         }
         $address = ['courseid' => $courseid];
@@ -92,8 +91,13 @@ if ($apply && $courseid && confirm_sesskey()) {
         } else {
             continue;
         }
-        bindings::bind($address, $nodeuuid, bindings::RELATION_ANCHOR, 'central');
-        $created++;
+        foreach (optional_param_array('bind' . $key, [], PARAM_RAW_TRIMMED) as $nodeuuid) {
+            if ($nodeuuid === '') {
+                continue;
+            }
+            bindings::bind($address, $nodeuuid, bindings::RELATION_ANCHOR, 'central');
+            $created++;
+        }
     }
     redirect($pageurl, get_string('coursemapping_applied', 'local_curricmap', $created));
 }
@@ -261,7 +265,7 @@ function local_curricmap_content_proposal(
     array $pool,
     bool $narrowed = false
 ): string {
-    $options = ['' => get_string('coursemapping_noaction', 'local_curricmap')];
+    $options = [];
     foreach ($hints as $hint) {
         $percent = (int) round($hint->score * 100);
         $hintlabel = local_curricmap_content_label($hint->candidate->node);
@@ -278,12 +282,12 @@ function local_curricmap_content_proposal(
         }
     }
     $cell = '';
-    if (count($options) > 1) {
-        $attrs = ['data-curricmap-row' => $key, 'id' => 'curricmap-bind-' . $key];
-        if (count($options) > 20) {
-            $attrs['data-curricmap-search'] = 1;
-        }
-        $cell = html_writer::select($options, "bind[$key]", '', false, $attrs);
+    if ($options) {
+        // Multi-select: pick several targets in one pass, each becomes a
+        // binding on apply; an empty selection is "no action".
+        $attrs = ['data-curricmap-row' => $key, 'id' => 'curricmap-bind-' . $key,
+            'multiple' => 'multiple', 'data-curricmap-search' => 1];
+        $cell = html_writer::select($options, "bind{$key}[]", '', false, $attrs);
     }
     if ($capped) {
         $notekey = $narrowed ? 'contentmapping_toolarge' : 'contentmapping_narrowfirst';
