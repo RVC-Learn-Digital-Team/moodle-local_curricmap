@@ -35,6 +35,7 @@ require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
 use local_curricmap\api\bindings;
+use local_curricmap\api\resources;
 use local_curricmap\local\matcher;
 
 admin_externalpage_setup('local_curricmap_contentmapping');
@@ -192,6 +193,20 @@ foreach ($DB->get_records_sql($bindingsql, $bindingparams) as $binding) {
     }
 }
 
+// Resource counts for every bound node on the page, one query.
+$rescounts = [];
+$bounduuids = [];
+foreach (array_merge($bysection, $bycm) as $rowbindings) {
+    foreach ($rowbindings as $binding) {
+        $bounduuids[$binding->nodeuuid] = true;
+    }
+}
+if ($bounduuids) {
+    foreach (resources::for_nodes(array_keys($bounduuids)) as $resource) {
+        $rescounts[$resource->nodeuuid] = ($rescounts[$resource->nodeuuid] ?? 0) + 1;
+    }
+}
+
 $modinfo = get_fast_modinfo($course);
 $sections = $modinfo->get_section_info_all();
 
@@ -229,13 +244,15 @@ echo html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string(
 echo html_writer::end_tag('form');
 
 /**
- * The current matches cell: node titles with year and a remove icon.
+ * The current matches cell: node titles with year, a remove icon, and a
+ * study-resources cross-link showing how much material sits on the node.
  *
  * @param array $rowbindings Binding records for this row.
  * @param moodle_url $pageurl Page url for the remove action.
+ * @param array $rescounts Resource counts keyed by node uuid.
  * @return string HTML.
  */
-function local_curricmap_content_current(array $rowbindings, moodle_url $pageurl): string {
+function local_curricmap_content_current(array $rowbindings, moodle_url $pageurl, array $rescounts): string {
     global $OUTPUT;
     $entries = [];
     foreach ($rowbindings as $binding) {
@@ -243,7 +260,11 @@ function local_curricmap_content_current(array $rowbindings, moodle_url $pageurl
         $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
         $year = preg_match('/_(20\d\d)_\d\d_/', $binding->nodeuuid, $matches) ? ' - ' . $matches[1] : '';
         $label = s(($binding->title ?? $binding->nodeuuid) . $year);
-        $entries[] = $label . ' ' . html_writer::link($removeurl, $removeicon);
+        $resurl = new moodle_url('/local/curricmap/study_resources.php', ['node' => $binding->nodeuuid]);
+        $count = $rescounts[$binding->nodeuuid] ?? 0;
+        $reslabel = get_string('studyresources_count', 'local_curricmap', $count);
+        $entries[] = $label . ' ' . html_writer::link($removeurl, $removeicon)
+            . ' ' . html_writer::link($resurl, $reslabel, ['class' => 'small']);
     }
     return implode(html_writer::empty_tag('br'), $entries);
 }
@@ -356,7 +377,7 @@ foreach ($sections as $section) {
         $table->data[] = [
             html_writer::empty_tag('input', $tickattrs),
             $namecell,
-            local_curricmap_content_current($bysection[$sid] ?? [], $pageurl),
+            local_curricmap_content_current($bysection[$sid] ?? [], $pageurl, $rescounts),
             local_curricmap_content_proposal($key, $sectionname, $hints, $sectionpool, !empty($sectionroots)),
         ];
     }
@@ -393,7 +414,7 @@ foreach ($sections as $section) {
         $table->data[] = [
             html_writer::empty_tag('input', $tickattrs),
             $namecell,
-            local_curricmap_content_current($bycm[(int) $cm->id] ?? [], $pageurl),
+            local_curricmap_content_current($bycm[(int) $cm->id] ?? [], $pageurl, $rescounts),
             local_curricmap_content_proposal($key, $cmname, $hints, $rowpool, $rownarrowed),
         ];
     }

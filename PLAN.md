@@ -327,6 +327,15 @@ its own automation, not part of the matching pages.
       central-scope anchors. Weeks never name-match (no week concept in
       Sofia — weeks move; recordings arrive via the platform engine).
       Grouplabel/unit filtering deferred (agreed)
+- [x] `study_resources.php` (v0.13.0) — the resources half of the two-edge
+      model gets its UI: node-first (slug-year → searchable node picker),
+      subtree roll-up table (a strand shows its sessions'/outcomes' material
+      with the owning node named), add form (vocabulary dropdown + custom-type
+      override + label + URL; unscoped only — course scoping stays API-only
+      per agreement), delete, idempotent on node+url. Cross-links from content
+      mapping: every bound node in Current matches shows "resources (N)"
+      linking into the page pre-filtered (slug-year derived from the composed
+      key). Bulk population remains the platform engine's job via ws
 - [ ] Grouplabel ("unit") filtering on the content mapping page — narrow a
       matched strand's session/outcome pool by unit label (deferred from
       v0.12.0 by agreement)
