@@ -168,7 +168,10 @@ if (!$rootuuids) {
 }
 
 $anchorlabels = implode(', ', array_map(fn($node) => local_curricmap_content_label($node), $anchors));
-echo html_writer::tag('p', s($course->fullname) . ' — ' . s($anchorlabels), ['class' => 'lead']);
+$resourcesurl = new moodle_url('/local/curricmap/study_resources.php', ['courseid' => $courseid]);
+$resourceslink = html_writer::link($resourcesurl, get_string('studyresources_forcourse', 'local_curricmap'));
+$headline = s($course->fullname) . ' — ' . s($anchorlabels) . ' · ' . $resourceslink;
+echo html_writer::tag('p', $headline, ['class' => 'lead']);
 echo html_writer::tag('p', get_string('contentmapping_help', 'local_curricmap'), ['class' => 'text-muted']);
 
 // Candidate pools below the course's matches.

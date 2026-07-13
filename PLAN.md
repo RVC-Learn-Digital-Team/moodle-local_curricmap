@@ -336,6 +336,14 @@ its own automation, not part of the matching pages.
       mapping: every bound node in Current matches shows "resources (N)"
       linking into the page pre-filtered (slug-year derived from the composed
       key). Bulk population remains the platform engine's job via ws
+- [x] Study resources course-first rework (v0.13.1, Brian's workflow ruling:
+      "select a course, find all mappings, then for each add one or more
+      resource links"): courseid mode lists EVERY central mapping of the
+      course (whole course / sections / activities, in binding order) with
+      each node's resources inline and a per-row add form — the whole
+      attach-resources pass is one page, no node hunting. Node-first view
+      kept for curriculum-wide curation (subtree roll-up); course finder in
+      both views; content mapping header links to the course view
 - [ ] Grouplabel ("unit") filtering on the content mapping page — narrow a
       matched strand's session/outcome pool by unit label (deferred from
       v0.12.0 by agreement)
