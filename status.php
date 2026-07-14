@@ -144,6 +144,30 @@ if ($ratecount !== false && $ratelimit !== false && $rateseen) {
     ];
     echo html_writer::tag('p', get_string('status_lastrate', 'local_curricmap', $a));
 }
+// When Sofia refused us, it said how long to wait - show that verbatim.
+$timeformat = get_string('strftimedatetimeshort', 'langconfig');
+$budgetback = (int) get_config('local_curricmap', 'ratebudgetback');
+if ($budgetback > time()) {
+    $backat = userdate($budgetback, $timeformat) . ' (' . format_time($budgetback - time()) . ')';
+    echo $OUTPUT->notification(get_string('status_ratelimited', 'local_curricmap', $backat), 'warning', false);
+}
+// Rolling-window forecast from our own request log: each request occupies its
+// slot for an hour, so spend in the trailing hour predicts when slots free up.
+$windowtimes = $DB->get_fieldset_select(
+    'local_curricmap_apilog',
+    'timecreated',
+    'timecreated > :since',
+    ['since' => time() - HOURSECS]
+);
+if ($windowtimes) {
+    sort($windowtimes);
+    $a = (object) [
+        'spent' => count($windowtimes),
+        'next' => userdate($windowtimes[0] + HOURSECS, $timeformat),
+        'full' => userdate(end($windowtimes) + HOURSECS, $timeformat),
+    ];
+    echo html_writer::tag('p', get_string('status_rateforecast', 'local_curricmap', $a));
+}
 $testurl = new moodle_url($pageurl, ['action' => 'test', 'sesskey' => sesskey()]);
 echo $OUTPUT->single_button($testurl, get_string('status_testconnection', 'local_curricmap'), 'post');
 

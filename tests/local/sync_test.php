@@ -410,8 +410,8 @@ final class sync_test extends \advanced_testcase {
         set_config('programmeslugs', 'vet-med', 'local_curricmap');
         $programmes = sync::ensure_programmes();
         $this->assertCount(2, $programmes);
-        $this->assertSame(0, (int) $DB->get_field('local_curricmap_programme', 'enabled',
-            ['slug' => 'vet-nur', 'versionlabel' => '2025']));
+        $conditions = ['slug' => 'vet-nur', 'versionlabel' => '2025'];
+        $this->assertSame(0, (int) $DB->get_field('local_curricmap_programme', 'enabled', $conditions));
 
         // Tiering: with 2024 added, 2025+2026 are hourly, 2024 daily.
         $old = (object) ['slug' => 'vet-med', 'versionlabel' => '2024', 'enabled' => 1, 'lastsyncstatus' => 'never'];

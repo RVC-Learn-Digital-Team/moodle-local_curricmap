@@ -88,8 +88,8 @@ class client {
         // rate-limit 403 from the server. Sofia's window is an hour; headers
         // older than the seed window are ignored as probably stale.
         $seen = (int) ($config->lastrateseen ?? 0);
-        if ($seen && (time() - $seen) < self::RATE_SEED_WINDOW
-                && isset($config->lastratecount, $config->lastratelimit)) {
+        $seedable = $seen && (time() - $seen) < self::RATE_SEED_WINDOW;
+        if ($seedable && isset($config->lastratecount, $config->lastratelimit)) {
             $this->remaining = max(0, (int) $config->lastratelimit - (int) $config->lastratecount);
         }
     }
@@ -213,6 +213,11 @@ class client {
         $body = (string) $response->getBody();
 
         if ($code !== 200) {
+            if ($code === 403 && preg_match('/wait\s+(\d+)/i', $body, $waitmatch)) {
+                // Sofia's rate-limit refusal is the only place it states when
+                // budget returns - persist it for the status page.
+                set_config('ratebudgetback', time() + (int) $waitmatch[1], 'local_curricmap');
+            }
             apilog::record('GET', $logurl, $code, $elapsed, $count, $limit, false, substr($body, 0, apilog::PREVIEW_LENGTH));
             throw new client_exception('errorhttp', (object) ['url' => $logurl, 'code' => $code], $code, substr($body, 0, 500));
         }

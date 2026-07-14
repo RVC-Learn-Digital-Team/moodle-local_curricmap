@@ -254,8 +254,9 @@ final class matcher_test extends \advanced_testcase {
     public function test_match_title_synonyms(): void {
         $rules = matcher::default_rules();
         $candidates = [];
-        foreach (['Cardiovascular & Respiratory', 'Locomotor', 'Endocrine',
-            'Integrated and Applied Anatomy', 'Urinary'] as $index => $title) {
+        $strandtitles = ['Cardiovascular & Respiratory', 'Locomotor', 'Endocrine',
+            'Integrated and Applied Anatomy', 'Urinary'];
+        foreach ($strandtitles as $index => $title) {
             $candidates[] = (object) [
                 'node' => (object) ['uuid' => 'vet-med_2026_27_' . $index, 'title' => $title, 'role' => 'strand'],
                 'tokens' => matcher::tokens($title),

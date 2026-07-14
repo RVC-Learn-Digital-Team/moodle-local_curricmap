@@ -158,7 +158,7 @@ function xmldb_local_curricmap_upgrade($oldversion) {
             $dbman->add_field($table, $field);
         }
 
-        // find_key_name() cannot be trusted to report the key's underlying
+        // The find_key_name() result cannot be trusted to report the key's underlying
         // index, so check for the index itself before re-adding the key.
         $courseidix = new xmldb_index('courseid', XMLDB_INDEX_NOTUNIQUE, ['courseid']);
         if (!$dbman->index_exists($table, $courseidix)) {

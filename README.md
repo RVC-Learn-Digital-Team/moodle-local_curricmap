@@ -77,6 +77,11 @@ the Sofia API fixtures it is derived from:
 - `SOFIA_GRAPH_DOCUMENTATION.md` — the Sofia graph structures and observed API behaviour,
   including change-control findings
 
+The matching engine's tunable rules (the `matchingrules` admin setting) are documented in
+this repo: **`MATCHING_RULES.md`** — structure reference for every key, how the matcher
+applies them, and a runbook (with the CSV inputs required) for refreshing the patterns
+from data when course names or structures change.
+
 ## Repository conventions
 
 - Frankenstyle component: `local_curricmap`; repo named `moodle-local_curricmap` per RVC
