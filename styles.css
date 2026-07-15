@@ -1,0 +1,57 @@
+/* Content mapping page layout (section_module_mapping.php + fragments).
+   Rows are flex with a fixed right-hand proposal column so the autocomplete
+   pickers line up and never push content around as other cells grow. */
+
+.local-curricmap-filterform {
+    align-items: flex-end;
+}
+
+.local-curricmap-filterform .curricmap-filter {
+    display: inline-block;
+    vertical-align: top;
+    min-width: 220px;
+    max-width: 300px;
+}
+
+.local-curricmap-filterform .curricmap-filter > label {
+    display: block;
+    font-size: 0.85em;
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.curricmap-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.curricmap-cell-tick {
+    flex: 0 0 24px;
+    padding-top: 4px;
+}
+
+.curricmap-cell-name {
+    flex: 1 1 auto;
+    min-width: 180px;
+}
+
+.curricmap-cell-current {
+    flex: 0 0 26%;
+}
+
+.curricmap-cell-proposal {
+    flex: 0 0 320px;
+    margin-left: auto;
+}
+
+.curricmap-cell-proposal .form-autocomplete-container,
+.curricmap-cell-proposal select {
+    width: 100%;
+    max-width: 320px;
+}
+
+.curricmap-activity-row {
+    border-top: 1px solid #dee2e6;
+    padding: 0.25rem 0;
+}

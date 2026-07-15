@@ -90,6 +90,7 @@ export const init = (placeholder, contextid = 0) => {
                 courseid: button.dataset.curricmapCourse,
                 sectionid: button.dataset.curricmapSection,
                 modtypes: button.dataset.curricmapModtypes || '',
+                nodetypes: button.dataset.curricmapNtypes || '',
                 returnurl: button.dataset.curricmapReturn || '',
             };
             Fragment.loadFragment('local_curricmap', 'activities', contextid, params)

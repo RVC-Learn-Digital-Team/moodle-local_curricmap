@@ -60,6 +60,17 @@ foreach ($typesraw as $type) {
         $modtypesfilter[] = $clean;
     }
 }
+$ntraw = optional_param_array('ntypesel', null, PARAM_TEXT);
+if ($ntraw === null) {
+    $ntraw = explode(',', optional_param('ntypes', '', PARAM_RAW_TRIMMED));
+}
+$nodetypesfilter = [];
+foreach ($ntraw as $ntype) {
+    $clean = trim(clean_param($ntype, PARAM_TEXT));
+    if ($clean !== '') {
+        $nodetypesfilter[] = $clean;
+    }
+}
 
 $urlparams = ['courseid' => $courseid];
 if ($sectionids) {
@@ -67,6 +78,9 @@ if ($sectionids) {
 }
 if ($modtypesfilter) {
     $urlparams['types'] = implode(',', $modtypesfilter);
+}
+if ($nodetypesfilter) {
+    $urlparams['ntypes'] = implode(',', $nodetypesfilter);
 }
 if ($bookcm) {
     $urlparams['bookcm'] = $bookcm;
@@ -199,6 +213,7 @@ if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname 
     $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[(int) $cm->section] ?? []);
     $poolroots = $ownroots ?: ($sectionroots ?: $rootuuids);
     $chapterpool = matcher::content_candidates($poolroots, contentmap::TARGET_ROLES);
+    $chapterpool = contentmap::filter_pool($chapterpool, $nodetypesfilter);
     $narrowed = !empty($ownroots) || !empty($sectionroots);
 
     $chapters = $DB->get_records('book_chapters', ['bookid' => (int) $cm->instance], 'pagenum ASC');
@@ -219,7 +234,7 @@ if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname 
                 'curricmap-cell-current'
             )
             . html_writer::div($chapterproposal, 'curricmap-cell-proposal');
-        echo html_writer::div($cells, 'd-flex align-items-start border-top py-1', ['style' => 'gap: 8px;']);
+        echo html_writer::div($cells, 'curricmap-row curricmap-activity-row');
     }
     echo html_writer::empty_tag('input', ['type' => 'submit',
         'value' => get_string('contentmapping_matchchapters', 'local_curricmap'), 'class' => 'btn btn-primary mt-2']);
@@ -237,19 +252,34 @@ $headline = s($course->fullname) . ' — ' . s($anchorlabels) . ' · ' . $resour
 echo html_writer::tag('p', $headline, ['class' => 'lead']);
 echo html_writer::tag('p', get_string('contentmapping_help', 'local_curricmap'), ['class' => 'text-muted']);
 
-// Toolbar: multi-select section + type filters (chips; applied by Go), course switch.
+// Toolbar: current course + switch, then labelled multi-select filters
+// (sections, module types, strand/node types), applied by Go.
 $sections = $modinfo->get_section_info_all();
+$fullpool = matcher::content_candidates($rootuuids, contentmap::TARGET_ROLES);
 $formurl = new moodle_url('/local/curricmap/section_module_mapping.php');
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => $formurl->out_omit_querystring(),
-    'class' => 'local-curricmap-filterform d-flex flex-wrap align-items-center mb-3', 'style' => 'gap: 8px;']);
+    'class' => 'local-curricmap-filterform d-flex flex-wrap mb-3', 'style' => 'gap: 12px;']);
 echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'courseid', 'value' => $courseid]);
+
+echo html_writer::start_div('curricmap-filter');
+$courselabel = get_string('contentmapping_currentcourse', 'local_curricmap', s($course->shortname));
+echo html_writer::tag('label', $courselabel, ['for' => 'curricmap-switch']);
+echo html_writer::empty_tag('input', ['type' => 'text', 'name' => 'coursesearch', 'value' => '',
+    'id' => 'curricmap-switch', 'class' => 'form-control',
+    'placeholder' => get_string('contentmapping_coursesearch', 'local_curricmap')]);
+echo html_writer::end_div();
+
 $sectionoptions = [];
 foreach ($sections as $section) {
     $sectionoptions[(int) $section->id] = get_section_name($course, $section);
 }
-$sectionattrs = ['aria-label' => get_string('contentmapping_section', 'local_curricmap'),
-    'multiple' => 'multiple', 'id' => 'curricmap-filter-sections'];
+echo html_writer::start_div('curricmap-filter');
+$sectionslabel = get_string('contentmapping_filtersections', 'local_curricmap');
+echo html_writer::tag('label', $sectionslabel, ['for' => 'curricmap-filter-sections']);
+$sectionattrs = ['multiple' => 'multiple', 'id' => 'curricmap-filter-sections'];
 echo html_writer::select($sectionoptions, 'sectionsel[]', $sectionids, false, $sectionattrs);
+echo html_writer::end_div();
+
 $presenttypes = [];
 foreach ($modinfo->cms as $cm) {
     if (in_array($cm->modname, $mappabletypes)) {
@@ -257,14 +287,32 @@ foreach ($modinfo->cms as $cm) {
     }
 }
 ksort($presenttypes);
-$typeattrs = ['aria-label' => get_string('contentmapping_modtype', 'local_curricmap'),
-    'multiple' => 'multiple', 'id' => 'curricmap-filter-types'];
+echo html_writer::start_div('curricmap-filter');
+$typeslabel = get_string('contentmapping_filtertypes', 'local_curricmap');
+echo html_writer::tag('label', $typeslabel, ['for' => 'curricmap-filter-types']);
+$typeattrs = ['multiple' => 'multiple', 'id' => 'curricmap-filter-types'];
 echo html_writer::select($presenttypes, 'typesel[]', $modtypesfilter, false, $typeattrs);
-echo html_writer::empty_tag('input', ['type' => 'text', 'name' => 'coursesearch', 'value' => '',
-    'placeholder' => get_string('contentmapping_coursesearch', 'local_curricmap'), 'class' => 'form-control',
-    'style' => 'width: 200px;']);
-echo html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('go'),
-    'class' => 'btn btn-secondary']);
+echo html_writer::end_div();
+
+// Strand/node type options: the roles and session subtypes actually present
+// below this course's matches.
+$ntoptions = [];
+foreach ($fullpool as $candidate) {
+    $ntoptions[$candidate->node->role] = $candidate->node->role;
+    if (!empty($candidate->node->subtype)) {
+        $ntoptions[$candidate->node->subtype] = $candidate->node->subtype;
+    }
+}
+ksort($ntoptions);
+echo html_writer::start_div('curricmap-filter');
+$ntypeslabel = get_string('contentmapping_filternodetypes', 'local_curricmap');
+echo html_writer::tag('label', $ntypeslabel, ['for' => 'curricmap-filter-ntypes']);
+$ntattrs = ['multiple' => 'multiple', 'id' => 'curricmap-filter-ntypes'];
+echo html_writer::select($ntoptions, 'ntypesel[]', $nodetypesfilter, false, $ntattrs);
+echo html_writer::end_div();
+
+echo html_writer::div(html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('go'),
+    'class' => 'btn btn-secondary']), 'curricmap-filter align-self-end');
 echo html_writer::end_tag('form');
 
 // Section proposal pool: shown only when there is a real choice to make.
@@ -308,7 +356,8 @@ foreach ($sections as $section) {
     // Once matched, the section's own picker deepens to its node's subtree.
     $sectionpool = $strandpool;
     if ($sectionroots) {
-        $sectionpool = array_merge($strandpool, matcher::content_candidates($sectionroots, contentmap::TARGET_ROLES));
+        $deepened = matcher::content_candidates($sectionroots, contentmap::TARGET_ROLES);
+        $sectionpool = array_merge($strandpool, contentmap::filter_pool($deepened, $nodetypesfilter));
     }
     $housekeeping = matcher::is_housekeeping($sectionname, $rules);
     $hints = $housekeeping ? [] : matcher::match_title($sectionname, $sectionpool, $rules);
@@ -330,6 +379,7 @@ foreach ($sections as $section) {
             'data-curricmap-course' => $courseid,
             'data-curricmap-section' => $sid,
             'data-curricmap-modtypes' => implode(',', $modtypesfilter),
+            'data-curricmap-ntypes' => implode(',', $nodetypesfilter),
             'data-curricmap-return' => $returnurl];
         $expandlabel = get_string('contentmapping_mapactivities', 'local_curricmap');
         $namecell .= html_writer::div(
@@ -350,7 +400,7 @@ foreach ($sections as $section) {
         . html_writer::div($sectioncurrent, 'curricmap-cell-current')
         . html_writer::div($proposalcell, 'curricmap-cell-proposal');
     echo html_writer::start_div('curricmap-section-box border rounded p-2 mb-2');
-    echo html_writer::div($cells, 'd-flex align-items-start', ['style' => 'gap: 8px;']);
+    echo html_writer::div($cells, 'curricmap-row');
     echo html_writer::div('', 'curricmap-activities mt-1', ['id' => 'curricmap-sec-' . $sid]);
     echo html_writer::end_div();
 

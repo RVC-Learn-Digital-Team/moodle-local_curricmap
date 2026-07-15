@@ -137,6 +137,28 @@ class contentmap {
     }
 
     /**
+     * Filter a candidate pool by node type: a value matches a node's role
+     * ("session", "strandoutcome"...) or, for sessions, its Sofia subtype
+     * ("Lecture", "Directed Learning", "Digital Learning Interaction"...).
+     * An empty filter keeps everything.
+     *
+     * @param array $pool Candidates from content_candidates().
+     * @param string[] $nodetypes Selected values, lowercased comparison.
+     * @return array
+     */
+    public static function filter_pool(array $pool, array $nodetypes): array {
+        if (!$nodetypes) {
+            return $pool;
+        }
+        $wanted = array_map('strtolower', $nodetypes);
+        return array_values(array_filter($pool, function ($candidate) use ($wanted) {
+            $role = strtolower((string) $candidate->node->role);
+            $subtype = strtolower((string) ($candidate->node->subtype ?? ''));
+            return in_array($role, $wanted) || ($subtype !== '' && in_array($subtype, $wanted));
+        }));
+    }
+
+    /**
      * The current-matches cell: node titles with year, remove icon, and a
      * study-resources cross-link.
      *
@@ -229,7 +251,8 @@ class contentmap {
         \stdClass $course,
         int $sectionid,
         array $modtypes,
-        string $returnurl
+        string $returnurl,
+        array $nodetypes = []
     ): string {
         $mappabletypes = array_filter(explode(',', (string) get_config('local_curricmap', 'mappablemodtypes')));
         $rules = matcher::rules();
@@ -251,6 +274,7 @@ class contentmap {
         $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[$sectionid] ?? []);
         $narrowed = !empty($sectionroots);
         $modulepool = matcher::content_candidates($sectionroots ?: $rootuuids, self::TARGET_ROLES);
+        $modulepool = self::filter_pool($modulepool, $nodetypes);
 
         // Resource counts for the bound nodes shown in these rows.
         $bounduuids = [];
@@ -279,7 +303,8 @@ class contentmap {
             $rowpool = $modulepool;
             $ownroots = array_map(fn($b) => $b->nodeuuid, $bycm[(int) $cm->id] ?? []);
             if ($ownroots) {
-                $rowpool = array_merge($rowpool, matcher::content_candidates($ownroots, ['sessionoutcome']));
+                $extra = matcher::content_candidates($ownroots, ['sessionoutcome']);
+                $rowpool = array_merge($rowpool, self::filter_pool($extra, $nodetypes));
             }
             $hints = matcher::match_title($cmname, $rowpool, $rules);
             $key = 'c' . (int) $cm->id;
@@ -298,8 +323,7 @@ class contentmap {
                 . \html_writer::div($namebits, 'curricmap-cell-name')
                 . \html_writer::div($currentcell, 'curricmap-cell-current')
                 . \html_writer::div($proposalcell, 'curricmap-cell-proposal');
-            $rowclass = 'curricmap-activity-row d-flex align-items-start border-top py-1';
-            $out .= \html_writer::div($cells, $rowclass, ['style' => 'gap: 8px;']);
+            $out .= \html_writer::div($cells, 'curricmap-row curricmap-activity-row');
         }
         if ($out === '') {
             $norows = get_string('contentmapping_norows', 'local_curricmap');
