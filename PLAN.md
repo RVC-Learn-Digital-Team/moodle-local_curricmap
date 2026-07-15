@@ -369,13 +369,19 @@ its own automation, not part of the matching pages.
       withdrawing/locking external bind/unbind for v1 (writes stay in the
       admin UI). The resource ws becomes the CRUD surface for external
       inserts (Panopto engine, library) — may slip past v1
-- [ ] Teacher-resources groundwork (pre-tiny, agreed 2026-07-14): new
-      course-context capability (e.g. `managecourseresources`, default
-      editingteacher); resources API + ws functions honour course-scoped CRUD
-      under it (course-scoped rows editable in-course, global rows read-only
-      to teachers; global CRUD stays central); course-scoped resources
+- [ ] Teacher-resources groundwork (pre-tiny, agreed 2026-07-14, expanded
+      2026-07-15 — full design in umbrella TINY_FILTER_CURRICMAP_DESIGN.md §7):
+      new course-context capability (`managecourseresources`, default
+      editingteacher); `visible` flag on the resource table (hide/show, only
+      ever used on course-scoped rows — global resources always display and
+      cannot be hidden, per-course suppression rejected); resources API + ws
+      functions honour course-scoped CRUD under the capability (course-scoped
+      rows editable in-course, global rows read-only to teachers; global CRUD
+      stays central); ajax enablement (`'ajax' => true` + course-context
+      capability checks on the read functions tiny's dialog needs —
+      anchors/resolve, subtree search, resource list — plus the course-scoped
+      resource CRUD; currently token-service only); course-scoped resources
       section on mappings.php. tiny_curricmap + filter_curricmap consume this
-      (design in umbrella overview "Still to create")
 - [ ] `rollover_mapping.php`: input course → output course; recreate bindings
       with the year segment swapped in composed keys, verified against the new
       year's mirror; dry-run report first, needs-attention list for
