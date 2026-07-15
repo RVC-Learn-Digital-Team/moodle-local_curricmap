@@ -23,13 +23,14 @@ use core_external\external_value;
 use local_curricmap\api\resources;
 
 /**
- * Delete a node resource by id.
+ * Show or hide a node resource (hidden rows are kept but never rendered to
+ * viewers).
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class delete_resource extends external_api {
+class set_resource_visibility extends external_api {
     /**
      * Parameter definition.
      *
@@ -38,6 +39,7 @@ class delete_resource extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'id' => new external_value(PARAM_INT, 'Resource id'),
+            'visible' => new external_value(PARAM_BOOL, 'Whether the resource renders to viewers'),
         ]);
     }
 
@@ -45,11 +47,12 @@ class delete_resource extends external_api {
      * Execute.
      *
      * @param int $id Resource id.
+     * @param bool $visible Whether the resource renders to viewers.
      * @return array
      */
-    public static function execute(int $id): array {
+    public static function execute(int $id, bool $visible): array {
         global $DB;
-        $params = self::validate_parameters(self::execute_parameters(), ['id' => $id]);
+        $params = self::validate_parameters(self::execute_parameters(), ['id' => $id, 'visible' => $visible]);
 
         $resource = $DB->get_record('local_curricmap_resource', ['id' => $params['id']], '*', MUST_EXIST);
         if ($resource->courseid !== null) {
@@ -73,8 +76,8 @@ class delete_resource extends external_api {
             );
         }
 
-        resources::delete((int) $resource->id);
-        return ['deleted' => true];
+        resources::set_visible((int) $resource->id, $params['visible']);
+        return ['visible' => $params['visible']];
     }
 
     /**
@@ -84,7 +87,7 @@ class delete_resource extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'deleted' => new external_value(PARAM_BOOL, 'Whether the resource was deleted'),
+            'visible' => new external_value(PARAM_BOOL, 'The stored visibility after the update'),
         ]);
     }
 }

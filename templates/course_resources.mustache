@@ -1,0 +1,109 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_curricmap/course_resources
+
+    Course-scoped study resources: the editing-teacher curation surface.
+
+    Context variables required for this template:
+    * formurl - the page url the add form posts to
+    * sesskey - session key
+    * hasresources - whether any course-scoped resources exist
+    * resources - array of {id, nodetitle, type, label, url, visible, toggleurl, deleteurl}
+    * hasnodeoptions - whether any bound nodes are available to attach to
+    * nodeoptions - array of {value, name}
+    * typeoptions - array of {value, name}
+
+    Example context (json):
+    {
+        "formurl": "#",
+        "sesskey": "abc",
+        "hasresources": true,
+        "resources": [{
+            "id": 1, "nodetitle": "LO58", "type": "panopto",
+            "label": "Panopto: locomotor lecture week 4", "url": "https://example.com",
+            "visible": true, "toggleurl": "#", "deleteurl": "#"
+        }],
+        "hasnodeoptions": true,
+        "nodeoptions": [{"value": "vet-med_2026_27_abc", "name": "LO58 — vet-med 2026/27"}],
+        "typeoptions": [{"value": "panopto", "name": "panopto"}]
+    }
+}}
+<h4 class="mt-4">{{#str}} courseresources, local_curricmap {{/str}}</h4>
+<p class="text-muted">{{#str}} courseresources_intro, local_curricmap {{/str}}</p>
+{{^hasresources}}
+<p>{{#str}} courseresources_none, local_curricmap {{/str}}</p>
+{{/hasresources}}
+{{#hasresources}}
+<table class="table table-sm generaltable">
+    <thead>
+        <tr>
+            <th>{{#str}} courseresources_name, local_curricmap {{/str}}</th>
+            <th>{{#str}} studyresources_type, local_curricmap {{/str}}</th>
+            <th>{{#str}} studyresources_onnode, local_curricmap {{/str}}</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {{#resources}}
+        <tr{{^visible}} class="text-muted"{{/visible}}>
+            <td><a href="{{url}}" target="_blank" rel="noopener">{{label}}</a>
+                {{^visible}}<span class="badge badge-secondary bg-secondary">{{#str}} courseresources_hiddenbadge, local_curricmap {{/str}}</span>{{/visible}}</td>
+            <td>{{type}}</td>
+            <td>{{nodetitle}}</td>
+            <td>
+                <a href="{{toggleurl}}">{{#visible}}{{#str}} hide {{/str}}{{/visible}}{{^visible}}{{#str}} show {{/str}}{{/visible}}</a>
+                &nbsp;<a href="{{deleteurl}}" class="text-danger">{{#str}} delete {{/str}}</a>
+            </td>
+        </tr>
+        {{/resources}}
+    </tbody>
+</table>
+{{/hasresources}}
+{{^hasnodeoptions}}
+<p class="text-muted">{{#str}} courseresources_nonodes, local_curricmap {{/str}}</p>
+{{/hasnodeoptions}}
+{{#hasnodeoptions}}
+<form method="post" action="{{formurl}}" class="form-inline flex-wrap curricmap-courseres-form">
+    <input type="hidden" name="sesskey" value="{{sesskey}}">
+    <input type="hidden" name="addres" value="1">
+    <label class="mr-2 me-2">{{#str}} studyresources_node, local_curricmap {{/str}}
+        <select name="resnode" class="custom-select form-select ml-1 ms-1" required>
+            {{#nodeoptions}}
+            <option value="{{value}}">{{name}}</option>
+            {{/nodeoptions}}
+        </select>
+    </label>
+    <label class="mr-2 me-2">{{#str}} studyresources_type, local_curricmap {{/str}}
+        <select name="restype" class="custom-select form-select ml-1 ms-1">
+            {{#typeoptions}}
+            <option value="{{value}}">{{name}}</option>
+            {{/typeoptions}}
+        </select>
+    </label>
+    <label class="mr-2 me-2">{{#str}} studyresources_typeother, local_curricmap {{/str}}
+        <input type="text" name="restypeother" class="form-control ml-1 ms-1" size="10">
+    </label>
+    <label class="mr-2 me-2">{{#str}} courseresources_name, local_curricmap {{/str}}
+        <input type="text" name="reslabel" class="form-control ml-1 ms-1" size="30" required>
+    </label>
+    <label class="mr-2 me-2">{{#str}} studyresources_url, local_curricmap {{/str}}
+        <input type="url" name="resurl" class="form-control ml-1 ms-1" size="30" required>
+    </label>
+    <button type="submit" class="btn btn-secondary">{{#str}} studyresources_addbutton, local_curricmap {{/str}}</button>
+</form>
+{{/hasnodeoptions}}

@@ -57,6 +57,24 @@ class curriculum {
     }
 
     /**
+     * A node's parent, or null for top-level (or missing) nodes.
+     *
+     * Soft-deleted parents are returned flagged, matching node().
+     *
+     * @param string $uuid Node uuid.
+     * @return \stdClass|null
+     */
+    public static function parent(string $uuid): ?\stdClass {
+        global $DB;
+        $node = self::node($uuid);
+        if (!$node || empty($node->parentid)) {
+            return null;
+        }
+        $record = $DB->get_record('local_curricmap_node', ['id' => $node->parentid]);
+        return $record ?: null;
+    }
+
+    /**
      * Year nodes of a programme.
      *
      * @param int $programmeid Programme id.

@@ -369,19 +369,24 @@ its own automation, not part of the matching pages.
       withdrawing/locking external bind/unbind for v1 (writes stay in the
       admin UI). The resource ws becomes the CRUD surface for external
       inserts (Panopto engine, library) — may slip past v1
-- [ ] Teacher-resources groundwork (pre-tiny, agreed 2026-07-14, expanded
-      2026-07-15 — full design in umbrella TINY_FILTER_CURRICMAP_DESIGN.md §7):
-      new course-context capability (`managecourseresources`, default
-      editingteacher); `visible` flag on the resource table (hide/show, only
-      ever used on course-scoped rows — global resources always display and
-      cannot be hidden, per-course suppression rejected); resources API + ws
-      functions honour course-scoped CRUD under the capability (course-scoped
-      rows editable in-course, global rows read-only to teachers; global CRUD
-      stays central); ajax enablement (`'ajax' => true` + course-context
-      capability checks on the read functions tiny's dialog needs —
-      anchors/resolve, subtree search, resource list — plus the course-scoped
-      resource CRUD; currently token-service only); course-scoped resources
-      section on mappings.php. tiny_curricmap + filter_curricmap consume this
+- [x] Teacher-resources groundwork (v0.15.0/2026071400 — design in umbrella
+      TINY_FILTER_CURRICMAP_DESIGN.md §7): new course-context capability
+      `local/curricmap:managecourseresources` (default editingteacher);
+      `visible` flag on the resource table + upgrade step (hide/show via
+      resources::set_visible; viewer reads exclude hidden by default, admin
+      surfaces pass includehidden — global resources always display and
+      cannot be hidden); resources::can_manage() splits course-scoped CRUD
+      (managecourseresources OR managebindings in course) from institutional
+      (managebindings at system) and gates add/delete/set-visibility ws; NEW
+      ws local_curricmap_set_resource_visibility (service updated);
+      curriculum::parent() for the filter's up-one-level link; course study
+      resources section on mappings.php (list + hide/show + confirmed delete
+      + add form offering the course's bound nodes; name AND url required).
+      All ws were already ajax=>true. Verified: phpcs clean + rolled-back
+      /tmp harness against the live mirror; new PHPUnit tests
+      (test_resource_visibility, test_resources_can_manage) run in CI after
+      push. NOTE: list_resources ws now returns hidden rows too, with a new
+      `visible` field — check the pytest contract suite for strict asserts
 - [ ] `rollover_mapping.php`: input course → output course; recreate bindings
       with the year segment swapped in composed keys, verified against the new
       year's mirror; dry-run report first, needs-attention list for

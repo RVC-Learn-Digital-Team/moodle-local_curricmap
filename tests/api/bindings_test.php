@@ -332,4 +332,65 @@ final class bindings_test extends \advanced_testcase {
         resources::delete($mine);
         $this->assertCount(2, resources::for_node($loco, $l->course));
     }
+
+    /**
+     * Hidden resources are kept but excluded from viewer reads unless a
+     * management surface asks for them.
+     */
+    public function test_resource_visibility(): void {
+        $this->sync_fixture('a', 'aaaa1111');
+        $l = $this->make_ladder();
+        $loco = $this->key(self::LOCO_UUID);
+
+        $mine = resources::add($loco, 'link', 'Course notes', 'https://example.com/notes', $l->course);
+        resources::add($loco, 'panopto', 'Gait analysis lecture', 'https://rvc.cloud.panopto.eu/v/1');
+
+        resources::set_visible($mine, false);
+
+        // Viewer reads skip the hidden row on every read path.
+        $labels = array_map(fn($r) => $r->label, resources::for_node($loco, $l->course));
+        $this->assertSame(['Gait analysis lecture'], array_values($labels));
+        $this->assertCount(1, resources::query($loco, null, $l->course));
+        $map = resources::for_nodes([$loco], $l->course);
+        $this->assertCount(1, $map[$loco]);
+
+        // Management surfaces see it, flagged.
+        $all = resources::for_node($loco, $l->course, true);
+        $this->assertCount(2, $all);
+        $hidden = array_values(array_filter($all, fn($r) => empty($r->visible)));
+        $this->assertCount(1, $hidden);
+        $this->assertSame('Course notes', $hidden[0]->label);
+        $this->assertCount(2, resources::query($loco, null, $l->course, true));
+        $this->assertCount(2, resources::for_nodes([$loco], $l->course, true)[$loco]);
+
+        resources::set_visible($mine, true);
+        $this->assertCount(2, resources::for_node($loco, $l->course));
+    }
+
+    /**
+     * Course-scoped resource management is the editing-teacher surface;
+     * institutional rows stay central.
+     */
+    public function test_resources_can_manage(): void {
+        $this->sync_fixture('a', 'aaaa1111');
+        $l = $this->make_ladder();
+        $generator = $this->getDataGenerator();
+
+        $teacher = $generator->create_user();
+        $generator->enrol_user($teacher->id, $l->course, 'editingteacher');
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $l->course, 'student');
+        $manager = $generator->create_user();
+        $managerrole = $generator->create_role(['archetype' => 'manager']);
+        role_assign($managerrole, $manager->id, \context_system::instance()->id);
+
+        // Course scope: the editing teacher's own material.
+        $this->assertTrue(resources::can_manage($l->course, $teacher->id));
+        $this->assertFalse(resources::can_manage($l->course, $student->id));
+        $this->assertTrue(resources::can_manage($l->course, $manager->id));
+
+        // Institutional scope: central only.
+        $this->assertFalse(resources::can_manage(null, $teacher->id));
+        $this->assertTrue(resources::can_manage(null, $manager->id));
+    }
 }

@@ -28,6 +28,7 @@ require(__DIR__ . '/../../config.php');
 
 use local_curricmap\api\bindings;
 use local_curricmap\api\curriculum;
+use local_curricmap\api\resources;
 use local_curricmap\external\helper;
 
 $courseid = required_param('courseid', PARAM_INT);
@@ -38,6 +39,7 @@ require_capability('local/curricmap:viewstaffmeta', $context);
 
 $canmanage = has_capability('local/curricmap:managebindings', $context);
 $cancentral = has_capability('local/curricmap:managebindings', context_system::instance());
+$canresources = resources::can_manage($courseid);
 
 $pageurl = new moodle_url('/local/curricmap/mappings.php', ['courseid' => $courseid]);
 $PAGE->set_url($pageurl);
@@ -56,6 +58,44 @@ if ($unbind && confirm_sesskey()) {
         redirect($pageurl, get_string('mappings_deleted', 'local_curricmap'));
     }
     throw new required_capability_exception($context, 'local/curricmap:managebindings', 'nopermissions', '');
+}
+
+// Course study resources: show/hide toggle. Course-scoped rows only — the
+// courseid condition guarantees a teacher can never touch a global row.
+$toggleres = optional_param('toggleres', 0, PARAM_INT);
+if ($toggleres && $canresources && confirm_sesskey()) {
+    $row = $DB->get_record(
+        'local_curricmap_resource',
+        ['id' => $toggleres, 'courseid' => $courseid],
+        '*',
+        MUST_EXIST
+    );
+    resources::set_visible((int) $row->id, empty($row->visible));
+    redirect($pageurl, get_string('courseresources_visibilitychanged', 'local_curricmap'));
+}
+
+// Course study resources: delete, confirmed first — the resource disappears
+// everywhere its node renders in this course, not just one spot.
+$delres = optional_param('delres', 0, PARAM_INT);
+if ($delres && $canresources) {
+    $row = $DB->get_record(
+        'local_curricmap_resource',
+        ['id' => $delres, 'courseid' => $courseid],
+        '*',
+        MUST_EXIST
+    );
+    if (optional_param('confirm', 0, PARAM_BOOL) && confirm_sesskey()) {
+        resources::delete((int) $row->id);
+        redirect($pageurl, get_string('courseresources_deleted', 'local_curricmap'));
+    }
+    echo $OUTPUT->header();
+    echo $OUTPUT->confirm(
+        get_string('courseresources_confirmdelete', 'local_curricmap', format_string($row->label)),
+        new moodle_url($pageurl, ['delres' => $row->id, 'confirm' => 1, 'sesskey' => sesskey()]),
+        $pageurl
+    );
+    echo $OUTPUT->footer();
+    exit;
 }
 
 // Add a binding.
@@ -115,6 +155,7 @@ function local_curricmap_mappings_row(stdClass $binding, bool $candelete, moodle
 }
 
 $groups = [];
+$boundnodeuuids = [];
 
 // Inherited category-level rows, outermost first, read-only for course staff.
 $category = core_course_category::get($course->category, IGNORE_MISSING, true);
@@ -127,6 +168,9 @@ if ($category) {
         );
         if (!$rows) {
             continue;
+        }
+        foreach ($rows as $row) {
+            $boundnodeuuids[$row->nodeuuid] = true;
         }
         $categoryname = core_course_category::get($categoryid, IGNORE_MISSING, true);
         $groups[] = [
@@ -148,6 +192,7 @@ $orphanedrows = bindings::orphaned($courseid);
 
 $bucketed = ['course' => [], 'section' => [], 'cm' => []];
 foreach ($active as $binding) {
+    $boundnodeuuids[$binding->nodeuuid] = true;
     if (!empty($binding->cmid)) {
         $bucketed['cm'][(int) $binding->cmid][] = $binding;
     } else if (!empty($binding->sectionid)) {
@@ -193,12 +238,72 @@ foreach ($bucketed['cm'] as $cmid => $rows) {
 // Effective anchors (what the presenter will treat as the course's default scope).
 $anchors = [];
 foreach (bindings::anchors($courseid) as $node) {
+    $boundnodeuuids[$node->uuid] = true;
     $exported = helper::export_nodes([$node])[0];
     $anchors[] = [
         'nodetitle' => $exported['title'],
         'nodecode' => $exported['code'] ?? '',
         'programmelabel' => $exported['programmelabel'] ?? '',
     ];
+}
+
+// Course study resources: the nodes offered by the add form are the ones this
+// course is mapped to — resources attach to what the course teaches.
+$resnodechoices = [];
+foreach (array_keys($boundnodeuuids) as $uuid) {
+    $node = curriculum::node($uuid);
+    if (!$node || $node->deleted) {
+        continue;
+    }
+    $exported = helper::export_nodes([$node])[0];
+    $label = $exported['title'] . ($exported['code'] ? ' (' . $exported['code'] . ')' : '');
+    if ($exported['programmelabel']) {
+        $label .= ' — ' . $exported['programmelabel'];
+    }
+    $resnodechoices[$uuid] = $label;
+}
+
+// Course study resources: add (course scope always — global rows are central).
+if ($canresources && optional_param('addres', 0, PARAM_BOOL) && confirm_sesskey()) {
+    $resnode = required_param('resnode', PARAM_ALPHANUMEXT);
+    $reslabel = trim(optional_param('reslabel', '', PARAM_TEXT));
+    $resurl = trim(optional_param('resurl', '', PARAM_URL));
+    $restypeother = trim(optional_param('restypeother', '', PARAM_TEXT));
+    $restype = $restypeother !== '' ? $restypeother : optional_param('restype', 'link', PARAM_TEXT);
+    if (!isset($resnodechoices[$resnode])) {
+        throw new moodle_exception('errorbindnode', 'local_curricmap', '', s($resnode));
+    }
+    if ($reslabel === '' || $resurl === '') {
+        redirect(
+            $pageurl,
+            get_string('courseresources_namerequired', 'local_curricmap'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
+    }
+    resources::add($resnode, $restype, $reslabel, $resurl, $courseid);
+    redirect($pageurl, get_string('courseresources_added', 'local_curricmap'));
+}
+
+$courseresources = [];
+if ($canresources) {
+    $rows = $DB->get_records('local_curricmap_resource', ['courseid' => $courseid], 'sortorder ASC, id ASC');
+    foreach ($rows as $res) {
+        $resnode = curriculum::node($res->nodeuuid);
+        $courseresources[] = [
+            'id' => (int) $res->id,
+            'nodetitle' => $resnode ? $resnode->title : $res->nodeuuid,
+            'type' => $res->type,
+            'label' => $res->label,
+            'url' => $res->url,
+            'visible' => !empty($res->visible),
+            'toggleurl' => (new moodle_url(
+                $pageurl,
+                ['toggleres' => $res->id, 'sesskey' => sesskey()]
+            ))->out(false),
+            'deleteurl' => (new moodle_url($pageurl, ['delres' => $res->id]))->out(false),
+        ];
+    }
 }
 
 $templatecontext = [
@@ -216,6 +321,24 @@ $templatecontext = [
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('mappings', 'local_curricmap'));
 echo $OUTPUT->render_from_template('local_curricmap/mappings', $templatecontext);
+if ($canresources) {
+    $typeoptions = array_map(
+        fn($type) => ['value' => $type, 'name' => $type],
+        resources::suggested_types()
+    );
+    echo $OUTPUT->render_from_template('local_curricmap/course_resources', [
+        'formurl' => $pageurl->out(false),
+        'sesskey' => sesskey(),
+        'resources' => $courseresources,
+        'hasresources' => !empty($courseresources),
+        'nodeoptions' => array_map(
+            fn($uuid) => ['value' => $uuid, 'name' => $resnodechoices[$uuid]],
+            array_keys($resnodechoices)
+        ),
+        'hasnodeoptions' => !empty($resnodechoices),
+        'typeoptions' => $typeoptions,
+    ]);
+}
 if ($form) {
     echo $OUTPUT->heading(get_string('mappings_addmapping', 'local_curricmap'), 3);
     $form->display();

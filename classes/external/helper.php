@@ -153,6 +153,7 @@ class helper {
                 'label' => $resource->label,
                 'url' => $resource->url,
                 'sortorder' => (int) $resource->sortorder,
+                'visible' => !empty($resource->visible),
             ];
             if (!empty($resource->courseid)) {
                 $row['courseid'] = (int) $resource->courseid;
@@ -176,6 +177,7 @@ class helper {
             'label' => new external_value(PARAM_TEXT, 'Display label'),
             'url' => new external_value(PARAM_URL, 'Resource URL'),
             'sortorder' => new external_value(PARAM_INT, 'Display order within the node'),
+            'visible' => new external_value(PARAM_BOOL, 'Whether the resource renders to viewers'),
         ];
     }
 

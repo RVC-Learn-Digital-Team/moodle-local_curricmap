@@ -76,17 +76,25 @@ $functions = [
     ],
     'local_curricmap_add_resource' => [
         'classname' => 'local_curricmap\external\add_resource',
-        'description' => 'Attach a resource to a curriculum node (idempotent).',
+        'description' => 'Attach a resource to a curriculum node (idempotent). Course-scoped '
+            . 'additions need managecourseresources in the course; institutional ones managebindings centrally.',
         'type' => 'write',
         'ajax' => true,
-        'capabilities' => 'local/curricmap:managebindings',
+        'capabilities' => 'local/curricmap:managecourseresources, local/curricmap:managebindings',
     ],
     'local_curricmap_delete_resource' => [
         'classname' => 'local_curricmap\external\delete_resource',
-        'description' => 'Delete a node resource by id.',
+        'description' => 'Delete a node resource by id (course-scoped rows via managecourseresources).',
         'type' => 'write',
         'ajax' => true,
-        'capabilities' => 'local/curricmap:managebindings',
+        'capabilities' => 'local/curricmap:managecourseresources, local/curricmap:managebindings',
+    ],
+    'local_curricmap_set_resource_visibility' => [
+        'classname' => 'local_curricmap\external\set_resource_visibility',
+        'description' => 'Show or hide a node resource (hidden rows are kept but never rendered to viewers).',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:managecourseresources, local/curricmap:managebindings',
     ],
     'local_curricmap_list_resources' => [
         'classname' => 'local_curricmap\external\list_resources',
@@ -121,6 +129,7 @@ $services = [
             'local_curricmap_list_bindings',
             'local_curricmap_add_resource',
             'local_curricmap_delete_resource',
+            'local_curricmap_set_resource_visibility',
             'local_curricmap_list_resources',
             'local_curricmap_list_resource_types',
             // Core lookups so one token can browse Moodle structure to build

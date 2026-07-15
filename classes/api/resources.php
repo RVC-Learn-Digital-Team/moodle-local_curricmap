@@ -32,6 +32,31 @@ namespace local_curricmap\api;
  */
 class resources {
     /**
+     * Whether a user may manage resources at the given scope.
+     *
+     * Global (institutional) rows need managebindings at system level;
+     * course-scoped rows need managecourseresources (or managebindings) in
+     * the course context — the editing-teacher surface.
+     *
+     * @param int|null $courseid Course scope, null for institutional.
+     * @param int|null $userid User id, null for the current user.
+     * @return bool
+     */
+    public static function can_manage(?int $courseid, ?int $userid = null): bool {
+        if ($courseid === null || $courseid === 0) {
+            return has_capability('local/curricmap:managebindings', \context_system::instance(), $userid);
+        }
+        try {
+            $context = \context_course::instance($courseid);
+        } catch (\moodle_exception $e) {
+            // The scoping course is gone: manage centrally.
+            return has_capability('local/curricmap:managebindings', \context_system::instance(), $userid);
+        }
+        $capabilities = ['local/curricmap:managecourseresources', 'local/curricmap:managebindings'];
+        return has_any_capability($capabilities, $context, $userid);
+    }
+
+    /**
      * The suggested type vocabulary (seeded by the resourcetypes setting).
      *
      * @return string[]
@@ -85,6 +110,7 @@ class resources {
         $record->label = $label;
         $record->url = $url;
         $record->sortorder = $sortorder;
+        $record->visible = 1;
         $record->usermodified = $USER->id ?? null;
         $record->timecreated = time();
         $record->timemodified = time();
@@ -102,14 +128,31 @@ class resources {
     }
 
     /**
+     * Show or hide a resource (hidden rows are kept but never rendered to
+     * viewers; management surfaces show them greyed).
+     *
+     * @param int $id Resource id.
+     * @param bool $visible Whether the resource renders to viewers.
+     */
+    public static function set_visible(int $id, bool $visible): void {
+        global $DB, $USER;
+        $record = $DB->get_record('local_curricmap_resource', ['id' => $id], '*', MUST_EXIST);
+        $record->visible = $visible ? 1 : 0;
+        $record->usermodified = $USER->id ?? null;
+        $record->timemodified = time();
+        $DB->update_record('local_curricmap_resource', $record);
+    }
+
+    /**
      * A node's resources: institutional rows plus, when a course context is
      * given, that course's additions.
      *
      * @param string $nodeuuid Composed node key.
      * @param int|null $courseid Course context, null for institutional only.
+     * @param bool $includehidden Include hidden rows (management surfaces only).
      * @return \stdClass[]
      */
-    public static function for_node(string $nodeuuid, ?int $courseid = null): array {
+    public static function for_node(string $nodeuuid, ?int $courseid = null, bool $includehidden = false): array {
         global $DB;
         $where = 'nodeuuid = :nodeuuid AND (courseid IS NULL';
         $params = ['nodeuuid' => $nodeuuid];
@@ -118,6 +161,9 @@ class resources {
             $params['courseid'] = $courseid;
         }
         $where .= ')';
+        if (!$includehidden) {
+            $where .= ' AND visible = 1';
+        }
         return array_values($DB->get_records_select(
             'local_curricmap_resource',
             $where,
@@ -135,12 +181,21 @@ class resources {
      * @param string|null $nodeuuid Composed node key, null for any node.
      * @param string|null $type Resource type, null for any type.
      * @param int|null $courseid Course context, null for institutional only.
+     * @param bool $includehidden Include hidden rows (management surfaces only).
      * @return \stdClass[]
      */
-    public static function query(?string $nodeuuid = null, ?string $type = null, ?int $courseid = null): array {
+    public static function query(
+        ?string $nodeuuid = null,
+        ?string $type = null,
+        ?int $courseid = null,
+        bool $includehidden = false
+    ): array {
         global $DB;
         $where = [];
         $params = [];
+        if (!$includehidden) {
+            $where[] = 'visible = 1';
+        }
         if ($nodeuuid !== null && $nodeuuid !== '') {
             $where[] = 'nodeuuid = :nodeuuid';
             $params['nodeuuid'] = $nodeuuid;
@@ -168,9 +223,10 @@ class resources {
      *
      * @param string[] $nodeuuids Composed node keys.
      * @param int|null $courseid Course context, null for institutional only.
+     * @param bool $includehidden Include hidden rows (management surfaces only).
      * @return array Map nodeuuid => resource records.
      */
-    public static function for_nodes(array $nodeuuids, ?int $courseid = null): array {
+    public static function for_nodes(array $nodeuuids, ?int $courseid = null, bool $includehidden = false): array {
         global $DB;
         if (!$nodeuuids) {
             return [];
@@ -182,6 +238,9 @@ class resources {
             $params['courseid'] = $courseid;
         }
         $where .= ')';
+        if (!$includehidden) {
+            $where .= ' AND visible = 1';
+        }
         $map = [];
         foreach ($DB->get_records_select('local_curricmap_resource', $where, $params, 'sortorder ASC, id ASC') as $row) {
             $map[$row->nodeuuid][] = $row;

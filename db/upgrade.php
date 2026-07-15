@@ -179,5 +179,17 @@ function xmldb_local_curricmap_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026071330, 'local', 'curricmap');
     }
 
+    if ($oldversion < 2026071400) {
+        // Resource visibility: 0 = kept but not rendered to viewers (used on
+        // course-scoped rows via the managecourseresources capability).
+        $table = new xmldb_table('local_curricmap_resource');
+        $field = new xmldb_field('visible', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'sortorder');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026071400, 'local', 'curricmap');
+    }
+
     return true;
 }

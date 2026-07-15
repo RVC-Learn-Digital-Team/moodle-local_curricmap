@@ -78,7 +78,14 @@ class add_resource extends external_api {
         $context = $params['courseid'] > 0
             ? \context_course::instance($params['courseid']) : \context_system::instance();
         self::validate_context($context);
-        require_capability('local/curricmap:managebindings', $context);
+        if (!resources::can_manage($params['courseid'] > 0 ? $params['courseid'] : null)) {
+            throw new \required_capability_exception(
+                $context,
+                $params['courseid'] > 0 ? 'local/curricmap:managecourseresources' : 'local/curricmap:managebindings',
+                'nopermissions',
+                ''
+            );
+        }
 
         $id = resources::add(
             $params['nodeuuid'],

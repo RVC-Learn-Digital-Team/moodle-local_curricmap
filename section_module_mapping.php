@@ -369,7 +369,7 @@ foreach ($bysection as $rows) {
 }
 $rescounts = [];
 if ($bounduuids) {
-    foreach (resources::for_nodes(array_keys($bounduuids)) as $resource) {
+    foreach (resources::for_nodes(array_keys($bounduuids), null, true) as $resource) {
         $rescounts[$resource->nodeuuid] = ($rescounts[$resource->nodeuuid] ?? 0) + 1;
     }
 }

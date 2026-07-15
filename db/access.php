@@ -68,6 +68,19 @@ $capabilities = [
         ],
     ],
 
+    // Manage COURSE-SCOPED node resources within a course: add, hide/show and
+    // delete that course's own study material. Global resources and bindings
+    // are not covered — those stay with managebindings.
+    'local/curricmap:managecourseresources' => [
+        'riskbitmask' => RISK_SPAM,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+
     // Create/delete bindings between Moodle locations and curriculum nodes,
     // within the binding's course context.
     'local/curricmap:managebindings' => [

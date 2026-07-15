@@ -66,10 +66,13 @@ class list_resources extends external_api {
         self::validate_context($context);
         require_capability('local/curricmap:viewstaffmeta', $context);
 
+        // Hidden rows are included (with their visible flag) — this is a
+        // staff/integration listing, not a viewer render path.
         $found = resources::query(
             $params['nodeuuid'] !== '' ? $params['nodeuuid'] : null,
             $params['type'] !== '' ? $params['type'] : null,
-            $params['courseid'] > 0 ? $params['courseid'] : null
+            $params['courseid'] > 0 ? $params['courseid'] : null,
+            true
         );
         return helper::export_resources($found);
     }

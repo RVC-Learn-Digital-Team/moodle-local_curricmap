@@ -225,7 +225,7 @@ if ($courseid) {
     // All resources for the bound nodes, one query, grouped by node.
     $bynode = [];
     $uuids = array_values(array_unique(array_map(fn($b) => $b->nodeuuid, $bindings)));
-    foreach (resources::for_nodes($uuids) as $resource) {
+    foreach (resources::for_nodes($uuids, null, true) as $resource) {
         $bynode[$resource->nodeuuid][] = $resource;
     }
 
@@ -343,7 +343,7 @@ foreach ($subtree as $subnode) {
     $titles[$subnode->uuid] = $subnode->title;
 }
 $byrollup = [];
-foreach ($uuids ? resources::for_nodes($uuids) : [] as $resource) {
+foreach ($uuids ? resources::for_nodes($uuids, null, true) : [] as $resource) {
     $byrollup[$resource->nodeuuid][] = $resource;
 }
 
