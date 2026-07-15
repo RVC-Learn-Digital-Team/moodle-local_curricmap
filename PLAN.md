@@ -347,6 +347,35 @@ its own automation, not part of the matching pages.
 - [ ] Grouplabel ("unit") filtering on the content mapping page — narrow a
       matched strand's session/outcome pool by unit label (deferred from
       v0.12.0 by agreement)
+- [x] Book chapter mapping (v0.14.0) — integrated as a chapter VIEW of
+      section_module_mapping.php (?bookcm=), not a separate file (Brian's
+      revision of the 2026-07-14 plan): book rows in the lazy activity lists
+      link "Map chapters (N mapped)" → book-name heading, chapter rows with
+      hints + multi-select pickers, "Match selected chapters" + Back button.
+      Address = cmid + mod_book + chapter subitemid. Books remain the ONLY
+      sub-module grain in v1
+- [x] Content mapper redesign (v0.14.0, click-test driven): ALL sections
+      always listed (no expand to see counts) with per-section
+      activities/mapped and chapters/mapped counts computed server-side;
+      strand proposal shown ONLY when the pool is ambiguous (>1); activity
+      mapping rows lazy-load per section via the fragment API
+      (lib.php fragment callback + contentmap helper class, rows join the
+      page's form); section + module-type filters are MULTI-select chips
+      applied by Go (multi never auto-submits); apply button repeats every 4
+      sections; no forced mapping anywhere (collapse = cancel)
+- [ ] API character split (agreed 2026-07-14): course/content mapping ws is
+      read-oriented — its role is letting the curriculum_mapping platform
+      extract Sofia graphs + Moodle mappings WITHOUT the Sofia API; consider
+      withdrawing/locking external bind/unbind for v1 (writes stay in the
+      admin UI). The resource ws becomes the CRUD surface for external
+      inserts (Panopto engine, library) — may slip past v1
+- [ ] Teacher-resources groundwork (pre-tiny, agreed 2026-07-14): new
+      course-context capability (e.g. `managecourseresources`, default
+      editingteacher); resources API + ws functions honour course-scoped CRUD
+      under it (course-scoped rows editable in-course, global rows read-only
+      to teachers; global CRUD stays central); course-scoped resources
+      section on mappings.php. tiny_curricmap + filter_curricmap consume this
+      (design in umbrella overview "Still to create")
 - [ ] `rollover_mapping.php`: input course → output course; recreate bindings
       with the year segment swapped in composed keys, verified against the new
       year's mirror; dry-run report first, needs-attention list for

@@ -15,16 +15,13 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Central content matching for one course: map its sections and activity
- * modules to curriculum nodes below the course's central match(es).
- * Sections propose strands (synonym-aware title containment); modules
- * propose sessions and outcomes, cascading — a section matched to a strand
- * narrows its modules' pool to that strand's subtree, and a module matched
- * to a session gains the session's outcomes as further targets. Ticked rows
- * are confirmed explicitly; everything created here is a central-scope
- * anchor binding. Weeks never match by name (Sofia has no week concept —
- * weeks move); recordings arrive later via the platform engine as node
- * resources, not here.
+ * Central content matching for one course, all on one page: every section is
+ * listed up front with its current matches, activity/chapter counts and (when
+ * the pool is genuinely ambiguous) a strand proposal; each section's activity
+ * mapping rows load lazily on demand. Books link to a chapter view (same
+ * page, back button) — the only sub-module grain. Multi-select filters bound
+ * what is shown; apply buttons repeat every few sections for long courses.
+ * Everything created here is a central-scope anchor binding.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
@@ -36,33 +33,47 @@ require_once($CFG->libdir . '/adminlib.php');
 
 use local_curricmap\api\bindings;
 use local_curricmap\api\resources;
+use local_curricmap\local\contentmap;
 use local_curricmap\local\matcher;
 
 admin_externalpage_setup('local_curricmap_contentmapping');
 
 $courseid = optional_param('courseid', 0, PARAM_INT);
-$sectionid = optional_param('sectionid', 0, PARAM_INT);
-$modtype = optional_param('modtype', '', PARAM_PLUGIN);
+$bookcm = optional_param('bookcm', 0, PARAM_INT);
 $coursesearch = trim(optional_param('coursesearch', '', PARAM_RAW_TRIMMED));
 
-$pageurl = new moodle_url('/local/curricmap/course_mapping.php');
-if ($courseid) {
-    $pageparams = ['courseid' => $courseid, 'sectionid' => $sectionid, 'modtype' => $modtype];
-    $pageurl = new moodle_url('/local/curricmap/section_module_mapping.php', $pageparams);
+// Multi-select filters arrive as arrays from the toolbar form and travel as
+// csv in links (moodle_url cannot carry array params).
+$sectionids = optional_param_array('sectionsel', null, PARAM_INT);
+if ($sectionids === null) {
+    $sectionids = array_filter(array_map('intval', explode(',', optional_param('sections', '', PARAM_SEQUENCE))));
+}
+$sectionids = array_values(array_filter($sectionids));
+$typesraw = optional_param_array('typesel', null, PARAM_PLUGIN);
+if ($typesraw === null) {
+    $typesraw = explode(',', optional_param('types', '', PARAM_RAW_TRIMMED));
+}
+$modtypesfilter = [];
+foreach ($typesraw as $type) {
+    $clean = clean_param($type, PARAM_PLUGIN);
+    if ($clean !== '') {
+        $modtypesfilter[] = $clean;
+    }
 }
 
-/**
- * A short target label: node title, role, academic year from the composed key.
- *
- * @param stdClass $node Node record.
- * @return string
- */
-function local_curricmap_content_label(stdClass $node): string {
-    $year = preg_match('/_(20\d\d)_\d\d_/', $node->uuid, $matches) ? ' - ' . $matches[1] : '';
-    return $node->title . ' [' . $node->role . ']' . $year;
+$urlparams = ['courseid' => $courseid];
+if ($sectionids) {
+    $urlparams['sections'] = implode(',', $sectionids);
 }
+if ($modtypesfilter) {
+    $urlparams['types'] = implode(',', $modtypesfilter);
+}
+if ($bookcm) {
+    $urlparams['bookcm'] = $bookcm;
+}
+$pageurl = new moodle_url('/local/curricmap/section_module_mapping.php', $urlparams);
 
-// Remove one central match (delete icon in the current matches column).
+// Remove one central match.
 $unbind = optional_param('unbind', 0, PARAM_INT);
 if ($unbind && $courseid && confirm_sesskey()) {
     require_capability('local/curricmap:managebindings', context_system::instance());
@@ -74,8 +85,8 @@ if ($unbind && $courseid && confirm_sesskey()) {
     redirect($pageurl);
 }
 
-// Apply: keys are s<sectionid> or c<cmid>; each row's select is multiple, so
-// its picks arrive as bind<key>[] and every pick becomes one binding.
+// Apply: keys are s<sectionid>, c<cmid>, or h<chapterid> (chapter view only,
+// where bookcm supplies the owning cm). Each row's select is multiple.
 $apply = optional_param_array('apply', [], PARAM_INT);
 if ($apply && $courseid && confirm_sesskey()) {
     require_capability('local/curricmap:managebindings', context_system::instance());
@@ -89,6 +100,10 @@ if ($apply && $courseid && confirm_sesskey()) {
             $address['sectionid'] = (int) substr($key, 1);
         } else if (strpos($key, 'c') === 0) {
             $address['cmid'] = (int) substr($key, 1);
+        } else if (strpos($key, 'h') === 0 && $bookcm) {
+            $address['cmid'] = $bookcm;
+            $address['component'] = 'mod_book';
+            $address['subitemid'] = (int) substr($key, 1);
         } else {
             continue;
         }
@@ -103,16 +118,19 @@ if ($apply && $courseid && confirm_sesskey()) {
     redirect($pageurl, get_string('coursemapping_applied', 'local_curricmap', $created));
 }
 
-$PAGE->requires->js_call_amd('core/checkbox-toggleall', 'init');
 $typetosearch = get_string('coursemapping_typetosearch', 'local_curricmap');
-$PAGE->requires->js_call_amd('local_curricmap/course_mapping', 'init', [$typetosearch]);
+$systemcontext = context_system::instance();
+$PAGE->requires->js_call_amd('core/checkbox-toggleall', 'init');
+$PAGE->requires->js_call_amd('local_curricmap/course_mapping', 'init', [$typetosearch, $systemcontext->id]);
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('contentmapping', 'local_curricmap'));
 
 // Course finder: shown when no course is selected, or when searching to switch.
 if (!$courseid || $coursesearch !== '') {
-    echo html_writer::tag('p', get_string('contentmapping_intro', 'local_curricmap'));
+    if (!$courseid) {
+        echo html_writer::tag('p', get_string('contentmapping_intro', 'local_curricmap'));
+    }
     if ($coursesearch !== '') {
         $like = [];
         $params = ['siteid' => SITEID];
@@ -123,14 +141,10 @@ if (!$courseid || $coursesearch !== '') {
         $sql = "SELECT c.id, c.fullname, c.idnumber FROM {course} c
                  WHERE c.id <> :siteid AND (" . implode(' OR ', $like) . ")
               ORDER BY c.fullname ASC";
-        $found = $DB->get_records_sql($sql, $params, 0, 20);
-        foreach ($found as $candidate) {
-            $url = new moodle_url('/local/curricmap/section_module_mapping.php', ['courseid' => $candidate->id]);
-            $label = $candidate->fullname . ($candidate->idnumber ? ' (' . $candidate->idnumber . ')' : '');
+        foreach ($DB->get_records_sql($sql, $params, 0, 20) as $found) {
+            $url = new moodle_url('/local/curricmap/section_module_mapping.php', ['courseid' => $found->id]);
+            $label = $found->fullname . ($found->idnumber ? ' (' . $found->idnumber . ')' : '');
             echo html_writer::div(html_writer::link($url, s($label)));
-        }
-        if (!$found) {
-            echo $OUTPUT->notification(get_string('coursemapping_nocourses', 'local_curricmap'), 'info');
         }
     }
 }
@@ -151,9 +165,8 @@ if (!$courseid) {
 
 $course = get_course($courseid);
 $rules = matcher::rules();
+$mappabletypes = array_filter(explode(',', (string) get_config('local_curricmap', 'mappablemodtypes')));
 
-// The course's central matches set the candidate pool; without them no
-// meaningful proposals are possible.
 $anchors = bindings::anchors($courseid);
 $rootuuids = array_map(fn($node) => $node->uuid, $anchors);
 if (!$rootuuids) {
@@ -167,271 +180,190 @@ if (!$rootuuids) {
     exit;
 }
 
-$anchorlabels = implode(', ', array_map(fn($node) => local_curricmap_content_label($node), $anchors));
+[$bysection, $bycm, $bychapter] = contentmap::buckets($courseid);
+$modinfo = get_fast_modinfo($course);
+$returnurl = $pageurl->out_as_local_url(false);
+
+// Chapter view: one book's chapters, back button, no lazy loading needed.
+if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname === 'book') {
+    $cm = $modinfo->cms[$bookcm];
+    $backparams = $urlparams;
+    unset($backparams['bookcm']);
+    $backurl = new moodle_url('/local/curricmap/section_module_mapping.php', $backparams);
+
+    echo html_writer::tag('p', s($course->fullname) . ' — ' . s($cm->get_formatted_name()), ['class' => 'lead']);
+    echo html_writer::div(html_writer::link($backurl, get_string('contentmapping_back', 'local_curricmap')), 'mb-3');
+
+    // Pool cascade: the book's own matches, else its section's, else the course's.
+    $ownroots = array_map(fn($b) => $b->nodeuuid, $bycm[$bookcm] ?? []);
+    $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[(int) $cm->section] ?? []);
+    $poolroots = $ownroots ?: ($sectionroots ?: $rootuuids);
+    $chapterpool = matcher::content_candidates($poolroots, contentmap::TARGET_ROLES);
+    $narrowed = !empty($ownroots) || !empty($sectionroots);
+
+    $chapters = $DB->get_records('book_chapters', ['bookid' => (int) $cm->instance], 'pagenum ASC');
+    echo html_writer::start_tag('form', ['method' => 'post', 'action' => $pageurl->out(false)]);
+    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+    foreach ($chapters as $chapter) {
+        $key = 'h' . (int) $chapter->id;
+        $hints = matcher::match_title($chapter->title, $chapterpool, $rules);
+        $chapterproposal = contentmap::proposal_cell($key, $hints, $chapterpool, $narrowed);
+        $name = s($chapter->title);
+        if ($chapter->subchapter) {
+            $name = html_writer::tag('span', $name, ['style' => 'padding-left: 20px;']);
+        }
+        $cells = html_writer::div(contentmap::tick($key, $chapter->title), 'curricmap-cell-tick')
+            . html_writer::div($name, 'curricmap-cell-name')
+            . html_writer::div(
+                contentmap::current_cell($bychapter[$bookcm][(int) $chapter->id] ?? [], $returnurl),
+                'curricmap-cell-current'
+            )
+            . html_writer::div($chapterproposal, 'curricmap-cell-proposal');
+        echo html_writer::div($cells, 'd-flex align-items-start border-top py-1', ['style' => 'gap: 8px;']);
+    }
+    echo html_writer::empty_tag('input', ['type' => 'submit',
+        'value' => get_string('contentmapping_matchchapters', 'local_curricmap'), 'class' => 'btn btn-primary mt-2']);
+    echo html_writer::end_tag('form');
+    echo html_writer::div(html_writer::link($backurl, get_string('contentmapping_back', 'local_curricmap')), 'mt-2');
+    echo $OUTPUT->footer();
+    exit;
+}
+
+// Main view: every section up front with counts; activity rows lazy-load.
+$anchorlabels = implode(', ', array_map(fn($node) => contentmap::label($node), $anchors));
 $resourcesurl = new moodle_url('/local/curricmap/study_resources.php', ['courseid' => $courseid]);
 $resourceslink = html_writer::link($resourcesurl, get_string('studyresources_forcourse', 'local_curricmap'));
 $headline = s($course->fullname) . ' — ' . s($anchorlabels) . ' · ' . $resourceslink;
 echo html_writer::tag('p', $headline, ['class' => 'lead']);
 echo html_writer::tag('p', get_string('contentmapping_help', 'local_curricmap'), ['class' => 'text-muted']);
 
-// Candidate pools below the course's matches.
-$strandpool = matcher::content_candidates($rootuuids, ['strand']);
-$outcomeroles = ['session', 'strandoutcome', 'sessionoutcome', 'assessment'];
-
-// Existing central section/module matches for this course, with node titles.
-$bysection = [];
-$bycm = [];
-$bindingsql = "SELECT b.id, b.sectionid, b.cmid, b.nodeuuid, n.title, n.uuid AS nodefound, n.role
-                 FROM {local_curricmap_binding} b
-            LEFT JOIN {local_curricmap_node} n ON n.uuid = b.nodeuuid
-                WHERE b.courseid = :courseid AND b.scope = :scope AND b.status = :status
-                      AND (b.sectionid IS NOT NULL OR b.cmid IS NOT NULL)
-             ORDER BY b.sortorder ASC, b.id ASC";
-$bindingparams = ['courseid' => $courseid, 'scope' => 'central', 'status' => 'active'];
-foreach ($DB->get_records_sql($bindingsql, $bindingparams) as $binding) {
-    if ($binding->cmid) {
-        $bycm[(int) $binding->cmid][] = $binding;
-    } else if ($binding->sectionid) {
-        $bysection[(int) $binding->sectionid][] = $binding;
+// Toolbar: multi-select section + type filters (chips; applied by Go), course switch.
+$sections = $modinfo->get_section_info_all();
+$formurl = new moodle_url('/local/curricmap/section_module_mapping.php');
+echo html_writer::start_tag('form', ['method' => 'get', 'action' => $formurl->out_omit_querystring(),
+    'class' => 'local-curricmap-filterform d-flex flex-wrap align-items-center mb-3', 'style' => 'gap: 8px;']);
+echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'courseid', 'value' => $courseid]);
+$sectionoptions = [];
+foreach ($sections as $section) {
+    $sectionoptions[(int) $section->id] = get_section_name($course, $section);
+}
+$sectionattrs = ['aria-label' => get_string('contentmapping_section', 'local_curricmap'),
+    'multiple' => 'multiple', 'id' => 'curricmap-filter-sections'];
+echo html_writer::select($sectionoptions, 'sectionsel[]', $sectionids, false, $sectionattrs);
+$presenttypes = [];
+foreach ($modinfo->cms as $cm) {
+    if (in_array($cm->modname, $mappabletypes)) {
+        $presenttypes[$cm->modname] = $cm->modname;
     }
 }
+ksort($presenttypes);
+$typeattrs = ['aria-label' => get_string('contentmapping_modtype', 'local_curricmap'),
+    'multiple' => 'multiple', 'id' => 'curricmap-filter-types'];
+echo html_writer::select($presenttypes, 'typesel[]', $modtypesfilter, false, $typeattrs);
+echo html_writer::empty_tag('input', ['type' => 'text', 'name' => 'coursesearch', 'value' => '',
+    'placeholder' => get_string('contentmapping_coursesearch', 'local_curricmap'), 'class' => 'form-control',
+    'style' => 'width: 200px;']);
+echo html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('go'),
+    'class' => 'btn btn-secondary']);
+echo html_writer::end_tag('form');
 
-// Resource counts for every bound node on the page, one query.
-$rescounts = [];
+// Section proposal pool: shown only when there is a real choice to make.
+$strandpool = matcher::content_candidates($rootuuids, ['strand']);
+$counts = contentmap::section_counts($course, $mappabletypes, $bycm, $bychapter);
+
+// Resource counts for section-level bound nodes.
 $bounduuids = [];
-foreach (array_merge($bysection, $bycm) as $rowbindings) {
-    foreach ($rowbindings as $binding) {
+foreach ($bysection as $rows) {
+    foreach ($rows as $binding) {
         $bounduuids[$binding->nodeuuid] = true;
     }
 }
+$rescounts = [];
 if ($bounduuids) {
     foreach (resources::for_nodes(array_keys($bounduuids)) as $resource) {
         $rescounts[$resource->nodeuuid] = ($rescounts[$resource->nodeuuid] ?? 0) + 1;
     }
 }
 
-$modinfo = get_fast_modinfo($course);
-$sections = $modinfo->get_section_info_all();
+$applybutton = html_writer::div(html_writer::empty_tag('input', ['type' => 'submit',
+    'value' => get_string('coursemapping_apply', 'local_curricmap'), 'class' => 'btn btn-primary']), 'my-2');
 
-// Only the configured activity types are offered for mapping (the
-// mappablemodtypes setting on the general settings page).
-$mappabletypes = array_filter(explode(',', (string) get_config('local_curricmap', 'mappablemodtypes')));
-
-// Toolbar: section and module-type filters plus course switching, one form.
-$modtypes = [];
-foreach ($modinfo->cms as $cm) {
-    if (in_array($cm->modname, $mappabletypes)) {
-        $modtypes[$cm->modname] = $cm->modname;
-    }
-}
-ksort($modtypes);
-$formurl = new moodle_url('/local/curricmap/section_module_mapping.php');
-echo html_writer::start_tag('form', ['method' => 'get', 'action' => $formurl->out_omit_querystring(),
-    'class' => 'local-curricmap-filterform d-flex flex-wrap align-items-center mb-3', 'style' => 'gap: 8px;']);
-echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'courseid', 'value' => $courseid]);
-$sectionoptions = [0 => get_string('contentmapping_allsections', 'local_curricmap')];
-foreach ($sections as $section) {
-    $sectionoptions[(int) $section->id] = get_section_name($course, $section);
-}
-$sectionattrs = ['aria-label' => get_string('contentmapping_section', 'local_curricmap')];
-echo html_writer::select($sectionoptions, 'sectionid', $sectionid, false, $sectionattrs);
-$typeoptions = ['' => get_string('contentmapping_alltypes', 'local_curricmap')] + $modtypes;
-$typeattrs = ['aria-label' => get_string('contentmapping_modtype', 'local_curricmap')];
-echo html_writer::select($typeoptions, 'modtype', $modtype, false, $typeattrs);
-$switchattrs = ['type' => 'text', 'name' => 'coursesearch', 'value' => '',
-    'placeholder' => get_string('contentmapping_coursesearch', 'local_curricmap'), 'class' => 'form-control',
-    'style' => 'width: 220px;'];
-echo html_writer::empty_tag('input', $switchattrs);
-echo html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('search'),
-    'class' => 'btn btn-secondary']);
-echo html_writer::end_tag('form');
-
-/**
- * The current matches cell: node titles with year, a remove icon, and a
- * study-resources cross-link showing how much material sits on the node.
- *
- * @param array $rowbindings Binding records for this row.
- * @param moodle_url $pageurl Page url for the remove action.
- * @param array $rescounts Resource counts keyed by node uuid.
- * @return string HTML.
- */
-function local_curricmap_content_current(array $rowbindings, moodle_url $pageurl, array $rescounts): string {
-    global $OUTPUT;
-    $entries = [];
-    foreach ($rowbindings as $binding) {
-        $removeurl = new moodle_url($pageurl, ['unbind' => $binding->id, 'sesskey' => sesskey()]);
-        $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
-        $year = preg_match('/_(20\d\d)_\d\d_/', $binding->nodeuuid, $matches) ? ' - ' . $matches[1] : '';
-        $label = s(($binding->title ?? $binding->nodeuuid) . $year);
-        $resurl = new moodle_url('/local/curricmap/study_resources.php', ['node' => $binding->nodeuuid]);
-        $count = $rescounts[$binding->nodeuuid] ?? 0;
-        $reslabel = get_string('studyresources_count', 'local_curricmap', $count);
-        $entries[] = $label . ' ' . html_writer::link($removeurl, $removeicon)
-            . ' ' . html_writer::link($resurl, $reslabel, ['class' => 'small']);
-    }
-    return implode(html_writer::empty_tag('br'), $entries);
-}
-
-/**
- * A proposal cell: hint-ordered searchable dropdown plus the full pool.
- *
- * @param string $key Row key (s<sectionid> or c<cmid>).
- * @param string $name The Moodle name being matched.
- * @param array $hints Scored hints from matcher::match_title().
- * @param array $pool Full candidate pool offered below the hints.
- * @param bool $narrowed Whether the pool is already below a match (changes the capped-pool message).
- * @return string HTML.
- */
-function local_curricmap_content_proposal(
-    string $key,
-    string $name,
-    array $hints,
-    array $pool,
-    bool $narrowed = false
-): string {
-    $options = [];
-    foreach ($hints as $hint) {
-        $percent = (int) round($hint->score * 100);
-        $hintlabel = local_curricmap_content_label($hint->candidate->node);
-        $options[$hint->candidate->node->uuid] = $hintlabel . ' [' . $percent . '%]';
-    }
-    // An unnarrowed pool (section not yet matched) can run to thousands of
-    // outcomes — offer hints only and say why, rather than a monster dropdown.
-    $capped = count($pool) > 300;
-    if (!$capped) {
-        foreach ($pool as $candidate) {
-            if (!isset($options[$candidate->node->uuid])) {
-                $options[$candidate->node->uuid] = local_curricmap_content_label($candidate->node);
-            }
-        }
-    }
-    $cell = '';
-    if ($options) {
-        // Multi-select: pick several targets in one pass, each becomes a
-        // binding on apply; an empty selection is "no action".
-        $attrs = ['data-curricmap-row' => $key, 'id' => 'curricmap-bind-' . $key,
-            'multiple' => 'multiple', 'data-curricmap-search' => 1];
-        $cell = html_writer::select($options, "bind{$key}[]", '', false, $attrs);
-    }
-    if ($capped) {
-        $notekey = $narrowed ? 'contentmapping_toolarge' : 'contentmapping_narrowfirst';
-        $narrownote = get_string($notekey, 'local_curricmap');
-        $cell .= ' ' . html_writer::tag('span', $narrownote, ['class' => 'small text-muted']);
-    } else if ($cell === '') {
-        $poolnote = get_string('contentmapping_nopool', 'local_curricmap');
-        $cell = html_writer::tag('span', $poolnote, ['class' => 'small text-muted']);
-    }
-    return $cell;
-}
-
-// Build the rows: sections in course order; a section's modules appear when
-// that section is filtered or when a module type is chosen.
-$table = new html_table();
-$table->attributes['class'] = 'generaltable';
 $masterattrs = ['type' => 'checkbox', 'data-action' => 'toggle', 'data-toggle' => 'master',
     'data-togglegroup' => 'contentmatch', 'aria-label' => get_string('coursemapping_selectall', 'local_curricmap')];
-$table->head = [
-    html_writer::empty_tag('input', $masterattrs),
-    get_string('contentmapping_item', 'local_curricmap'),
-    get_string('coursemapping_currentmatches', 'local_curricmap'),
-    get_string('coursemapping_proposal', 'local_curricmap'),
-];
 
+echo html_writer::start_tag('form', ['method' => 'post', 'action' => $pageurl->out(false)]);
+echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
+echo html_writer::div(html_writer::empty_tag('input', $masterattrs) . ' '
+    . get_string('coursemapping_selectall', 'local_curricmap'), 'mb-2');
+
+$shown = 0;
 foreach ($sections as $section) {
     $sid = (int) $section->id;
-    if ($sectionid && $sid !== $sectionid) {
+    if ($sectionids && !in_array($sid, $sectionids)) {
         continue;
     }
     $sectionname = get_section_name($course, $section);
-    $showmodules = ($sectionid === $sid) || $modtype !== '';
     $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[$sid] ?? []);
 
-    // Section row (hidden when filtering by module type only).
-    if ($modtype === '' || $sectionid === $sid) {
-        // Once the section is matched, its dropdown deepens: the matched
-        // node's own sessions and outcomes become secondary targets, so
-        // specific objectives and events can be added to the same section.
-        $sectionpool = $strandpool;
-        if ($sectionroots) {
-            $sectionpool = array_merge($strandpool, matcher::content_candidates($sectionroots, $outcomeroles));
+    // Once matched, the section's own picker deepens to its node's subtree.
+    $sectionpool = $strandpool;
+    if ($sectionroots) {
+        $sectionpool = array_merge($strandpool, matcher::content_candidates($sectionroots, contentmap::TARGET_ROLES));
+    }
+    $housekeeping = matcher::is_housekeeping($sectionname, $rules);
+    $hints = $housekeeping ? [] : matcher::match_title($sectionname, $sectionpool, $rules);
+    $key = 's' . $sid;
+
+    $namecell = html_writer::tag('strong', s($sectionname));
+    if ($housekeeping) {
+        $hklabel = get_string('contentmapping_housekeeping', 'local_curricmap');
+        $namecell .= ' ' . html_writer::tag('span', $hklabel, ['class' => 'badge badge-secondary']);
+    }
+    $tally = $counts[$sid] ?? null;
+    if ($tally && $tally->activities) {
+        $countbits = get_string('contentmapping_counts', 'local_curricmap', $tally);
+        if ($tally->chapters) {
+            $countbits .= ' · ' . get_string('contentmapping_chaptercounts', 'local_curricmap', $tally);
         }
-        $housekeeping = matcher::is_housekeeping($sectionname, $rules);
-        $hints = $housekeeping ? [] : matcher::match_title($sectionname, $sectionpool, $rules);
-        $key = 's' . $sid;
-        $tickattrs = ['type' => 'checkbox', 'name' => "apply[$key]", 'value' => 1,
-            'data-action' => 'toggle', 'data-toggle' => 'slave', 'data-togglegroup' => 'contentmatch',
-            'aria-label' => get_string('coursemapping_selectcourse', 'local_curricmap', $sectionname)];
-        $namecell = html_writer::tag('strong', s($sectionname));
-        if ($housekeeping) {
-            $hklabel = get_string('contentmapping_housekeeping', 'local_curricmap');
-            $namecell .= ' ' . html_writer::tag('span', $hklabel, ['class' => 'badge badge-secondary']);
-        }
-        $mappablecount = 0;
-        foreach ($modinfo->sections[(int) $section->section] ?? [] as $cmid) {
-            if (in_array($modinfo->cms[$cmid]->modname, $mappabletypes)) {
-                $mappablecount++;
-            }
-        }
-        if ($sectionid !== $sid && $mappablecount) {
-            $drillurl = new moodle_url($pageurl, ['sectionid' => $sid]);
-            $drilllabel = get_string('contentmapping_drill', 'local_curricmap', $mappablecount);
-            $namecell .= html_writer::div(html_writer::link($drillurl, $drilllabel, ['class' => 'small']));
-        }
-        $table->data[] = [
-            html_writer::empty_tag('input', $tickattrs),
-            $namecell,
-            local_curricmap_content_current($bysection[$sid] ?? [], $pageurl, $rescounts),
-            local_curricmap_content_proposal($key, $sectionname, $hints, $sectionpool, !empty($sectionroots)),
-        ];
+        $expandattrs = ['type' => 'button', 'class' => 'btn btn-sm btn-link p-0',
+            'data-curricmap-expand' => 'curricmap-sec-' . $sid,
+            'data-curricmap-course' => $courseid,
+            'data-curricmap-section' => $sid,
+            'data-curricmap-modtypes' => implode(',', $modtypesfilter),
+            'data-curricmap-return' => $returnurl];
+        $expandlabel = get_string('contentmapping_mapactivities', 'local_curricmap');
+        $namecell .= html_writer::div(
+            html_writer::tag('span', $countbits, ['class' => 'small text-muted']) . ' · '
+            . html_writer::tag('button', $expandlabel, $expandattrs)
+        );
     }
 
-    if (!$showmodules) {
-        continue;
+    // Proposal only when there is genuine ambiguity (pool > 1).
+    $proposalcell = '';
+    if (count($sectionpool) > 1) {
+        $proposalcell = contentmap::proposal_cell($key, $hints, $sectionpool, !empty($sectionroots));
     }
 
-    // Module rows: pool cascades — a section matched to a node narrows its
-    // modules to that subtree; a module matched to a session adds outcomes.
-    $modulepool = matcher::content_candidates($sectionroots ?: $rootuuids, $outcomeroles);
-    foreach ($modinfo->sections[(int) $section->section] ?? [] as $cmid) {
-        $cm = $modinfo->cms[$cmid];
-        if (!in_array($cm->modname, $mappabletypes)) {
-            continue;
-        }
-        if ($modtype !== '' && $cm->modname !== $modtype) {
-            continue;
-        }
-        $cmname = $cm->get_formatted_name();
-        $rowpool = $modulepool;
-        $ownroots = array_map(fn($b) => $b->nodeuuid, $bycm[(int) $cm->id] ?? []);
-        if ($ownroots) {
-            $rowpool = array_merge($rowpool, matcher::content_candidates($ownroots, ['sessionoutcome']));
-        }
-        $hints = matcher::match_title($cmname, $rowpool, $rules);
-        $rownarrowed = !empty($sectionroots) || !empty($ownroots);
-        $key = 'c' . (int) $cm->id;
-        $tickattrs = ['type' => 'checkbox', 'name' => "apply[$key]", 'value' => 1,
-            'data-action' => 'toggle', 'data-toggle' => 'slave', 'data-togglegroup' => 'contentmatch',
-            'aria-label' => get_string('coursemapping_selectcourse', 'local_curricmap', $cmname)];
-        $namecell = html_writer::tag('span', s($cmname), ['style' => 'padding-left: 24px;'])
-            . ' ' . html_writer::tag('span', s($cm->modname), ['class' => 'small text-muted']);
-        $table->data[] = [
-            html_writer::empty_tag('input', $tickattrs),
-            $namecell,
-            local_curricmap_content_current($bycm[(int) $cm->id] ?? [], $pageurl, $rescounts),
-            local_curricmap_content_proposal($key, $cmname, $hints, $rowpool, $rownarrowed),
-        ];
+    $sectioncurrent = contentmap::current_cell($bysection[$sid] ?? [], $returnurl, $rescounts);
+    $cells = html_writer::div(contentmap::tick($key, $sectionname), 'curricmap-cell-tick')
+        . html_writer::div($namecell, 'curricmap-cell-name', ['style' => 'min-width: 280px;'])
+        . html_writer::div($sectioncurrent, 'curricmap-cell-current')
+        . html_writer::div($proposalcell, 'curricmap-cell-proposal');
+    echo html_writer::start_div('curricmap-section-box border rounded p-2 mb-2');
+    echo html_writer::div($cells, 'd-flex align-items-start', ['style' => 'gap: 8px;']);
+    echo html_writer::div('', 'curricmap-activities mt-1', ['id' => 'curricmap-sec-' . $sid]);
+    echo html_writer::end_div();
+
+    $shown++;
+    if ($shown % 4 === 0) {
+        echo $applybutton;
     }
 }
-
-if ($table->data) {
-    echo html_writer::start_tag('form', ['method' => 'post', 'action' => $pageurl->out(false)]);
-    echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-    echo html_writer::table($table);
-    echo html_writer::empty_tag('input', ['type' => 'submit',
-        'value' => get_string('coursemapping_apply', 'local_curricmap'), 'class' => 'btn btn-primary']);
-    echo html_writer::end_tag('form');
-} else {
+if ($shown === 0) {
     echo $OUTPUT->notification(get_string('contentmapping_norows', 'local_curricmap'), 'info');
+} else if ($shown % 4 !== 0) {
+    echo $applybutton;
 }
+echo html_writer::end_tag('form');
 
 echo $OUTPUT->footer();

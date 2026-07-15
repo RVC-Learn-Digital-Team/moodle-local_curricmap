@@ -46,3 +46,23 @@ function local_curricmap_extend_navigation_course(
         'curricmapmappings'
     );
 }
+
+/**
+ * Fragment: one section's activity mapping rows for the content mapping page
+ * (loaded lazily when the admin opens a section's "Map activities").
+ *
+ * @param array $args courseid, sectionid, modtypes (csv), returnurl.
+ * @return string HTML rows.
+ */
+function local_curricmap_output_fragment_activities(array $args): string {
+    require_capability('local/curricmap:managebindings', context_system::instance());
+    $course = get_course((int) $args['courseid']);
+    $modtypes = array_filter(explode(',', (string) ($args['modtypes'] ?? '')));
+    $returnurl = (string) ($args['returnurl'] ?? '/local/curricmap/section_module_mapping.php?courseid=' . $course->id);
+    return \local_curricmap\local\contentmap::activity_rows(
+        $course,
+        (int) $args['sectionid'],
+        $modtypes,
+        $returnurl
+    );
+}

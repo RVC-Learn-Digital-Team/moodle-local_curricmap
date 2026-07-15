@@ -14,17 +14,14 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Toolbar and row behaviour for the central course matching page.
+ * Toolbar and row behaviour for the central matching pages.
  *
- * The toolbar is one GET form: changing a filter control resubmits it, so
- * the current search text and every other filter always travel together.
- * Long flat node lists get the core autocomplete (substring search
- * anywhere): the Sofia programme-year select always, and the row proposal
- * dropdowns once a slug-year filter has filled them (flat lists only —
- * the autocomplete cannot see optgroup children). The node select only
- * resubmits on a real selection, never on clearing, so the server cannot
- * default it back to the first node. Picking a proposed match in a row
- * ticks that row's apply checkbox (and clearing it unticks).
+ * Single-value filter controls auto-submit the toolbar form (multi-select
+ * filters wait for the Go button). The Sofia node select resubmits only on
+ * a real selection. Picking in a row's proposal select ticks that row's
+ * apply checkbox; long flat selects get the core autocomplete (substring
+ * search). Sections' activity mapping rows load lazily via the fragment
+ * API when opened, then get the same row behaviours.
  *
  * @module     local_curricmap/course_mapping
  * @copyright  2026 The Royal Veterinary College
@@ -32,13 +29,34 @@
  */
 
 import * as Autocomplete from 'core/form-autocomplete';
+import Fragment from 'core/fragment';
+import Templates from 'core/templates';
 
-export const init = (placeholder) => {
+let searchplaceholder = '';
+
+const initrows = (root) => {
+    root.querySelectorAll('select[data-curricmap-row]').forEach((select) => {
+        select.addEventListener('change', () => {
+            const tick = document.querySelector('input[name="apply[' + select.dataset.curricmapRow + ']"]');
+            if (tick) {
+                tick.checked = select.value !== '';
+            }
+        });
+        if (select.dataset.curricmapSearch) {
+            Autocomplete.enhance('#' + select.id, false, '', searchplaceholder);
+        }
+    });
+};
+
+export const init = (placeholder, contextid = 0) => {
+    searchplaceholder = placeholder;
+
     const form = document.querySelector('.local-curricmap-filterform');
     if (form) {
-        form.querySelectorAll('select:not([data-curricmap-node]), input[type=checkbox]').forEach((control) => {
-            control.addEventListener('change', () => form.submit());
-        });
+        form.querySelectorAll('select:not([data-curricmap-node]):not([multiple]), input[type=checkbox]')
+            .forEach((control) => {
+                control.addEventListener('change', () => form.submit());
+            });
         const nodeselect = form.querySelector('select[data-curricmap-node]');
         if (nodeselect) {
             nodeselect.addEventListener('change', () => {
@@ -48,16 +66,41 @@ export const init = (placeholder) => {
             });
             Autocomplete.enhance('#' + nodeselect.id, false, '', placeholder);
         }
-    }
-    document.querySelectorAll('select[data-curricmap-row]').forEach((select) => {
-        select.addEventListener('change', () => {
-            const tick = document.querySelector('input[name="apply[' + select.dataset.curricmapRow + ']"]');
-            if (tick) {
-                tick.checked = select.value !== '';
-            }
-        });
-        if (select.dataset.curricmapSearch) {
+        form.querySelectorAll('select[multiple]').forEach((select) => {
             Autocomplete.enhance('#' + select.id, false, '', placeholder);
-        }
+        });
+    }
+
+    initrows(document);
+
+    document.querySelectorAll('[data-curricmap-expand]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            const container = document.getElementById(button.dataset.curricmapExpand);
+            if (!container) {
+                return;
+            }
+            if (container.dataset.loaded) {
+                container.classList.toggle('d-none');
+                return;
+            }
+            container.dataset.loaded = 1;
+            container.textContent = '…';
+            const params = {
+                courseid: button.dataset.curricmapCourse,
+                sectionid: button.dataset.curricmapSection,
+                modtypes: button.dataset.curricmapModtypes || '',
+                returnurl: button.dataset.curricmapReturn || '',
+            };
+            Fragment.loadFragment('local_curricmap', 'activities', contextid, params)
+                .then((html, js) => {
+                    Templates.replaceNodeContents(container, html, js);
+                    initrows(container);
+                    return null;
+                })
+                .catch(() => {
+                    container.textContent = '!';
+                });
+        });
     });
 };
