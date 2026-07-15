@@ -252,7 +252,8 @@ class contentmap {
         int $sectionid,
         array $modtypes,
         string $returnurl,
-        array $nodetypes = []
+        array $nodetypes = [],
+        array $pendingroots = []
     ): string {
         $mappabletypes = array_filter(explode(',', (string) get_config('local_curricmap', 'mappablemodtypes')));
         $rules = matcher::rules();
@@ -271,9 +272,14 @@ class contentmap {
             return \html_writer::tag('p', get_string('contentmapping_norows', 'local_curricmap'));
         }
 
+        // The section's saved matches plus any not-yet-saved picks from its
+        // proposal select: an unsaved strand selection narrows the activity
+        // pools immediately, so section + activities can be matched in one
+        // apply instead of save-reload-drill.
         $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[$sectionid] ?? []);
-        $narrowed = !empty($sectionroots);
-        $modulepool = matcher::content_candidates($sectionroots ?: $rootuuids, self::TARGET_ROLES);
+        $roots = array_values(array_unique(array_merge($sectionroots, $pendingroots)));
+        $narrowed = !empty($roots);
+        $modulepool = matcher::content_candidates($roots ?: $rootuuids, self::TARGET_ROLES);
         $modulepool = self::filter_pool($modulepool, $nodetypes);
 
         // Resource counts for the bound nodes shown in these rows.

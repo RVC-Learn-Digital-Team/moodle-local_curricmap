@@ -33,13 +33,61 @@ import Fragment from 'core/fragment';
 import Templates from 'core/templates';
 
 let searchplaceholder = '';
+let fragmentcontextid = 0;
+
+const loadsection = (button) => {
+    const container = document.getElementById(button.dataset.curricmapExpand);
+    if (!container) {
+        return;
+    }
+    // Not-yet-saved picks in the section's own select act as its match for
+    // pool purposes, so activities can be mapped in the same apply.
+    let pending = '';
+    const sectionselect = document.querySelector(
+        'select[data-curricmap-row="s' + button.dataset.curricmapSection + '"]');
+    if (sectionselect) {
+        pending = Array.from(sectionselect.selectedOptions).map((option) => option.value)
+            .filter((value) => value !== '').join(',');
+    }
+    container.dataset.loaded = 1;
+    container.classList.remove('d-none');
+    container.textContent = '…';
+    const params = {
+        courseid: button.dataset.curricmapCourse,
+        sectionid: button.dataset.curricmapSection,
+        modtypes: button.dataset.curricmapModtypes || '',
+        nodetypes: button.dataset.curricmapNtypes || '',
+        pending: pending,
+        returnurl: button.dataset.curricmapReturn || '',
+    };
+    Fragment.loadFragment('local_curricmap', 'activities', fragmentcontextid, params)
+        .then((html, js) => {
+            Templates.replaceNodeContents(container, html, js);
+            initrows(container);
+            return null;
+        })
+        .catch(() => {
+            container.textContent = '!';
+        });
+};
 
 const initrows = (root) => {
     root.querySelectorAll('select[data-curricmap-row]').forEach((select) => {
         select.addEventListener('change', () => {
-            const tick = document.querySelector('input[name="apply[' + select.dataset.curricmapRow + ']"]');
+            const key = select.dataset.curricmapRow;
+            const tick = document.querySelector('input[name="apply[' + key + ']"]');
             if (tick) {
                 tick.checked = select.value !== '';
+            }
+            // A section's picks changed: refresh its open activity list so
+            // the pools reflect the pending selection.
+            if (key.charAt(0) === 's') {
+                const button = document.querySelector(
+                    '[data-curricmap-expand="curricmap-sec-' + key.slice(1) + '"]');
+                const container = button && document.getElementById(button.dataset.curricmapExpand);
+                if (container && container.dataset.loaded && !container.classList.contains('d-none')) {
+                    loadsection(button);
+                }
             }
         });
         if (select.dataset.curricmapSearch) {
@@ -50,6 +98,7 @@ const initrows = (root) => {
 
 export const init = (placeholder, contextid = 0) => {
     searchplaceholder = placeholder;
+    fragmentcontextid = contextid;
 
     const form = document.querySelector('.local-curricmap-filterform');
     if (form) {
@@ -84,24 +133,7 @@ export const init = (placeholder, contextid = 0) => {
                 container.classList.toggle('d-none');
                 return;
             }
-            container.dataset.loaded = 1;
-            container.textContent = '…';
-            const params = {
-                courseid: button.dataset.curricmapCourse,
-                sectionid: button.dataset.curricmapSection,
-                modtypes: button.dataset.curricmapModtypes || '',
-                nodetypes: button.dataset.curricmapNtypes || '',
-                returnurl: button.dataset.curricmapReturn || '',
-            };
-            Fragment.loadFragment('local_curricmap', 'activities', contextid, params)
-                .then((html, js) => {
-                    Templates.replaceNodeContents(container, html, js);
-                    initrows(container);
-                    return null;
-                })
-                .catch(() => {
-                    container.textContent = '!';
-                });
+            loadsection(button);
         });
     });
 };
