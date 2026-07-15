@@ -319,7 +319,12 @@ class contentmap {
                 . \html_writer::tag('span', s($cm->modname), ['class' => 'small text-muted']);
             if ($cm->modname === 'book') {
                 $chapters = count($bychapter[(int) $cm->id] ?? []);
-                $bookurl = new \moodle_url($returnurl, ['bookcm' => (int) $cm->id]);
+                $bookparams = ['bookcm' => (int) $cm->id];
+                if ($pendingroots) {
+                    // Unsaved section picks follow into the chapter view.
+                    $bookparams['pending'] = implode(',', $pendingroots);
+                }
+                $bookurl = new \moodle_url($returnurl, $bookparams);
                 $booklabel = get_string('contentmapping_mapchapters', 'local_curricmap', $chapters);
                 $namebits .= \html_writer::div(\html_writer::link($bookurl, $booklabel, ['class' => 'small']));
             }

@@ -84,6 +84,10 @@ if ($nodetypesfilter) {
 }
 if ($bookcm) {
     $urlparams['bookcm'] = $bookcm;
+    $pendingparam = optional_param('pending', '', PARAM_RAW_TRIMMED);
+    if ($pendingparam !== '') {
+        $urlparams['pending'] = $pendingparam;
+    }
 }
 $pageurl = new moodle_url('/local/curricmap/section_module_mapping.php', $urlparams);
 
@@ -208,13 +212,50 @@ if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname 
     echo html_writer::tag('p', s($course->fullname) . ' — ' . s($cm->get_formatted_name()), ['class' => 'lead']);
     echo html_writer::div(html_writer::link($backurl, get_string('contentmapping_back', 'local_curricmap')), 'mb-3');
 
-    // Pool cascade: the book's own matches, else its section's, else the course's.
+    // Pool cascade: the book's own matches, else its section's saved matches
+    // merged with any pending (unsaved) picks carried on the link, else the
+    // course's.
+    $pendingraw = array_filter(explode(',', optional_param('pending', '', PARAM_RAW_TRIMMED)));
+    $pendingroots = array_slice(array_map('trim', $pendingraw), 0, 20);
     $ownroots = array_map(fn($b) => $b->nodeuuid, $bycm[$bookcm] ?? []);
     $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[(int) $cm->section] ?? []);
+    $sectionroots = array_values(array_unique(array_merge($sectionroots, $pendingroots)));
     $poolroots = $ownroots ?: ($sectionroots ?: $rootuuids);
-    $chapterpool = matcher::content_candidates($poolroots, contentmap::TARGET_ROLES);
-    $chapterpool = contentmap::filter_pool($chapterpool, $nodetypesfilter);
+    $rawpool = matcher::content_candidates($poolroots, contentmap::TARGET_ROLES);
+    $chapterpool = contentmap::filter_pool($rawpool, $nodetypesfilter);
     $narrowed = !empty($ownroots) || !empty($sectionroots);
+
+    // The strand-type filter, visible and adjustable in the chapter view too.
+    $ntoptions = [];
+    foreach ($rawpool as $candidate) {
+        $ntoptions[$candidate->node->role] = $candidate->node->role;
+        if (!empty($candidate->node->subtype)) {
+            $ntoptions[$candidate->node->subtype] = $candidate->node->subtype;
+        }
+    }
+    ksort($ntoptions);
+    $chapterformurl = new moodle_url('/local/curricmap/section_module_mapping.php');
+    echo html_writer::start_tag('form', ['method' => 'get', 'action' => $chapterformurl->out_omit_querystring(),
+        'class' => 'local-curricmap-filterform d-flex flex-wrap mb-3', 'style' => 'gap: 12px;']);
+    foreach (['courseid' => $courseid, 'bookcm' => $bookcm] as $hiddenname => $hiddenvalue) {
+        echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => $hiddenname, 'value' => $hiddenvalue]);
+    }
+    foreach (['sections', 'types', 'pending'] as $passthrough) {
+        $passvalue = optional_param($passthrough, '', PARAM_RAW_TRIMMED);
+        if ($passvalue !== '') {
+            $passattrs = ['type' => 'hidden', 'name' => $passthrough, 'value' => $passvalue];
+            echo html_writer::empty_tag('input', $passattrs);
+        }
+    }
+    echo html_writer::start_div('curricmap-filter');
+    $ntypeslabel = get_string('contentmapping_filternodetypes', 'local_curricmap');
+    echo html_writer::tag('label', $ntypeslabel, ['for' => 'curricmap-filter-ntypes']);
+    $ntattrs = ['multiple' => 'multiple', 'id' => 'curricmap-filter-ntypes'];
+    echo html_writer::select($ntoptions, 'ntypesel[]', $nodetypesfilter, false, $ntattrs);
+    echo html_writer::end_div();
+    echo html_writer::div(html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('go'),
+        'class' => 'btn btn-secondary']), 'curricmap-filter align-self-end');
+    echo html_writer::end_tag('form');
 
     $chapters = $DB->get_records('book_chapters', ['bookid' => (int) $cm->instance], 'pagenum ASC');
     echo html_writer::start_tag('form', ['method' => 'post', 'action' => $pageurl->out(false)]);
