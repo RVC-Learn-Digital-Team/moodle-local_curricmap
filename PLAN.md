@@ -387,6 +387,27 @@ its own automation, not part of the matching pages.
       (test_resource_visibility, test_resources_can_manage) run in CI after
       push. NOTE: list_resources ws now returns hidden rows too, with a new
       `visible` field — check the pytest contract suite for strict asserts
+- [x] mappings.php picker fixes (v0.15.3/2026071403, Brian 2026-07-16):
+      programme-year select sorted alphabetically (curriculum::programmes now
+      orders slug ASC, versionlabel ASC — benefits every caller incl. the
+      status page); node autocomplete's empty-query starting points now list
+      each year FOLLOWED BY ITS STRANDS (new optional withstrands param on
+      the get_children ws; strand-shaped courses like Alimentary map to a
+      strand directly — typing always searched all roles, but nobody could
+      see that). nodeselector.min.js regenerated via the babel transform
+      (replacing the hand-built artifact); uuid-dedup between starting
+      points and search results. Tests: programmes ordering + interleave
+      assertions; harness-verified against the live mirror
+- [x] Strict-lock hardening (v0.15.2/2026071402, Brian's click-test rulings
+      2026-07-16): (1) mappings.php honours role switching — a role-switched
+      admin sees exactly what a real teacher could (central rows undeletable);
+      real teachers were always blocked (system-capability check). (2) NEW
+      resources::within_course_scope(node, course) — anchor-or-below check —
+      enforced in the add_resource ws for course-scoped adds by non-central
+      users: teachers can only attach resources within the course's centrally
+      mapped scope (unmatched course = nothing qualifies); central users and
+      the platform engine unrestricted. New lang string errorresourcescope;
+      two new ws tests (scope lock + edges); harness-verified on live mirror
 - [x] Subtree-limited search (v0.15.1/2026071401, for tiny's strict-lock
       picker): curriculum::search gains an optional $ancestoruuid (path-LIKE
       restriction, ancestor included; unknown/deleted ancestor returns []);

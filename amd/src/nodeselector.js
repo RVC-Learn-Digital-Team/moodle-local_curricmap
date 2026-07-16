@@ -18,7 +18,8 @@
  *
  * Unlike the presenter's scope picker this searches ALL roles - mapping
  * content to individual outcomes is the point. With an empty query the year
- * nodes are offered as starting points.
+ * nodes AND their strands are offered as starting points (strand-shaped
+ * courses like Alimentary map to a strand directly).
  *
  * @module     local_curricmap/nodeselector
  * @copyright  2026 The Royal Veterinary College
@@ -59,7 +60,7 @@ export const transport = (selector, query, callback, failure) => {
     const calls = Ajax.call([
         {
             methodname: 'local_curricmap_get_children',
-            args: {courseid: courseid, programmeid: programmeid, parentuuid: ''},
+            args: {courseid: courseid, programmeid: programmeid, parentuuid: '', withstrands: true},
         },
         {
             methodname: 'local_curricmap_search',
@@ -72,8 +73,9 @@ export const transport = (selector, query, callback, failure) => {
 };
 
 /**
- * Map the transport payload to autocomplete options: years first as starting
- * points, then all matches (year duplicates removed) with a role suffix.
+ * Map the transport payload to autocomplete options: years and their strands
+ * first as starting points, then all matches (starting-point duplicates
+ * removed) with a role suffix.
  *
  * @param {String} selector The autocomplete element selector.
  * @param {Object} payload Transport payload {years, results}.
@@ -85,9 +87,13 @@ export const processResults = (selector, payload) => {
         return (node.title || '') + (node.code ? ' (' + node.code + ')' : '')
             + (role ? ' — ' + role : '');
     };
-    const options = (payload.years || []).map((node) => ({value: node.uuid, label: label(node)}));
+    const seen = new Set();
+    const options = (payload.years || []).map((node) => {
+        seen.add(node.uuid);
+        return {value: node.uuid, label: label(node)};
+    });
     (payload.results || []).forEach((node) => {
-        if (node.role !== 'year') {
+        if (!seen.has(node.uuid)) {
             options.push({value: node.uuid, label: label(node)});
         }
     });

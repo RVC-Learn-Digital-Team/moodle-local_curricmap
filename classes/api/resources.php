@@ -57,6 +57,32 @@ class resources {
     }
 
     /**
+     * Whether a node sits within a course's centrally mapped scope: the node
+     * is one of the course's anchors, or lies below one. The strict lock for
+     * teacher-facing writes — courses without anchors have no scope, so
+     * nothing qualifies.
+     *
+     * @param string $nodeuuid Composed node key.
+     * @param int $courseid Course id.
+     * @return bool
+     */
+    public static function within_course_scope(string $nodeuuid, int $courseid): bool {
+        $node = curriculum::node($nodeuuid);
+        if (!$node || $node->deleted) {
+            return false;
+        }
+        foreach (bindings::anchors($courseid) as $anchor) {
+            if ((int) $anchor->id === (int) $node->id) {
+                return true;
+            }
+            if ($node->path && strpos($node->path, '/' . $anchor->id . '/') !== false) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * The suggested type vocabulary (seeded by the resourcetypes setting).
      *
      * @return string[]

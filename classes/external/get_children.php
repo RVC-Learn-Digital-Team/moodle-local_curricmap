@@ -44,6 +44,12 @@ class get_children extends external_api {
             'courseid' => new external_value(PARAM_INT, 'Course id providing the permission context'),
             'programmeid' => new external_value(PARAM_INT, 'Programme id'),
             'parentuuid' => new external_value(PARAM_ALPHANUMEXT, 'Parent uuid, empty for years', VALUE_DEFAULT, ''),
+            'withstrands' => new external_value(
+                PARAM_BOOL,
+                'At year level, interleave each year\'s strands after it',
+                VALUE_DEFAULT,
+                false
+            ),
         ]);
     }
 
@@ -53,10 +59,16 @@ class get_children extends external_api {
      * @param int $courseid Course id for the capability check.
      * @param int $programmeid Programme id.
      * @param string $parentuuid Parent node uuid, empty string for year level.
+     * @param bool $withstrands Interleave strands after their year (year level only).
      * @return array
      */
-    public static function execute(int $courseid, int $programmeid, string $parentuuid = ''): array {
-        $data = ['courseid' => $courseid, 'programmeid' => $programmeid, 'parentuuid' => $parentuuid];
+    public static function execute(int $courseid, int $programmeid, string $parentuuid = '', bool $withstrands = false): array {
+        $data = [
+            'courseid' => $courseid,
+            'programmeid' => $programmeid,
+            'parentuuid' => $parentuuid,
+            'withstrands' => $withstrands,
+        ];
         $params = self::validate_parameters(self::execute_parameters(), $data);
 
         $context = \context_course::instance($params['courseid']);
@@ -64,7 +76,13 @@ class get_children extends external_api {
         require_capability('local/curricmap:viewstaffmeta', $context);
 
         if ($params['parentuuid'] === '') {
-            $nodes = curriculum::years($params['programmeid']);
+            $nodes = [];
+            foreach (curriculum::years($params['programmeid']) as $year) {
+                $nodes[] = $year;
+                if ($params['withstrands']) {
+                    $nodes = array_merge($nodes, curriculum::strands($year->uuid));
+                }
+            }
         } else {
             $nodes = curriculum::children($params['parentuuid']);
         }

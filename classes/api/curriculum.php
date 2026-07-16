@@ -41,7 +41,7 @@ class curriculum {
      */
     public static function programmes(): array {
         global $DB;
-        return $DB->get_records('local_curricmap_programme', ['enabled' => 1], 'slug ASC');
+        return $DB->get_records('local_curricmap_programme', ['enabled' => 1], 'slug ASC, versionlabel ASC');
     }
 
     /**

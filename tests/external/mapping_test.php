@@ -20,6 +20,7 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/../fixtures/fake_sofia_client.php');
 
+use local_curricmap\api\bindings;
 use local_curricmap\local\fake_sofia_client;
 use local_curricmap\local\sync;
 
@@ -45,6 +46,9 @@ final class mapping_test extends \advanced_testcase {
 
     /** @var string Locomotor strand uuid. */
     const LOCO_UUID = '15629971-00d5-428a-944e-e94142c86088';
+
+    /** @var string Test Folder uuid (top level, outside the year subtree). */
+    const TESTFOLDER_UUID = 'bb4e6dea-a72b-4785-9918-8093395174cd';
 
     /**
      * Reset per test.
@@ -184,6 +188,86 @@ final class mapping_test extends \advanced_testcase {
         $this->assertTrue($deleted['deleted']);
         $this->assertCount(1, list_resources::execute($loco, '', (int) $course->id));
         $this->assertGreaterThan(0, $inst['id']);
+    }
+
+    /**
+     * The strict lock on teacher resource adds: only nodes within the
+     * course's centrally mapped scope (an anchor, or below one) qualify.
+     */
+    public function test_add_resource_scope_lock(): void {
+        $this->sync_fixture();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_user();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+
+        // Central anchor: the whole year.
+        bindings::bind(['courseid' => $course->id], $this->key(self::YEAR_UUID), bindings::RELATION_ANCHOR, 'central');
+
+        $this->setUser($teacher);
+        // Below the anchor: allowed (path branch).
+        $added = add_resource::execute(
+            $this->key(self::LOCO_UUID),
+            'link',
+            'Notes',
+            'https://example.com/notes',
+            (int) $course->id
+        );
+        $this->assertGreaterThan(0, $added['id']);
+        // The anchor node itself: allowed (identity branch).
+        $added = add_resource::execute(
+            $this->key(self::YEAR_UUID),
+            'link',
+            'Handbook',
+            'https://example.com/handbook',
+            (int) $course->id
+        );
+        $this->assertGreaterThan(0, $added['id']);
+
+        // Outside the anchored subtree: refused.
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage('centrally mapped scope');
+        add_resource::execute(
+            $this->key(self::TESTFOLDER_UUID),
+            'link',
+            'Stray',
+            'https://example.com/stray',
+            (int) $course->id
+        );
+    }
+
+    /**
+     * Central managers are unrestricted by the scope lock; teachers in an
+     * unmatched course can attach nothing.
+     */
+    public function test_add_resource_scope_lock_edges(): void {
+        $this->sync_fixture();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_user();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+
+        // Admin: anywhere, anchored or not.
+        $this->setAdminUser();
+        $added = add_resource::execute(
+            $this->key(self::TESTFOLDER_UUID),
+            'link',
+            'Admin stray',
+            'https://example.com/adminstray',
+            (int) $course->id
+        );
+        $this->assertGreaterThan(0, $added['id']);
+
+        // Teacher in an unmatched course: no scope, nothing qualifies.
+        $this->setUser($teacher);
+        $this->expectException(\moodle_exception::class);
+        add_resource::execute(
+            $this->key(self::LOCO_UUID),
+            'link',
+            'Notes',
+            'https://example.com/notes2',
+            (int) $course->id
+        );
     }
 
     /**

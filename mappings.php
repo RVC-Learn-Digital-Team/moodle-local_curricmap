@@ -38,7 +38,11 @@ $context = context_course::instance($courseid);
 require_capability('local/curricmap:viewstaffmeta', $context);
 
 $canmanage = has_capability('local/curricmap:managebindings', $context);
-$cancentral = has_capability('local/curricmap:managebindings', context_system::instance());
+// Central rows are admin territory. A role switch does not mask system-level
+// capabilities, so honour it explicitly: an admin viewing as a teacher sees
+// (and can do) exactly what a real teacher could.
+$cancentral = has_capability('local/curricmap:managebindings', context_system::instance())
+    && !is_role_switched($courseid);
 $canresources = resources::can_manage($courseid);
 
 $pageurl = new moodle_url('/local/curricmap/mappings.php', ['courseid' => $courseid]);

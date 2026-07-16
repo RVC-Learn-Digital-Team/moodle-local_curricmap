@@ -113,6 +113,7 @@ $string['errorhttp'] = 'Sofia API request failed (HTTP {$a->code}) for {$a->url}
 $string['errorinvalidjson'] = 'Sofia API returned a response that is not valid JSON for {$a->url}';
 $string['errornotconfigured'] = 'The Sofia API connection is not configured (base URL, client ID and client secret are required)';
 $string['errorratefloor'] = 'Sofia API request refused: remaining rate budget ({$a->remaining}) is at or below the configured floor ({$a->floor})';
+$string['errorresourcescope'] = 'Course resources can only be attached to curriculum nodes within the course\'s centrally mapped scope.';
 $string['errorsyncnohash'] = 'Could not resolve the current revision hash from the Compare API response';
 $string['errortoken'] = 'Could not obtain a Sofia API access token';
 $string['mappings'] = 'Curriculum mappings';

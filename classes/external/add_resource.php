@@ -87,6 +87,16 @@ class add_resource extends external_api {
             );
         }
 
+        // The strict lock: course staff attach resources only within the
+        // course's centrally mapped scope. Central managers are unrestricted
+        // (so the platform engine and admin tooling can attach anywhere).
+        $iscentraluser = has_capability('local/curricmap:managebindings', \context_system::instance());
+        if ($params['courseid'] > 0 && !$iscentraluser) {
+            if (!resources::within_course_scope($params['nodeuuid'], $params['courseid'])) {
+                throw new \moodle_exception('errorresourcescope', 'local_curricmap');
+            }
+        }
+
         $id = resources::add(
             $params['nodeuuid'],
             $params['type'],

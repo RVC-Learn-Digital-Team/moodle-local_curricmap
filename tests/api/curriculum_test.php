@@ -213,6 +213,25 @@ final class curriculum_test extends \advanced_testcase {
     }
 
     /**
+     * Programmes list alphabetically: slug, then academic-year version.
+     */
+    public function test_programmes_ordering(): void {
+        global $DB;
+        $rows = [['vet-med', '2027'], ['vet-med', '2026'], ['bio-sc', '2024'], ['bio-sc', '2022']];
+        foreach ($rows as [$slug, $year]) {
+            $record = (object) [
+                'slug' => $slug,
+                'versionlabel' => $year,
+                'enabled' => 1,
+                'lastsyncstatus' => 'never',
+            ];
+            $DB->insert_record('local_curricmap_programme', $record);
+        }
+        $ordered = array_map(fn($p) => "{$p->slug} {$p->versionlabel}", array_values(curriculum::programmes()));
+        $this->assertSame(['bio-sc 2022', 'bio-sc 2024', 'vet-med 2026', 'vet-med 2027'], $ordered);
+    }
+
+    /**
      * External functions: capability enforcement in course context and the
      * exported node shape.
      */
@@ -233,6 +252,15 @@ final class curriculum_test extends \advanced_testcase {
         $this->assertCount(1, $years);
         $this->assertSame('year', $years[0]['role']);
         $this->assertTrue($years[0]['haschildren']);
+
+        // With strands interleaved: each year followed by its strands (the
+        // picker's starting points — strand-shaped courses map to a strand).
+        $withstrands = \local_curricmap\external\get_children::execute($course->id, $programme->id, '', true);
+        $this->assertCount(15, $withstrands);
+        $this->assertSame('year', $withstrands[0]['role']);
+        $this->assertSame('strand', $withstrands[1]['role']);
+        $strandtitles = array_column(array_filter($withstrands, fn($n) => $n['role'] === 'strand'), 'title');
+        $this->assertContains('Locomotor', $strandtitles);
 
         $children = \local_curricmap\external\get_children::execute($course->id, $programme->id, $this->key(self::LOCO_UUID));
         $this->assertCount(27, $children);
