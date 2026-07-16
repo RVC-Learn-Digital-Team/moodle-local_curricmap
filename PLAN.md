@@ -387,6 +387,13 @@ its own automation, not part of the matching pages.
       (test_resource_visibility, test_resources_can_manage) run in CI after
       push. NOTE: list_resources ws now returns hidden rows too, with a new
       `visible` field — check the pytest contract suite for strict asserts
+- [x] Subtree-limited search (v0.15.1/2026071401, for tiny's strict-lock
+      picker): curriculum::search gains an optional $ancestoruuid (path-LIKE
+      restriction, ancestor included; unknown/deleted ancestor returns []);
+      ws local_curricmap_search gains the matching optional ancestoruuid
+      param (programmeid stays 0-for-all — the ancestor determines the
+      subtree). PHPUnit assertions added to test_query_surface; verified via
+      read-only harness against the live mirror
 - [ ] `rollover_mapping.php`: input course → output course; recreate bindings
       with the year segment swapped in composed keys, verified against the new
       year's mirror; dry-run report first, needs-attention list for

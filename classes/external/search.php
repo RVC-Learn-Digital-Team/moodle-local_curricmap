@@ -47,6 +47,12 @@ class search extends external_api {
                 VALUE_DEFAULT,
                 []
             ),
+            'ancestoruuid' => new external_value(
+                PARAM_ALPHANUMEXT,
+                'Only offer the subtree below this node (itself included)',
+                VALUE_DEFAULT,
+                ''
+            ),
         ]);
     }
 
@@ -57,10 +63,23 @@ class search extends external_api {
      * @param int $programmeid Programme id (0 = all enabled).
      * @param string $query Search text.
      * @param array $roles Roles to include; empty for all.
+     * @param string $ancestoruuid Subtree restriction; empty for none.
      * @return array
      */
-    public static function execute(int $courseid, int $programmeid, string $query, array $roles = []): array {
-        $data = ['courseid' => $courseid, 'programmeid' => $programmeid, 'query' => $query, 'roles' => $roles];
+    public static function execute(
+        int $courseid,
+        int $programmeid,
+        string $query,
+        array $roles = [],
+        string $ancestoruuid = ''
+    ): array {
+        $data = [
+            'courseid' => $courseid,
+            'programmeid' => $programmeid,
+            'query' => $query,
+            'roles' => $roles,
+            'ancestoruuid' => $ancestoruuid,
+        ];
         $params = self::validate_parameters(self::execute_parameters(), $data);
 
         $context = \context_course::instance($params['courseid']);
@@ -68,7 +87,14 @@ class search extends external_api {
         require_capability('local/curricmap:viewstaffmeta', $context);
 
         $roles = $params['roles'] ? array_values($params['roles']) : null;
-        return helper::export_nodes(curriculum::search($params['programmeid'], $params['query'], $roles));
+        $found = curriculum::search(
+            $params['programmeid'],
+            $params['query'],
+            $roles,
+            curriculum::SEARCH_LIMIT,
+            $params['ancestoruuid'] !== '' ? $params['ancestoruuid'] : null
+        );
+        return helper::export_nodes($found);
     }
 
     /**

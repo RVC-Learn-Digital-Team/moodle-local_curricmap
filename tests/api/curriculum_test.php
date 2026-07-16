@@ -168,6 +168,20 @@ final class curriculum_test extends \advanced_testcase {
         $found = curriculum::search($programme->id, 'ug1-loco-lo32');
         $this->assertCount(1, $found);
         $this->assertSame([], curriculum::search($programme->id, '  '));
+
+        // Subtree-restricted search (the picker strict lock): the Locomotor
+        // code hits inside its own subtree and under the whole year, but not
+        // under a sibling strand; the ancestor itself is included.
+        $limit = curriculum::SEARCH_LIMIT;
+        $found = curriculum::search($programme->id, 'ug1-loco-lo32', null, $limit, $this->key(self::LOCO_UUID));
+        $this->assertCount(1, $found);
+        $found = curriculum::search($programme->id, 'ug1-loco-lo32', null, $limit, $this->key(self::YEAR_UUID));
+        $this->assertCount(1, $found);
+        $found = curriculum::search($programme->id, 'ug1-loco-lo32', null, $limit, $this->key(self::TESTFOLDER_UUID));
+        $this->assertSame([], $found);
+        $found = curriculum::search($programme->id, 'locomotor', null, $limit, $this->key(self::LOCO_UUID));
+        $this->assertContains($this->key(self::LOCO_UUID), array_map(fn($n) => $n->uuid, $found));
+        $this->assertSame([], curriculum::search($programme->id, 'locomotor', null, $limit, 'nope_missing'));
     }
 
     /**

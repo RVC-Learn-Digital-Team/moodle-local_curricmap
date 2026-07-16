@@ -289,15 +289,23 @@ class curriculum {
     }
 
     /**
-     * Search nodes by title or code, within one programme or across all (id 0).
+     * Search nodes by title or code, within one programme or across all (id 0),
+     * optionally restricted to one node's subtree (the picker strict lock).
      *
      * @param int $programmeid Programme id, or 0 to search every enabled mirror.
      * @param string $query Search text.
      * @param string[]|null $roles Roles to include, null for all.
      * @param int $limit Maximum results.
+     * @param string|null $ancestoruuid Only offer the subtree below this node (itself included).
      * @return \stdClass[]
      */
-    public static function search(int $programmeid, string $query, ?array $roles = null, int $limit = self::SEARCH_LIMIT): array {
+    public static function search(
+        int $programmeid,
+        string $query,
+        ?array $roles = null,
+        int $limit = self::SEARCH_LIMIT,
+        ?string $ancestoruuid = null
+    ): array {
         global $DB;
         $query = trim($query);
         if ($query === '') {
@@ -310,6 +318,17 @@ class curriculum {
             'titlequery' => '%' . $DB->sql_like_escape($query) . '%',
             'codequery' => '%' . $DB->sql_like_escape($query) . '%',
         ];
+        if ($ancestoruuid !== null && $ancestoruuid !== '') {
+            $ancestor = self::node($ancestoruuid);
+            if (!$ancestor || $ancestor->deleted) {
+                return [];
+            }
+            // The ancestor's own path matches the pattern too (empty tail),
+            // so the subtree includes the ancestor itself.
+            $pathlike = $DB->sql_like('path', ':ancestorpath');
+            $select .= " AND $pathlike";
+            $params['ancestorpath'] = $DB->sql_like_escape($ancestor->path) . '%';
+        }
         if ($programmeid > 0) {
             $select .= ' AND programmeid = :programmeid';
             $params['programmeid'] = $programmeid;
