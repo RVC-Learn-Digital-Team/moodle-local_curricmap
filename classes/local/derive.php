@@ -85,6 +85,12 @@ class derive {
      */
     const UNIT_SUBTYPE_ROLES = [
         'Strand' => self::ROLE_STRAND,
+        // Modules are the strand-equivalent container on modular programmes:
+        // ALL of bio-sc, vet-nur years, and vet-med's Gateway/Graduate
+        // accelerated years (observed on production Sofia, July 2026; Brian's
+        // Option A ruling). Their outcome children become strand outcomes via
+        // the parent-aware rule below.
+        'Module' => self::ROLE_STRAND,
         // The app now creates course/year containers as Unit+Course (legacy Y is
         // import-only) - observed live, July 2026.
         'Course' => self::ROLE_YEAR,
@@ -94,11 +100,14 @@ class derive {
     /**
      * Parent roles under which an Outcome node counts as a strand outcome.
      *
-     * Nested outcome containers inherit their outcome bucket.
+     * Nested outcome containers inherit their outcome bucket. Year-level
+     * outcomes (bio-sc MSci years, vet-med clinical years — production Sofia,
+     * July 2026) bucket as strand outcomes too: outcomes owned by a container
+     * above session level.
      *
      * @var string[]
      */
-    const STRANDOUTCOME_PARENTS = [self::ROLE_STRAND, self::ROLE_STRANDOUTCOME];
+    const STRANDOUTCOME_PARENTS = [self::ROLE_STRAND, self::ROLE_STRANDOUTCOME, self::ROLE_YEAR];
 
     /**
      * Parent roles under which an Outcome node counts as a session outcome.

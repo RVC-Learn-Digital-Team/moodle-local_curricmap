@@ -136,7 +136,7 @@ class get_nodes extends external_api {
             if ($node->parentid && isset($uuidsbyid[(int) $node->parentid])) {
                 $row['parentuuid'] = $uuidsbyid[(int) $node->parentid];
             }
-            $optionalfields = ['subtype', 'code', 'description', 'grouplabel', 'sofiaurl',
+            $optionalfields = ['type', 'subtype', 'code', 'description', 'grouplabel', 'sofiaurl',
                 'pebblepadurl', 'pebblepadlabel', 'sourceversion'];
             foreach ($optionalfields as $optional) {
                 if ($node->$optional !== null && $node->$optional !== '') {
@@ -182,6 +182,7 @@ class get_nodes extends external_api {
                     VALUE_OPTIONAL
                 ),
                 'role' => new external_value(PARAM_ALPHA, 'Derived role'),
+                'type' => new external_value(PARAM_TEXT, 'Raw Sofia type letter (Y/U/E/O/Z/G)', VALUE_OPTIONAL),
                 'subtype' => new external_value(PARAM_TEXT, 'Sofia type name', VALUE_OPTIONAL),
                 'code' => new external_value(PARAM_TEXT, 'Code', VALUE_OPTIONAL),
                 'title' => new external_value(PARAM_RAW, 'Title'),

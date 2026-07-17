@@ -449,6 +449,27 @@ its own automation, not part of the matching pages.
       inherit (top-level merge) — paste the new synonyms block into live
       settings by hand; fresh installs get them automatically. Full analysis
       in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md
+- [x] Modules derive as strands (v0.19.0/2026071430, Brian's Option A after
+      the production-Sofia structure audit via the graph ws): production
+      facts — bio-sc is ENTIRELY modular (51 Module nodes, 0 strands),
+      vet-nur years are modular (11), and vet-med uses Modules for
+      Veterinary Gateway (10) + Graduate accelerated (6); module outcome
+      children were role 'other' (invisible to every role-filtered surface —
+      why vet-nur/bio-sc always showed "0 strands"). Changes: (1)
+      UNIT_SUBTYPE_ROLES gains 'Module' => strand — outcome children become
+      strandoutcome automatically via the parent-aware rule; (2)
+      STRANDOUTCOME_PARENTS gains 'year' — year-level outcomes (bio-sc MSci
+      years etc.) bucket as strand outcomes; (3) get_nodes ws now exports
+      the raw Sofia `type` letter (classification + platform use). Fixture
+      counts unchanged (test corpus has neither shape). DEPLOY NOTE: role is
+      computed at sync time and the change detector skips unchanged
+      revisions — run **Force full sync** once per programme after this
+      version lands, on every environment. REMAINING WAVE 2: vet-med has 42
+      untyped containers under clinical years ("Anaesthesia" etc., ~574
+      outcome children) — classify via the new `type` export after the next
+      vle-test deploy, then decide their rule; also flag missing typeName to
+      the Sofia/curriculum team as a data-quality issue. O-under-assessment
+      (4 nodes estate-wide) left as 'other' deliberately
 - [x] Generator --programme_year selector (v0.18.5/2026071426, from Brian's
       first rvc-vle-test run against PRODUCTION Sofia: "No strands under
       Veterinary Gateway"): programmes carry MULTIPLE year-role nodes (Year
