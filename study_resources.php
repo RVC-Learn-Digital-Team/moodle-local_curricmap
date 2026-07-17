@@ -125,10 +125,22 @@ function local_curricmap_resource_addform(string $nodeuuid, moodle_url $pageurl)
     return $out;
 }
 
-// Delete a resource.
+// Delete a resource, confirmed (it disappears everywhere its node renders).
 $delres = optional_param('delres', 0, PARAM_INT);
 if ($delres && confirm_sesskey()) {
     require_capability('local/curricmap:managebindings', context_system::instance());
+    if (!optional_param('confirm', 0, PARAM_BOOL)) {
+        $row = $DB->get_record('local_curricmap_resource', ['id' => $delres], '*', MUST_EXIST);
+        $confirmurl = new moodle_url($pageurl, ['delres' => $delres, 'confirm' => 1, 'sesskey' => sesskey()]);
+        echo $OUTPUT->header();
+        echo $OUTPUT->confirm(
+            get_string('courseresources_confirmdelete', 'local_curricmap', format_string($row->label)),
+            $confirmurl,
+            $pageurl
+        );
+        echo $OUTPUT->footer();
+        exit;
+    }
     resources::delete($delres);
     redirect($pageurl, get_string('studyresources_deleted', 'local_curricmap'));
 }

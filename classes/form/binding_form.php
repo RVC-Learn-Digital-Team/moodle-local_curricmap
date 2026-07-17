@@ -20,12 +20,19 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/formslib.php');
 
+use local_curricmap\api\bindings;
 use local_curricmap\api\curriculum;
 
 /**
  * Add-mapping form for the per-course curriculum mappings page: pick a
- * location (whole course, a section, or an activity), a programme year, a
- * node within it, and the relation.
+ * location (whole course, a section, or an activity), then a node.
+ *
+ * When the course carries a central match, the strict lock applies: no
+ * programme-year select (the match already decides it), and the node picker
+ * offers only the matched subtree — additional strands listed as starting
+ * points (already-mapped ones excluded), typing searches sessions and
+ * outcomes within the match. Unmatched courses keep the free two-field
+ * picker so admins can still map anything.
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
@@ -61,35 +68,80 @@ class binding_form extends \moodleform {
         }
         $mform->addElement('select', 'location', get_string('mappings_location', 'local_curricmap'), $locations);
 
-        $programmechoices = ['' => get_string('choosedots')];
-        foreach (curriculum::programmes() as $programme) {
-            $year = $programme->versionlabel;
-            if (preg_match('/^\d{4}$/', $year)) {
-                $year = $year . '/' . sprintf('%02d', ((int) $year + 1) % 100);
+        // The strict lock: an anchored course offers only its matched
+        // curriculum. Roots = each anchor's year (a strand/module anchor
+        // widens to its parent year so sibling strands stay offerable).
+        $anchors = bindings::anchors($course->id);
+        $roots = [];
+        $anchorlabels = [];
+        foreach ($anchors as $anchor) {
+            $root = $anchor;
+            if ($anchor->role === 'strand') {
+                $parent = curriculum::parent($anchor->uuid);
+                if ($parent && empty($parent->deleted)) {
+                    $root = $parent;
+                }
             }
-            $programmechoices[(int) $programme->id] = ($programme->displayname ?: $programme->slug) . ' ' . $year;
+            $roots[$root->uuid] = true;
+            $anchorlabels[] = $anchor->title . (!empty($anchor->code) ? ' (' . $anchor->code . ')' : '');
         }
-        $mform->addElement(
-            'select',
-            'programmeid',
-            get_string('mappings_programme', 'local_curricmap'),
-            $programmechoices
-        );
 
-        $attributes = [
-            'ajax' => 'local_curricmap/nodeselector',
-            'noselectionstring' => get_string('choosedots'),
-            'placeholder' => get_string('mappings_node_placeholder', 'local_curricmap'),
-        ];
-        $mform->addElement(
-            'autocomplete',
-            'nodeuuid',
-            get_string('mappings_node', 'local_curricmap'),
-            [],
-            $attributes
-        );
-        $mform->addHelpButton('nodeuuid', 'mappings_node', 'local_curricmap');
-        $mform->getElement('nodeuuid')->updateAttributes(['data-courseid' => $course->id]);
+        if ($roots) {
+            $mform->addElement(
+                'static',
+                'matchedscope',
+                get_string('mappings_matchedscope', 'local_curricmap'),
+                s(implode(', ', array_unique($anchorlabels)))
+            );
+            $attributes = [
+                'ajax' => 'local_curricmap/nodeselector',
+                'noselectionstring' => get_string('choosedots'),
+                'placeholder' => get_string('mappings_node_locked_placeholder', 'local_curricmap'),
+            ];
+            $mform->addElement(
+                'autocomplete',
+                'nodeuuid',
+                get_string('mappings_node', 'local_curricmap'),
+                [],
+                $attributes
+            );
+            $mform->addHelpButton('nodeuuid', 'mappings_node_locked', 'local_curricmap');
+            $mform->getElement('nodeuuid')->updateAttributes([
+                'data-courseid' => $course->id,
+                'data-ancestors' => implode(',', array_keys($roots)),
+                'data-exclude' => implode(',', (array) ($this->_customdata['boundnodeuuids'] ?? [])),
+            ]);
+        } else {
+            $programmechoices = ['' => get_string('choosedots')];
+            foreach (curriculum::programmes() as $programme) {
+                $year = $programme->versionlabel;
+                if (preg_match('/^\d{4}$/', $year)) {
+                    $year = $year . '/' . sprintf('%02d', ((int) $year + 1) % 100);
+                }
+                $programmechoices[(int) $programme->id] = ($programme->displayname ?: $programme->slug) . ' ' . $year;
+            }
+            $mform->addElement(
+                'select',
+                'programmeid',
+                get_string('mappings_programme', 'local_curricmap'),
+                $programmechoices
+            );
+
+            $attributes = [
+                'ajax' => 'local_curricmap/nodeselector',
+                'noselectionstring' => get_string('choosedots'),
+                'placeholder' => get_string('mappings_node_placeholder', 'local_curricmap'),
+            ];
+            $mform->addElement(
+                'autocomplete',
+                'nodeuuid',
+                get_string('mappings_node', 'local_curricmap'),
+                [],
+                $attributes
+            );
+            $mform->addHelpButton('nodeuuid', 'mappings_node', 'local_curricmap');
+            $mform->getElement('nodeuuid')->updateAttributes(['data-courseid' => $course->id]);
+        }
 
         $relations = [
             'related' => get_string('relation_related', 'local_curricmap'),
@@ -104,6 +156,7 @@ class binding_form extends \moodleform {
                 'central' => get_string('scope_central', 'local_curricmap'),
             ];
             $mform->addElement('select', 'scope', get_string('mappings_scope', 'local_curricmap'), $scopes);
+            $mform->addHelpButton('scope', 'mappings_scope', 'local_curricmap');
         } else {
             $mform->addElement('hidden', 'scope', 'course');
             $mform->setType('scope', PARAM_ALPHA);

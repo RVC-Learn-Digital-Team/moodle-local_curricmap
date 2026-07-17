@@ -41,8 +41,14 @@ const ROLELABELS = {
 };
 
 /**
- * Fetch year nodes and nodes of any role matching the query within the
- * selected programme year.
+ * Fetch starting points and matches for the typed query.
+ *
+ * Two modes. Free (no data-ancestors): pick a programme year first, then
+ * years + strands are starting points and typing searches the programme.
+ * Locked (data-ancestors set, the anchored-course strict lock): starting
+ * points are the matched years' strands, typing searches only within the
+ * matched subtrees, and data-exclude uuids (already mapped in the course)
+ * are never offered.
  *
  * @param {String} selector The autocomplete element selector.
  * @param {String} query The typed search text.
@@ -52,6 +58,46 @@ const ROLELABELS = {
 export const transport = (selector, query, callback, failure) => {
     const element = document.querySelector(selector);
     const courseid = parseInt(element?.dataset.courseid || '1', 10);
+    const ancestors = (element?.dataset.ancestors || '').split(',').filter((value) => value !== '');
+    const exclude = new Set((element?.dataset.exclude || '').split(',').filter((value) => value !== ''));
+
+    if (ancestors.length) {
+        const drop = (nodes) => nodes.filter((node) => !exclude.has(node.uuid));
+        if (query.trim().length < 2) {
+            const calls = Ajax.call(ancestors.map((uuid) => ({
+                methodname: 'local_curricmap_get_children',
+                args: {courseid: courseid, programmeid: 0, parentuuid: uuid},
+            })));
+            Promise.all(calls)
+                .then((lists) => {
+                    const strands = drop(lists.flat().filter((node) => node.role === 'strand'));
+                    callback({years: strands, results: []});
+                    return null;
+                })
+                .catch(failure);
+            return;
+        }
+        const calls = Ajax.call(ancestors.map((uuid) => ({
+            methodname: 'local_curricmap_search',
+            args: {courseid: courseid, programmeid: 0, query: query, roles: [], ancestoruuid: uuid},
+        })));
+        Promise.all(calls)
+            .then((lists) => {
+                const seen = new Set();
+                const merged = drop(lists.flat()).filter((node) => {
+                    if (seen.has(node.uuid)) {
+                        return false;
+                    }
+                    seen.add(node.uuid);
+                    return true;
+                });
+                callback({years: [], results: merged});
+                return null;
+            })
+            .catch(failure);
+        return;
+    }
+
     const programmeid = parseInt(document.querySelector('#id_programmeid')?.value || '0', 10);
     if (!programmeid) {
         callback({years: [], results: []});

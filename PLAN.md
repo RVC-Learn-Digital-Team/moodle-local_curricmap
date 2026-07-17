@@ -578,6 +578,24 @@ its own automation, not part of the matching pages.
       sortorder, "Week N") — HYPOTHESIS, DOWNGRADED after the day-of-week
       finding (needs 3 structural dialects or VN-family-only scope); revisit
       only if body-text matching leaves gaps. See design doc §3
+- [x] mappings.php UX round (v0.21.0/2026071450, Brian's click-test
+      2026-07-18): (1) course-resources add form gets wrap spacing (gap +
+      label margins in styles.css). (2) STRICT LOCK lands on the add-mapping
+      form: anchored courses lose the free programme-year select (replaced
+      by a static "Matched curriculum" line); the node picker gains
+      data-ancestors (anchor years — a strand/module anchor widens to its
+      parent year so sibling strands stay offerable) + data-exclude (nodes
+      already mapped in the course); nodeselector.js locked mode: empty
+      query lists the matched years' strands (minus mapped), typing searches
+      ONLY within the matched subtrees via ancestoruuid — no other
+      programmes or years, ever; unmatched courses keep the old free picker.
+      New placeholder "Select additional strands below, or type to search" +
+      locked help text. (3) Scope select (Course/Central) gets a help
+      tooltip. (4) DELETE CONFIRMATIONS everywhere they were missing:
+      mappings.php unbind, course_mapping.php remove-match,
+      section_module_mapping.php unbind, study_resources.php delete — all
+      now show an are-you-sure page naming the node/resource before acting
+      (course-resources delete already had one)
 - [x] Alias courses get strand suggestions (v0.20.1/2026071441, Brian's
       vle-test report: "include strands shows no strands for bio-sc/vet-nur").
       DIAGNOSIS BY ELIMINATION, all fact-checked: mirror data correct (ws

@@ -55,3 +55,13 @@
     border-top: 1px solid #dee2e6;
     padding: 0.25rem 0;
 }
+
+/* Course study resources add form: breathing room when the flex row wraps. */
+.curricmap-courseres-form {
+    gap: 0.5rem 0.75rem;
+}
+
+.curricmap-courseres-form > label,
+.curricmap-courseres-form > button {
+    margin-bottom: 0.5rem;
+}

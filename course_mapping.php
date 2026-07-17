@@ -98,6 +98,18 @@ if ($unbind && confirm_sesskey()) {
     require_capability('local/curricmap:managebindings', context_system::instance());
     $binding = $DB->get_record('local_curricmap_binding', ['id' => $unbind], '*', MUST_EXIST);
     if ($binding->scope === 'central' && $binding->courseid !== null) {
+        if (!optional_param('confirm', 0, PARAM_BOOL)) {
+            $node = \local_curricmap\api\curriculum::node($binding->nodeuuid);
+            $confirmurl = new moodle_url($pageurl, ['unbind' => $unbind, 'confirm' => 1, 'sesskey' => sesskey()]);
+            echo $OUTPUT->header();
+            echo $OUTPUT->confirm(
+                get_string('coursemapping_confirmremove', 'local_curricmap', s($node->title ?? $binding->nodeuuid)),
+                $confirmurl,
+                $pageurl
+            );
+            echo $OUTPUT->footer();
+            exit;
+        }
         bindings::unbind((int) $binding->id);
         redirect($pageurl, get_string('coursemapping_removed', 'local_curricmap'));
     }

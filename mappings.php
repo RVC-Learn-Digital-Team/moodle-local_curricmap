@@ -51,17 +51,29 @@ $PAGE->set_pagelayout('incourse');
 $PAGE->set_title(get_string('mappings', 'local_curricmap'));
 $PAGE->set_heading($course->fullname);
 
-// Delete a binding. Central rows need the system capability, course-scope
-// rows the course one.
+// Delete a binding, confirmed first. Central rows need the system
+// capability, course-scope rows the course one.
 $unbind = optional_param('unbind', 0, PARAM_INT);
 if ($unbind && confirm_sesskey()) {
     $binding = $DB->get_record('local_curricmap_binding', ['id' => $unbind], '*', MUST_EXIST);
     $iscourserow = (int) ($binding->courseid ?? 0) === $courseid && $binding->scope !== 'central';
-    if (($iscourserow && $canmanage) || $cancentral) {
-        bindings::unbind((int) $binding->id);
-        redirect($pageurl, get_string('mappings_deleted', 'local_curricmap'));
+    if (!(($iscourserow && $canmanage) || $cancentral)) {
+        throw new required_capability_exception($context, 'local/curricmap:managebindings', 'nopermissions', '');
     }
-    throw new required_capability_exception($context, 'local/curricmap:managebindings', 'nopermissions', '');
+    if (!optional_param('confirm', 0, PARAM_BOOL)) {
+        $node = curriculum::node($binding->nodeuuid);
+        $confirmurl = new moodle_url($pageurl, ['unbind' => $unbind, 'confirm' => 1, 'sesskey' => sesskey()]);
+        echo $OUTPUT->header();
+        echo $OUTPUT->confirm(
+            get_string('mappings_confirmunbind', 'local_curricmap', s($node->title ?? $binding->nodeuuid)),
+            $confirmurl,
+            $pageurl
+        );
+        echo $OUTPUT->footer();
+        exit;
+    }
+    bindings::unbind((int) $binding->id);
+    redirect($pageurl, get_string('mappings_deleted', 'local_curricmap'));
 }
 
 // Course study resources: show/hide toggle. Course-scoped rows only — the
@@ -102,12 +114,18 @@ if ($delres && $canresources) {
     exit;
 }
 
-// Add a binding.
+// Add a binding. The picker excludes nodes already mapped in this course.
 $form = null;
 if ($canmanage) {
+    $alreadybound = $DB->get_fieldset_select(
+        'local_curricmap_binding',
+        'DISTINCT nodeuuid',
+        "courseid = :courseid AND status = 'active'",
+        ['courseid' => $courseid]
+    );
     $form = new \local_curricmap\form\binding_form(
         $pageurl,
-        ['course' => $course, 'cancentral' => $cancentral]
+        ['course' => $course, 'cancentral' => $cancentral, 'boundnodeuuids' => $alreadybound]
     );
     if ($data = $form->get_data()) {
         $address = ['courseid' => $courseid];
