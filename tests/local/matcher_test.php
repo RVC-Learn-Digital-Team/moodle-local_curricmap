@@ -198,6 +198,50 @@ final class matcher_test extends \advanced_testcase {
     }
 
     /**
+     * An alias-matched course still gets strand suggestions beside the year:
+     * the alias node regex names the YEAR, but module-shaped courses (all of
+     * vet-nur/bio-sc) are named after their module-strand — found live on
+     * vle-test where include-strands showed nothing for either programme.
+     */
+    public function test_alias_course_gets_strand_suggestions(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->seed_programme('vet-nur', 'Veterinary Nursing', [2026 => 'Year 1']);
+        $yearnode = $DB->get_record('local_curricmap_node', ['role' => 'year'], '*', MUST_EXIST);
+        $modules = ['Applied Animal Health & Welfare 1', 'Academic and Professional Development 1'];
+        foreach ($modules as $index => $title) {
+            $DB->insert_record('local_curricmap_node', (object) [
+                'programmeid' => $yearnode->programmeid,
+                'uuid' => 'vet-nur_2026_27_module' . $index,
+                'parentid' => $yearnode->id,
+                'role' => 'strand',
+                'subtype' => 'Module',
+                'title' => $title,
+                'sortorder' => $index,
+                'source' => 'sofia',
+                'timecreated' => time(),
+                'timemodified' => time(),
+            ]);
+        }
+        $course = $this->course('VN1202_A_Y_202627', 'AAHW1 26/7', 'Applied Animal Health & Welfare 1 (VN1202_A_Y_202627)');
+        $rules = matcher::default_rules();
+
+        // With strands on: the year stays the deterministic best, and the
+        // course's own module tops the suggestions.
+        $result = matcher::match($course, matcher::candidates(true), $rules);
+        $this->assertSame(matcher::STATUS_MATCH, $result->status);
+        $this->assertSame('Year 1', $result->best->node->title);
+        $this->assertNotEmpty($result->suggestions);
+        $this->assertSame('Applied Animal Health & Welfare 1', $result->suggestions[0]->candidate->node->title);
+        $this->assertSame('strand', $result->suggestions[0]->candidate->node->role);
+
+        // With strands off there is nothing to suggest — unchanged behaviour.
+        $plain = matcher::match($course, matcher::candidates(false), $rules);
+        $this->assertSame(matcher::STATUS_MATCH, $plain->status);
+        $this->assertSame([], $plain->suggestions);
+    }
+
+    /**
      * Unknown conventions fall back to lowercase whole-word overlap.
      */
     public function test_word_overlap_suggestions(): void {

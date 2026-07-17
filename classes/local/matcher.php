@@ -463,6 +463,7 @@ class matcher {
                         break;
                     }
                 }
+                $slugpoolfull = $slugpool;
                 $noderegex = $number !== '' ? str_replace('{n}', $number, $alias['node']) : $alias['node'];
                 if ($noderegex !== '' && strpos($noderegex, '{n}') === false) {
                     $narrowed = array_values(array_filter(
@@ -480,6 +481,27 @@ class matcher {
                     $result->best = $slugpool[0];
                     $result->status = ($field === 'idnumber' && $yearfield === 'idnumber')
                         ? self::STATUS_MATCH : self::STATUS_SUGGEST;
+                    // The alias's node regex names the YEAR, which would
+                    // otherwise silence every strand/module candidate — a
+                    // course named after its module (all of vet-nur/bio-sc)
+                    // still deserves strand suggestions beside the year.
+                    $coursetokens = self::tokens(
+                        $idnumber,
+                        (string) $course->shortname,
+                        (string) $course->fullname
+                    );
+                    $strandscored = [];
+                    foreach ($slugpoolfull as $candidate) {
+                        if ($candidate->yeartitle === null) {
+                            continue;
+                        }
+                        $score = count(array_intersect($coursetokens, $candidate->tokens));
+                        if ($score > 0) {
+                            $strandscored[] = (object) ['candidate' => $candidate, 'score' => $score];
+                        }
+                    }
+                    usort($strandscored, fn($a, $b) => $b->score <=> $a->score);
+                    $result->suggestions = array_slice($strandscored, 0, self::MAX_SUGGESTIONS);
                     return $result;
                 }
                 $pool = $slugpool;

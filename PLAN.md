@@ -578,6 +578,24 @@ its own automation, not part of the matching pages.
       sortorder, "Week N") — HYPOTHESIS, DOWNGRADED after the day-of-week
       finding (needs 3 structural dialects or VN-family-only scope); revisit
       only if body-text matching leaves gaps. See design doc §3
+- [x] Alias courses get strand suggestions (v0.20.1/2026071441, Brian's
+      vle-test report: "include strands shows no strands for bio-sc/vet-nur").
+      DIAGNOSIS BY ELIMINATION, all fact-checked: mirror data correct (ws
+      probe: bio-sc 43-51, vet-nur 9-11 strands/year), cached strands path
+      correct (get_children withstrands via ws), candidates()/content pools
+      correct (playground harness with module-shaped rows), page wiring
+      correct (authenticated fetch of course_mapping.php?strands=1 — sofia
+      select DID contain the strands). ACTUAL BUG: matcher::match()'s alias
+      branch — the alias node regex (year\s*{n}) names the YEAR, and when
+      exactly one candidate survives it returned immediately with zero
+      suggestions, so alias-matched courses (ALL VN*/BIO_SCI_HUB idnumbers)
+      could never be offered their module-strand, however the course was
+      named. Fix: the single-survivor branch now also scores the programme's
+      strand candidates by word overlap and attaches them as suggestions
+      beside the deterministic year best; strands-off behaviour unchanged.
+      New matcher test (VN1202 → best Year 1 + AAHW1 module suggestion
+      first) + harness green. NOTE: sofia mode + slugyear-filtered rows
+      always offered strands correctly — course-mode PROPOSALS were the gap
 - [x] Coverage / reporting page (v0.20.0/2026071440, Brian go 2026-07-18):
       `coverage.php` admin page (viewstaffmeta at system — read-only central
       staff) + testable `classes/local/coverage.php` calculator. Definitions
