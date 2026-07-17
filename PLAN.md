@@ -578,12 +578,25 @@ its own automation, not part of the matching pages.
       sortorder, "Week N") — HYPOTHESIS, DOWNGRADED after the day-of-week
       finding (needs 3 structural dialects or VN-family-only scope); revisit
       only if body-text matching leaves gaps. See design doc §3
-- [ ] Coverage / reporting page (Brian, 2026-07-16): read-only central
-      dashboard over existing data — what fraction of courses (per
-      category/programme-year) hold a central match, section/activity
-      mapping depth per course, resource counts per node/strand, orphaned
-      counts. Drives the "what's left to map" conversation and later feeds
-      the external engine's worklist
+- [x] Coverage / reporting page (v0.20.0/2026071440, Brian go 2026-07-18):
+      `coverage.php` admin page (viewstaffmeta at system — read-only central
+      staff) + testable `classes/local/coverage.php` calculator. Definitions
+      locked: a node is COVERED only via content-grain bindings (section/
+      activity/chapter — anchors are affiliation, not coverage); matched =
+      active central course-level anchor; in-scope denominator reuses the
+      matching rules' skip patterns. Page: estate summary line + hygiene
+      strip (orphaned, rollover stragglers, resources/hidden), programme-year
+      summary table (strands, sessions x/y, outcomes x/y, matched courses,
+      content bindings) with drill-down per year → strand-by-strand coverage
+      + matched-course depth table (sections/activities/chapters bound,
+      mappings-page links). CSV exports for all three tables. Staleness
+      definition fixed after live check: "live" years = the TWO most recent
+      versionlabels per slug (same current+upcoming pair as sync tiering) —
+      latest-only wrongly flagged every 2026 anchor because 2027 is synced
+      ahead. PHPUnit coverage_test (anchor≠coverage, grain depth, skip
+      rules, orphan counter); harness-verified against live playground data
+      (13 matched courses, 2/330 sessions, real numbers). Later: feed the
+      engine's worklist via ws when the engine wants it
 - [ ] Rollover — RESHAPED by restore findings (verified against 4.5 core,
       2026-07-16). Facts: (1) restore rewrites in-content links to course
       assets via encode/decode rules (mod/xxx/view.php?id=N → token → new

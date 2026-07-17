@@ -77,6 +77,13 @@ if ($hassiteconfig) {
         'local/curricmap:managebindings'
     ));
 
+    $ADMIN->add('local_curricmap_category', new admin_externalpage(
+        'local_curricmap_coverage',
+        get_string('coverage', 'local_curricmap'),
+        new moodle_url('/local/curricmap/coverage.php'),
+        'local/curricmap:viewstaffmeta'
+    ));
+
     // Sofia API connection, with a link to the status page for connection testing.
     $statuslink = html_writer::link(
         new moodle_url('/local/curricmap/status.php'),
