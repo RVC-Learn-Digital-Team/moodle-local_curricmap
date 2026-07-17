@@ -449,6 +449,11 @@ its own automation, not part of the matching pages.
       inherit (top-level merge) — paste the new synonyms block into live
       settings by hand; fresh installs get them automatically. Full analysis
       in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md
+- [x] Generator --list_courses[=N] (v0.18.3/2026071424, Brian's spec):
+      tab-separated idnumber/fullname/shortname/categoryid listing; bare =
+      whole site, =N restricts to category N INCLUDING subcategories (path
+      prefix); unknown N refuses + prints the category list; runs before any
+      sync requirement. Verified live incl. subcategory traversal
 - [x] Generator --categoryid mandatory (v0.18.2/2026071423, Brian's ruling):
       creating a course without --categoryid (or with a nonexistent id)
       refuses and prints the available category list; --match_existing does

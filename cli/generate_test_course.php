@@ -53,6 +53,7 @@ use local_curricmap\api\curriculum;
         'strand_sections' => false,
         'maxsessions' => 8,
         'categoryid' => '',
+        'list_courses' => false,
         'help' => false,
     ],
     ['h' => 'help']
@@ -78,12 +79,51 @@ Options:
   --maxsessions=8         Sessions used per strand/unit (size cap).
   --categoryid=N          Course category id — MANDATORY when creating a
                           course (not needed with --match_existing).
+  --list_courses[=N]      List courses (idnumber, fullname, shortname,
+                          category id) and exit. With N: only category N,
+                          including its subcategories.
   -h, --help              This help.
 
 Examples:
   php generate_test_course.php --strand_course=Locomotor --categoryid=2
   php generate_test_course.php --slug=vet-med --year=2026 --strand_sections --categoryid=2
   php generate_test_course.php --strand_course=UG1-ALI --idnumber=1VETS90_A_Y_202627 --match_existing");
+    exit(0);
+}
+
+// Course listing mode: print and exit (works before any curriculum sync).
+if ($options['list_courses'] !== false) {
+    $where = 'c.id <> :siteid';
+    $params = ['siteid' => SITEID];
+    if ($options['list_courses'] !== true) {
+        $categoryid = (int) $options['list_courses'];
+        $category = $DB->get_record('course_categories', ['id' => $categoryid], 'id, name, path');
+        if (!$category) {
+            cli_writeln("--list_courses={$options['list_courses']} is not an existing course category.");
+            cli_writeln('Available categories:');
+            foreach ($DB->get_records('course_categories', [], 'sortorder ASC', 'id, name') as $cat) {
+                cli_writeln("  {$cat->id}  {$cat->name}");
+            }
+            exit(1);
+        }
+        // The category itself plus everything below it (path prefix).
+        $pathlike = $DB->sql_like('cc.path', ':subpath');
+        $where .= " AND (cc.id = :categoryid OR $pathlike)";
+        $params['categoryid'] = $category->id;
+        $params['subpath'] = $DB->sql_like_escape($category->path) . '/%';
+        cli_writeln("Courses in '{$category->name}' ({$category->id}) and subcategories:");
+    }
+    $sql = "SELECT c.id, c.idnumber, c.fullname, c.shortname, c.category
+              FROM {course} c
+              JOIN {course_categories} cc ON cc.id = c.category
+             WHERE $where
+          ORDER BY cc.sortorder ASC, c.fullname ASC";
+    $courses = $DB->get_records_sql($sql, $params);
+    cli_writeln("idnumber\tfullname\tshortname\tcategoryid");
+    foreach ($courses as $course) {
+        cli_writeln("{$course->idnumber}\t{$course->fullname}\t{$course->shortname}\t{$course->category}");
+    }
+    cli_writeln(count($courses) . ' course(s).');
     exit(0);
 }
 
