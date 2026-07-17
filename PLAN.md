@@ -439,17 +439,76 @@ its own automation, not part of the matching pages.
       mapper's dropdowns) now show the node's code — data was always 100%
       populated on outcomes (UG1-AH-LO8 format), only these two label
       builders never included it; mappings.php and tiny already did
-- [ ] Search ranking + course-structure matching (Brian's questions,
-      2026-07-17) — full design in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md:
-      curriculum::search() has no relevance ranking (plain LIKE, tree order)
-      while matcher::match_title() does (containment+synonym, top-5) but
-      only runs on automatic proposals, never on typed search — the fix is
-      to score search results too, in the one shared PHP function so every
-      consumer (mappings.php, tiny, future external) inherits it. Course-
-      structure positional matching (section number ↔ session sortorder,
-      "Week N" patterns) is a HYPOTHESIS pending real analysis of the
-      expanded course_data extraction (all 2026-idnumber courses) — do not
-      build before that evidence exists
+- [x] Strand-code legend synonyms (v0.16.2/2026071412): the 21-code master
+      legend from Brian's strand-map tooling folded into the shipped default
+      synonyms (ah/alim/cs/devb/dops/loc/loco/lym/pmvph/pos/repr/rs/sebm/
+      skn/urn/vph added; 'end' EXCLUDED — proven false-positive on "END OF
+      ..." titles; 'nma' excluded — no Sofia strand). Evidence: legend codes
+      appear as real tokens in 57.8k scanned titles (IAA 66, POS 31, PVP 23,
+      CS 20 ...). NOTE: sites with a SAVED matchingrules setting do not
+      inherit (top-level merge) — paste the new synonyms block into live
+      settings by hand; fresh installs get them automatically. Full analysis
+      in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md
+- [x] `cli/generate_test_course.php` (v0.18.1/2026071422, Brian's spec
+      2026-07-17) — test content from the mirror itself, because both
+      playground AND rvc-vle-test are empty and learn-uat needs a partner
+      ticket per deploy. Options: --strand_course=<title|code|uuid> (prints
+      the strand list when not found), --idnumber=, --match_existing (append
+      to the course with that idnumber), --strand_sections (loose pages/
+      urls/labels instead of the default book-per-strand), plus --slug/
+      --year/--maxsessions/--category. Generates: section per strand named
+      from the strand, book with a chapter per session (chapter body =
+      session description + its outcomes = real body-matching corpus),
+      "General" + "Support Blocks" DECOY sections (skip rules), a
+      red-herring page from a DIFFERENT strand (false-positive check), and
+      a page of pre-authored inline+card filter placeholders. Idnumber
+      defaults to the old-tool dialect so central matching proposes
+      immediately. Sets the admin user (create_module checks capabilities).
+      Verified on the playground: Locomotor course, 8 chapters with real
+      body text, decoys and placeholders present; test course removed after.
+      Port to other sites via standard course backup/restore (.mbz) — no
+      CLI needed there
+- [x] Skip-list additions + body-text matching (v0.18.0/2026071421, Brian
+      go 2026-07-17): (1) skipsections gains anchored patterns ^general$,
+      ^support blocks?$, ^welcome (&|and) overview$, ^learn guidance —
+      ANCHORED so "General" is skipped but "General Pathology"/"General
+      Anaesthesia" are kept (verified against the real corpus); is_housekeeping
+      now html_entity_decodes the name (get_section_name returns &amp;-escaped
+      text, so patterns stay human-readable). Reading List + Strand Overview/
+      Learning Resources deliberately NOT added (Brian: keep reading list;
+      strand-template sections hold real material — evidence below).
+      (2) Body-text matching: matcher::match_body() (secondary signal, own
+      stricter bodymincontainment 0.75 + bodyminwords 2 so long prose and
+      single-word titles don't over-match); contentmap::body_text() pulls
+      intro/content per type via content_to_text() (Moodle's own stripper —
+      no PHP HTML-cleaning needed), capped 8000 chars; merged_hints() appends
+      body hints for nodes the title missed, tagged " text" in the picker.
+      Wired into activity rows AND the chapter view (chapters already had
+      content in memory). Same "Course activities to map" gate — body reading
+      only applies to already-mappable types, adds a signal, never a type.
+      11/11 matcher+curriculum PHPUnit green; live body harness deferred
+      (playground reinstalled without book content — logic covered by tests)
+- [x] Search RANKING (v0.17.0/2026071420, Brian go 2026-07-17) — full design
+      + findings in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md.
+      curriculum::search() rewritten from plain-LIKE-tree-order to OR-pool +
+      coverage ranking: query tokens synonym-expanded (matcher::expand_tokens,
+      extracted + shared so match_title and search agree), candidates matching
+      ANY token pooled (cap SEARCH_POOL=400), ranked codematch > coverage
+      (3-of-3 tokens beat 2-of-3) > title tightness > tree order; token
+      matching is exact for <3-char tokens, prefix for 3+ ("cs" never matches
+      inside "physics"; "locomot" finds "locomotor"). Code queries: whole code
+      exact-first, single-token = code final segment (LO32 finds
+      UG1-LOCO-LO32). Signature UNCHANGED so every consumer (mappings.php
+      autocomplete, tiny dialog, ws, external) inherits it; ws contract shape
+      unchanged (only ordering). Verified live: pos→Principles of Science
+      strand 1st, cs cough→CVR strand 1st, locomotion(synonym)→Locomotor 1st,
+      alim(legend)→Alimentary 1st, full+partial codes exact-first, 1-45ms.
+      Legend synonyms now reach TYPED search, not just proposals — the "codes
+      into search" outcome Brian wanted
+- [ ] Course-structure positional matching (section number ↔ session
+      sortorder, "Week N") — HYPOTHESIS, DOWNGRADED after the day-of-week
+      finding (needs 3 structural dialects or VN-family-only scope); revisit
+      only if body-text matching leaves gaps. See design doc §3
 - [ ] Coverage / reporting page (Brian, 2026-07-16): read-only central
       dashboard over existing data — what fraction of courses (per
       category/programme-year) hold a central match, section/activity

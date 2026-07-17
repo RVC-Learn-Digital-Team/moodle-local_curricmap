@@ -71,20 +71,49 @@ class matcher {
             'skip' => ['^Temp_', 'shell', '^catalyst_'],
             'minscore' => 2,
             'mincontainment' => 0.6,
+            // Body-text hints (secondary signal): stricter threshold because
+            // long content matches more easily, and candidates need at least
+            // this many significant title words to qualify at all.
+            'bodymincontainment' => 0.75,
+            'bodyminwords' => 2,
+            // Patterns are unanchored regexes over section names — anchor
+            // anything that could hide inside a real teaching title
+            // ("General" must never swallow "General Pathology").
             'skipsections' => [
                 'archive', 'to be classified', 'drop.?in', 'course overview', 'announcement',
                 'weekly guidance', 'attendance', 'module books?', 'pebblepad', 'learn kit',
+                '^general$', '^support blocks?$', '^welcome (&|and) overview$', '^learn guidance',
             ],
+            // Includes the strand-code master legend from the timetable/strand
+            // map (2026-07-17). Deliberately absent: 'end' (Endocrine — the
+            // lowercase token false-positives on "end of ..." titles) and
+            // 'nma' (Non-Modular Activity — maps to no Sofia strand).
             'synonyms' => [
+                'ah' => 'animal husbandry',
+                'alim' => 'alimentary',
+                'cs' => 'cardiovascular respiratory',
                 'cvrs' => 'cardiovascular respiratory',
+                'devb' => 'developmental biology',
                 'digestion' => 'alimentary',
                 'digestive' => 'alimentary',
+                'dops' => 'directly observed procedural skills',
                 'ebm' => 'evidence based medicine',
                 'iaa' => 'integrated applied anatomy',
+                'loc' => 'locomotor',
+                'loco' => 'locomotor',
                 'locomotion' => 'locomotor',
+                'lym' => 'lymphoreticular haemopoietic',
                 'nervous' => 'neurology',
                 'noss' => 'neurology ophthalmology special senses',
+                'pmvph' => 'population medicine veterinary public health',
+                'pos' => 'principles science',
                 'pvp' => 'principles veterinary practice',
+                'repr' => 'reproduction',
+                'rs' => 'cardiovascular respiratory',
+                'sebm' => 'scholarship evidence based medicine',
+                'skn' => 'skin',
+                'urn' => 'urinary',
+                'vph' => 'veterinary public health',
             ],
             'aliases' => [
                 ['pattern' => 'BVETMEDGA|GRADUATE ACCELERATED|\\bGAB\\b', 'slug' => 'vet-med',
@@ -188,6 +217,64 @@ class matcher {
     }
 
     /**
+     * Score candidates against a location's body text — the secondary
+     * signal behind match_title(). Same containment idea (fraction of the
+     * candidate title's words present in the text, synonyms expanded) but
+     * with its own stricter threshold, because long prose matches more
+     * easily than a short name, and a minimum candidate-title length so
+     * single-word titles don't match every page that mentions the word.
+     *
+     * @param string $bodytext Plain text of the location's content.
+     * @param array $candidates Candidates from content_candidates().
+     * @param array|null $rules Rule set, null for the active one.
+     * @return array Scored hints, best first, capped like match_title().
+     */
+    public static function match_body(string $bodytext, array $candidates, ?array $rules = null): array {
+        $rules = $rules ?? self::rules();
+        $threshold = (float) ($rules['bodymincontainment'] ?? 0.75);
+        $minwords = (int) ($rules['bodyminwords'] ?? 2);
+        $bodytokens = self::expand_tokens(self::tokens($bodytext), $rules);
+        if (!$bodytokens) {
+            return [];
+        }
+
+        $scored = [];
+        foreach ($candidates as $candidate) {
+            $words = array_diff($candidate->tokens, self::STOPWORDS);
+            if (count($words) < $minwords) {
+                continue;
+            }
+            $score = count(array_intersect($words, $bodytokens)) / count($words);
+            if ($score >= $threshold) {
+                $scored[] = (object) ['candidate' => $candidate, 'score' => $score, 'frombody' => true];
+            }
+        }
+        usort($scored, fn($a, $b) => $b->score <=> $a->score);
+        return array_slice($scored, 0, self::MAX_SUGGESTIONS);
+    }
+
+    /**
+     * Expand tokens through the synonym table: each token that is a synonym
+     * key contributes its expansion words alongside the originals — the
+     * bridge between local teaching vocabulary (strand codes, abbreviations)
+     * and Sofia's titles.
+     *
+     * @param string[] $tokens Lowercased tokens.
+     * @param array|null $rules Rule set, null for the active one.
+     * @return string[]
+     */
+    public static function expand_tokens(array $tokens, ?array $rules = null): array {
+        $rules = $rules ?? self::rules();
+        $expanded = $tokens;
+        foreach ($tokens as $token) {
+            if (isset($rules['synonyms'][$token])) {
+                $expanded = array_merge($expanded, explode(' ', $rules['synonyms'][$token]));
+            }
+        }
+        return array_values(array_unique($expanded));
+    }
+
+    /**
      * Replace unicode dashes with ASCII hyphens (production names mix en-dash
      * and hyphen in year ranges) and collapse whitespace incl. newlines.
      *
@@ -269,13 +356,7 @@ class matcher {
      */
     public static function match_title(string $name, array $candidates, ?array $rules = null): array {
         $rules = $rules ?? self::rules();
-        $nametokens = self::tokens($name);
-        foreach ($nametokens as $token) {
-            if (isset($rules['synonyms'][$token])) {
-                $nametokens = array_merge($nametokens, explode(' ', $rules['synonyms'][$token]));
-            }
-        }
-        $nametokens = array_unique($nametokens);
+        $nametokens = self::expand_tokens(self::tokens($name), $rules);
 
         $scored = [];
         foreach ($candidates as $candidate) {
@@ -301,6 +382,10 @@ class matcher {
      */
     public static function is_housekeeping(string $name, ?array $rules = null): bool {
         $rules = $rules ?? self::rules();
+        // Section names arrive HTML-escaped (get_section_name → format_string,
+        // so "&" is "&amp;"); decode so skip patterns can be written in plain
+        // human form ("welcome & overview", not "welcome &amp; overview").
+        $name = html_entity_decode($name, ENT_QUOTES | ENT_HTML5);
         foreach ($rules['skipsections'] as $pattern) {
             if (preg_match('/' . $pattern . '/i', $name)) {
                 return true;

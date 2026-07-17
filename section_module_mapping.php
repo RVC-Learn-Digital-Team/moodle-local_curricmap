@@ -262,7 +262,8 @@ if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname 
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
     foreach ($chapters as $chapter) {
         $key = 'h' . (int) $chapter->id;
-        $hints = matcher::match_title($chapter->title, $chapterpool, $rules);
+        $chapterbody = content_to_text((string) $chapter->content, (int) $chapter->contentformat);
+        $hints = contentmap::merged_hints($chapter->title, $chapterbody, $chapterpool, $rules);
         $chapterproposal = contentmap::proposal_cell($key, $hints, $chapterpool, $narrowed);
         $name = s($chapter->title);
         if ($chapter->subchapter) {

@@ -276,6 +276,52 @@ final class matcher_test extends \advanced_testcase {
         $this->assertTrue(matcher::is_housekeeping('To be archived', $rules));
         $this->assertTrue(matcher::is_housekeeping('Weekly Guidance', $rules));
         $this->assertFalse(matcher::is_housekeeping('Endocrine', $rules));
+
+        // The anchored patterns skip the boilerplate names without swallowing
+        // real teaching sections that contain the same word.
+        $this->assertTrue(matcher::is_housekeeping('General', $rules));
+        $this->assertFalse(matcher::is_housekeeping('General Pathology', $rules));
+        $this->assertTrue(matcher::is_housekeeping('Support Blocks', $rules));
+        $this->assertTrue(matcher::is_housekeeping('Welcome & Overview', $rules));
+        // The name arrives HTML-escaped from get_section_name.
+        $this->assertTrue(matcher::is_housekeeping('Welcome &amp; Overview', $rules));
+        $this->assertTrue(matcher::is_housekeeping('LEARN guidance for this course', $rules));
+        $this->assertFalse(matcher::is_housekeeping('Reading List', $rules));
+        $this->assertFalse(matcher::is_housekeeping('Strand Overview', $rules));
+    }
+
+    /**
+     * Body-text hints: the secondary signal reads a location's content, with
+     * a stricter threshold and a minimum candidate-title length.
+     */
+    public function test_match_body(): void {
+        $rules = matcher::default_rules();
+        $candidates = [];
+        $titles = ['Equine Distal Limb', 'Comparative locomotion 1', 'Endocrine', 'Introduction to the Cardiovascular System'];
+        foreach ($titles as $index => $title) {
+            $candidates[] = (object) [
+                'node' => (object) ['uuid' => 'vet-med_2026_27_' . $index, 'title' => $title, 'role' => 'session'],
+                'tokens' => matcher::tokens($title),
+            ];
+        }
+
+        $body = 'This practical covers the anatomy of the equine distal limb, '
+            . 'including the tendons and ligaments below the carpus.';
+        $hints = matcher::match_body($body, $candidates, $rules);
+        $this->assertNotEmpty($hints);
+        $this->assertSame('Equine Distal Limb', $hints[0]->candidate->node->title);
+        $this->assertNotEmpty($hints[0]->frombody);
+
+        // Single-word candidates never qualify, however often the word occurs.
+        $body = 'Endocrine endocrine endocrine glands and more endocrine content.';
+        $this->assertSame([], matcher::match_body($body, $candidates, $rules));
+
+        // Below the stricter threshold: one of four significant words is not
+        // enough ("cardiovascular" alone must not hint the full session).
+        $body = 'A passing mention of cardiovascular fitness in an unrelated page.';
+        $this->assertSame([], matcher::match_body($body, $candidates, $rules));
+
+        $this->assertSame([], matcher::match_body('', $candidates, $rules));
     }
 
     /**

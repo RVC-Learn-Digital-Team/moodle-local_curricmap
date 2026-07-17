@@ -28,6 +28,7 @@ $string['cachedef_queries'] = 'Curriculum query results';
 $string['cachedef_token'] = 'Sofia API OAuth2 bearer token';
 $string['contentmapping'] = 'Course content matching';
 $string['contentmapping_back'] = 'Back to sections';
+$string['contentmapping_bodyhint'] = 'text';
 $string['contentmapping_chaptercounts'] = '{$a->chapters} chapters, {$a->chaptersmapped} mapped';
 $string['contentmapping_counts'] = '{$a->activities} activities, {$a->mapped} mapped';
 $string['contentmapping_coursesearch'] = 'Find a course by name or ID number';

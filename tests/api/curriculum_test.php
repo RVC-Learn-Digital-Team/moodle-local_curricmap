@@ -162,21 +162,38 @@ final class curriculum_test extends \advanced_testcase {
         $this->assertCount(102, $subtree);
         $this->assertCount(28, curriculum::subtree($this->key(self::LOCO_UUID), 2), 'Depth-limited subtree.');
 
-        // Search by title and by code, case-insensitively.
+        // Search is ranked: a whole-code query puts the exact code first
+        // (partial code matches now follow instead of being excluded), and
+        // the tightest title match tops a plain word query.
         $found = curriculum::search($programme->id, 'locomotor');
         $this->assertContains($this->key(self::LOCO_UUID), array_map(fn($n) => $n->uuid, $found));
+        $this->assertSame($this->key(self::LOCO_UUID), $found[0]->uuid, 'The strand titled Locomotor ranks first.');
         $found = curriculum::search($programme->id, 'ug1-loco-lo32');
-        $this->assertCount(1, $found);
+        $this->assertNotEmpty($found);
+        $this->assertSame(0, strcasecmp('ug1-loco-lo32', (string) $found[0]->code));
         $this->assertSame([], curriculum::search($programme->id, '  '));
+
+        // A code's final segment alone finds it (LO codes are quotable).
+        $found = curriculum::search($programme->id, 'lo32');
+        $this->assertNotEmpty($found);
+        $this->assertSame(0, strcasecmp('ug1-loco-lo32', (string) $found[0]->code));
+
+        // Synonyms reach typed search: "locomotion" ranks the Locomotor
+        // strand first even though no title contains the typed word.
+        $found = curriculum::search($programme->id, 'locomotion');
+        $this->assertNotEmpty($found);
+        $this->assertSame($this->key(self::LOCO_UUID), $found[0]->uuid);
 
         // Subtree-restricted search (the picker strict lock): the Locomotor
         // code hits inside its own subtree and under the whole year, but not
         // under a sibling strand; the ancestor itself is included.
         $limit = curriculum::SEARCH_LIMIT;
         $found = curriculum::search($programme->id, 'ug1-loco-lo32', null, $limit, $this->key(self::LOCO_UUID));
-        $this->assertCount(1, $found);
+        $this->assertNotEmpty($found);
+        $this->assertSame(0, strcasecmp('ug1-loco-lo32', (string) $found[0]->code));
         $found = curriculum::search($programme->id, 'ug1-loco-lo32', null, $limit, $this->key(self::YEAR_UUID));
-        $this->assertCount(1, $found);
+        $this->assertNotEmpty($found);
+        $this->assertSame(0, strcasecmp('ug1-loco-lo32', (string) $found[0]->code));
         $found = curriculum::search($programme->id, 'ug1-loco-lo32', null, $limit, $this->key(self::TESTFOLDER_UUID));
         $this->assertSame([], $found);
         $found = curriculum::search($programme->id, 'locomotor', null, $limit, $this->key(self::LOCO_UUID));

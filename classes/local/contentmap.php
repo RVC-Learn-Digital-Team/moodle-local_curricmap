@@ -37,6 +37,23 @@ class contentmap {
     /** @var int Pools larger than this offer hints only. */
     const POOL_CAP = 300;
 
+    /** @var array Body-text fields per module type (instance-table columns). */
+    const BODY_FIELDS = [
+        'page' => ['intro', 'content'],
+        'book' => ['intro'],
+        'label' => ['intro'],
+        'url' => ['intro'],
+        'forum' => ['intro'],
+        'resource' => ['intro'],
+        'folder' => ['intro'],
+        'lesson' => ['intro'],
+        'quiz' => ['intro'],
+        'lti' => ['intro'],
+    ];
+
+    /** @var int Body text is capped at this many characters before matching. */
+    const BODY_CAP = 8000;
+
     /**
      * A node label: title, role, academic year from the composed key.
      *
@@ -186,6 +203,61 @@ class contentmap {
     }
 
     /**
+     * The plain text of an activity's own content (intro plus, where the
+     * module has one, its content field) — the matching corpus for body
+     * hints. Empty when the type carries no body or the row is missing.
+     *
+     * @param \cm_info $cm The course module.
+     * @return string
+     */
+    public static function body_text(\cm_info $cm): string {
+        global $DB;
+        if (!isset(self::BODY_FIELDS[$cm->modname])) {
+            return '';
+        }
+        $fields = self::BODY_FIELDS[$cm->modname];
+        $record = $DB->get_record($cm->modname, ['id' => (int) $cm->instance], implode(',', array_merge(['id'], $fields)));
+        if (!$record) {
+            return '';
+        }
+        $parts = [];
+        foreach ($fields as $field) {
+            if (!empty($record->$field)) {
+                $parts[] = content_to_text((string) $record->$field, FORMAT_HTML);
+            }
+        }
+        return \core_text::substr(trim(implode(' ', $parts)), 0, self::BODY_CAP);
+    }
+
+    /**
+     * Title hints first, then body-text hints for nodes the title missed —
+     * the two-signal proposal list. Body hints keep their frombody flag so
+     * the picker can mark them.
+     *
+     * @param string $name The location's name.
+     * @param string $bodytext The location's body text ('' skips the pass).
+     * @param array $pool Candidate pool.
+     * @param array $rules Matching rules.
+     * @return array Scored hints.
+     */
+    public static function merged_hints(string $name, string $bodytext, array $pool, array $rules): array {
+        $hints = matcher::match_title($name, $pool, $rules);
+        if ($bodytext === '') {
+            return $hints;
+        }
+        $seen = [];
+        foreach ($hints as $hint) {
+            $seen[$hint->candidate->node->uuid] = true;
+        }
+        foreach (matcher::match_body($bodytext, $pool, $rules) as $bodyhint) {
+            if (!isset($seen[$bodyhint->candidate->node->uuid])) {
+                $hints[] = $bodyhint;
+            }
+        }
+        return $hints;
+    }
+
+    /**
      * A multi-select proposal picker: hints first (scored), then the pool.
      *
      * @param string $key Row key (s/c/h prefix + id).
@@ -198,7 +270,9 @@ class contentmap {
         $options = [];
         foreach ($hints as $hint) {
             $percent = (int) round($hint->score * 100);
-            $options[$hint->candidate->node->uuid] = self::label($hint->candidate->node) . ' [' . $percent . '%]';
+            $tag = empty($hint->frombody) ? '' : ' ' . get_string('contentmapping_bodyhint', 'local_curricmap');
+            $options[$hint->candidate->node->uuid] = self::label($hint->candidate->node)
+                . ' [' . $percent . '%' . $tag . ']';
         }
         $capped = count($pool) > self::POOL_CAP;
         if (!$capped) {
@@ -313,7 +387,7 @@ class contentmap {
                 $extra = matcher::content_candidates($ownroots, ['sessionoutcome']);
                 $rowpool = array_merge($rowpool, self::filter_pool($extra, $nodetypes));
             }
-            $hints = matcher::match_title($cmname, $rowpool, $rules);
+            $hints = self::merged_hints($cmname, self::body_text($cm), $rowpool, $rules);
             $key = 'c' . (int) $cm->id;
 
             $namebits = s($cmname) . ' '

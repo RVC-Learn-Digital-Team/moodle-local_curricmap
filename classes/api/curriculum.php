@@ -16,6 +16,8 @@
 
 namespace local_curricmap\api;
 
+use local_curricmap\local\matcher;
+
 /**
  * The curriculum query service consumed by mod_curricmap, tiny_curricmap and
  * the plugin's own web services.
@@ -33,6 +35,9 @@ namespace local_curricmap\api;
 class curriculum {
     /** @var int Default search result limit. */
     const SEARCH_LIMIT = 50;
+
+    /** @var int Ranked search scores at most this many pooled candidates. */
+    const SEARCH_POOL = 400;
 
     /**
      * Enabled programmes.
@@ -289,15 +294,23 @@ class curriculum {
     }
 
     /**
-     * Search nodes by title or code, within one programme or across all (id 0),
-     * optionally restricted to one node's subtree (the picker strict lock).
+     * Ranked node search by title or code, within one programme or across all
+     * (id 0), optionally restricted to one node's subtree (the picker strict
+     * lock).
+     *
+     * OR-pool + coverage ranking: query tokens are synonym-expanded (strand
+     * codes and local vocabulary reach Sofia titles), candidates matching ANY
+     * token are pooled, then ranked best-first — exact code match beats
+     * everything, then query-token coverage (three matched tokens beat two),
+     * then title tightness (a node whose title IS the query beats one that
+     * mentions it mid-sentence), with tree order as the stable tiebreak.
      *
      * @param int $programmeid Programme id, or 0 to search every enabled mirror.
      * @param string $query Search text.
      * @param string[]|null $roles Roles to include, null for all.
      * @param int $limit Maximum results.
      * @param string|null $ancestoruuid Only offer the subtree below this node (itself included).
-     * @return \stdClass[]
+     * @return \stdClass[] Best match first.
      */
     public static function search(
         int $programmeid,
@@ -311,13 +324,24 @@ class curriculum {
         if ($query === '') {
             return [];
         }
-        $titlelike = $DB->sql_like('title', ':titlequery', false);
-        $codelike = $DB->sql_like('code', ':codequery', false);
-        $select = "deleted = 0 AND ($titlelike OR $codelike)";
-        $params = [
-            'titlequery' => '%' . $DB->sql_like_escape($query) . '%',
-            'codequery' => '%' . $DB->sql_like_escape($query) . '%',
-        ];
+        $rules = matcher::rules();
+        $querytokens = array_values(array_diff(matcher::tokens($query), matcher::STOPWORDS));
+        if (!$querytokens) {
+            return [];
+        }
+        $searchtokens = matcher::expand_tokens($querytokens, $rules);
+
+        $select = 'deleted = 0';
+        $params = [];
+        $tokenconditions = [];
+        foreach (array_values($searchtokens) as $i => $token) {
+            $titlelike = $DB->sql_like('title', ":title{$i}", false);
+            $codelike = $DB->sql_like('code', ":code{$i}", false);
+            $tokenconditions[] = "($titlelike OR $codelike)";
+            $params["title{$i}"] = '%' . $DB->sql_like_escape($token) . '%';
+            $params["code{$i}"] = '%' . $DB->sql_like_escape($token) . '%';
+        }
+        $select .= ' AND (' . implode(' OR ', $tokenconditions) . ')';
         if ($ancestoruuid !== null && $ancestoruuid !== '') {
             $ancestor = self::node($ancestoruuid);
             if (!$ancestor || $ancestor->deleted) {
@@ -340,8 +364,110 @@ class curriculum {
             $select .= " AND role $insql";
             $params += $inparams;
         }
-        $sort = 'depth ASC, sortorder ASC';
-        return array_values($DB->get_records_select('local_curricmap_node', $select, $params, $sort, '*', 0, $limit));
+        $sort = 'depth ASC, sortorder ASC, id ASC';
+        $pool = $DB->get_records_select('local_curricmap_node', $select, $params, $sort, '*', 0, self::SEARCH_POOL);
+
+        return self::rank($pool, $query, $querytokens, $rules, $limit);
+    }
+
+    /**
+     * Rank a search pool: code match, then query-token coverage, then title
+     * tightness, then the pool's tree order. Nodes matching no query token at
+     * the token level (substring-only noise, e.g. "cs" inside "physics") are
+     * dropped.
+     *
+     * @param \stdClass[] $pool Candidate rows in tree order.
+     * @param string $query The raw query.
+     * @param string[] $querytokens Significant query tokens.
+     * @param array $rules Matching rules (synonyms).
+     * @param int $limit Maximum results.
+     * @return \stdClass[]
+     */
+    private static function rank(array $pool, string $query, array $querytokens, array $rules, int $limit): array {
+        $lowquery = \core_text::strtolower(matcher::normalise($query));
+        $scored = [];
+        $position = 0;
+        foreach ($pool as $node) {
+            $nodetokens = matcher::tokens((string) $node->title, (string) $node->code);
+            $lowcode = \core_text::strtolower((string) $node->code);
+
+            // Code match: the whole query is the code, or a single-token query
+            // is the code's final segment (LO32 finds UG1-LOCO-LO32).
+            $codematch = 0;
+            if ($lowcode !== '' && $lowquery === $lowcode) {
+                $codematch = 2;
+            } else if ($lowcode !== '' && count($querytokens) === 1) {
+                $codetokens = matcher::tokens($lowcode);
+                if ($codetokens && end($codetokens) === $querytokens[0]) {
+                    $codematch = 1;
+                }
+            }
+
+            // Coverage: how many query tokens are present, counting a token as
+            // present when it (or one of its synonym-expansion words) matches
+            // a node token exactly, or as a prefix for tokens of 3+ chars.
+            $matched = 0;
+            foreach ($querytokens as $token) {
+                $words = matcher::expand_tokens([$token], $rules);
+                if (self::any_word_matches($words, $nodetokens)) {
+                    $matched++;
+                }
+            }
+            if (!$matched && !$codematch) {
+                continue;
+            }
+            $coverage = $matched / count($querytokens);
+
+            // Tightness: the fraction of the node's own significant tokens
+            // that the query accounts for.
+            $significant = array_values(array_diff($nodetokens, matcher::STOPWORDS));
+            $allwords = matcher::expand_tokens($querytokens, $rules);
+            $accounted = 0;
+            foreach ($significant as $nodetoken) {
+                if (self::any_word_matches($allwords, [$nodetoken])) {
+                    $accounted++;
+                }
+            }
+            $tightness = $significant ? $accounted / count($significant) : 0;
+
+            $scored[] = (object) [
+                'node' => $node,
+                'codematch' => $codematch,
+                'coverage' => $coverage,
+                'tightness' => $tightness,
+                'position' => $position++,
+            ];
+        }
+        usort($scored, function ($a, $b) {
+            return ($b->codematch <=> $a->codematch)
+                ?: ($b->coverage <=> $a->coverage)
+                ?: ($b->tightness <=> $a->tightness)
+                ?: ($a->position <=> $b->position);
+        });
+        return array_map(fn($entry) => $entry->node, array_slice($scored, 0, $limit));
+    }
+
+    /**
+     * Whether any query word matches any node token — exact for short words,
+     * prefix for words of three or more characters (autocomplete semantics:
+     * "locomot" finds "locomotor"; "cs" never matches inside "physics").
+     *
+     * @param string[] $words Query-side words (token + expansions).
+     * @param string[] $nodetokens Node-side tokens.
+     * @return bool
+     */
+    private static function any_word_matches(array $words, array $nodetokens): bool {
+        foreach ($words as $word) {
+            foreach ($nodetokens as $nodetoken) {
+                if ($word === $nodetoken) {
+                    return true;
+                }
+                if (strlen($word) >= 3 && strpos($nodetoken, $word) === 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
