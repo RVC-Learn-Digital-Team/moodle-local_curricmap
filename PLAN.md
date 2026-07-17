@@ -449,6 +449,36 @@ its own automation, not part of the matching pages.
       inherit (top-level merge) — paste the new synonyms block into live
       settings by hand; fresh installs get them automatically. Full analysis
       in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md
+- [x] Generator listing updates (v0.19.4/2026071434, Brian's spec):
+      --list_courses now leads with the course id column; NEW
+      --list_programmes emits every slug/year/programme-year combination as
+      CSV with strand counts — the lookup companion for --slug/--year/
+      --programme_year/--strand_course. Verified live
+- [x] `cli/empty_test_course.php` (v0.19.3/2026071433, Brian's ask after a
+      spreadsheet error put generated content into the wrong strand
+      courses): empty a course WITHOUT deleting it — all activities, then
+      all sections above 0; course, settings and enrolments survive.
+      --idnumber accepts CSV for several courses; DRY RUN by default, only
+      --confirm deletes. Deleted modules route through the course recycle
+      bin (recoverable for the retention window); binding observers mark
+      module bindings orphaned; course-level central matches untouched
+      (remove those on course_mapping.php if also wrong). Verified live:
+      generate → dry-run → confirm → course intact with 0 activities
+- [x] Cache-stamp fix (v0.19.2/2026071432, found live by Brian on vle-test —
+      "vet-nur 2026 has 0 strands but 2025 works" after force-syncing the
+      derive change): the MUC query stamp keyed on programme revision hashes
+      ONLY, and a force full sync re-derives rows WITHOUT moving the Sofia
+      revision — so cached years()/strands()/children() kept serving
+      pre-rederivation results; which programmes "worked" depended on cache
+      population order. The uncached ws get_nodes proved the mirror itself
+      was correct throughout. Stamp now includes each programme's
+      timelastchanged (bumped by every apply incl. forced; untouched by
+      noop syncs, so normal caching behaviour is preserved). New test pins
+      it. Interim remedy on any already-affected site: purge caches once
+- [x] Sync log shows the year (v0.19.1/2026071431, Brian mid-force-sync):
+      Recent sync runs table + the CSV export showed only the programme slug
+      — with 12 slug×year rows you cannot see which years are done. Both now
+      render slug:versionlabel (matching the notification format)
 - [x] Modules derive as strands (v0.19.0/2026071430, Brian's Option A after
       the production-Sofia structure audit via the graph ws): production
       facts — bio-sc is ENTIRELY modular (51 Module nodes, 0 strands),

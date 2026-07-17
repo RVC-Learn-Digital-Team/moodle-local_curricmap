@@ -55,6 +55,7 @@ use local_curricmap\api\curriculum;
         'maxsessions' => 8,
         'categoryid' => '',
         'list_courses' => false,
+        'list_programmes' => false,
         'help' => false,
     ],
     ['h' => 'help']
@@ -84,9 +85,11 @@ Options:
   --maxsessions=8         Sessions used per strand/unit (size cap).
   --categoryid=N          Course category id — MANDATORY when creating a
                           course (not needed with --match_existing).
-  --list_courses[=N]      List courses (idnumber, fullname, shortname,
-                          category id) and exit. With N: only category N,
-                          including its subcategories.
+  --list_courses[=N]      List courses (id, idnumber, fullname, shortname,
+                          category id) as CSV and exit. With N: only
+                          category N, including its subcategories.
+  --list_programmes       List every synced slug / year / programme-year
+                          combination (with strand counts) as CSV and exit.
   -h, --help              This help.
 
 Examples:
@@ -127,12 +130,34 @@ if ($options['list_courses'] !== false) {
     // CSV: unambiguous through terminals and straight into a spreadsheet
     // (tabs render as spaces; fullnames contain commas, so quote properly).
     $out = fopen('php://stdout', 'w');
-    fputcsv($out, ['idnumber', 'fullname', 'shortname', 'categoryid']);
+    fputcsv($out, ['id', 'idnumber', 'fullname', 'shortname', 'categoryid']);
     foreach ($courses as $course) {
-        fputcsv($out, [$course->idnumber, $course->fullname, $course->shortname, $course->category]);
+        fputcsv($out, [$course->id, $course->idnumber, $course->fullname, $course->shortname, $course->category]);
     }
     fclose($out);
     cli_writeln(count($courses) . ' course(s).');
+    exit(0);
+}
+
+// Programme listing mode: every slug / year / programme-year combination.
+if ($options['list_programmes'] !== false) {
+    $out = fopen('php://stdout', 'w');
+    fputcsv($out, ['slug', 'year', 'programme_year_code', 'programme_year', 'strands']);
+    $combinations = 0;
+    foreach (curriculum::programmes() as $programme) {
+        foreach (curriculum::years((int) $programme->id) as $yearnode) {
+            fputcsv($out, [
+                $programme->slug,
+                $programme->versionlabel,
+                (string) $yearnode->code,
+                $yearnode->title,
+                count(curriculum::strands($yearnode->uuid)),
+            ]);
+            $combinations++;
+        }
+    }
+    fclose($out);
+    cli_writeln($combinations . ' programme-year combination(s).');
     exit(0);
 }
 

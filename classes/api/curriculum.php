@@ -589,13 +589,20 @@ class curriculum {
     }
 
     /**
-     * Cache stamp covering every programme's applied revision.
+     * Cache stamp covering every programme's applied revision AND when it
+     * last applied one: a force full sync re-derives rows without changing
+     * the Sofia revision hash, so the hash alone kept serving stale results
+     * (found live: modules re-derived as strands, cached queries still empty).
      *
      * @return string
      */
     private static function stamp(): string {
         global $DB;
-        $hashes = $DB->get_records_menu('local_curricmap_programme', [], 'id ASC', 'id, revisionhash');
-        return md5(json_encode($hashes));
+        $rows = $DB->get_records('local_curricmap_programme', [], 'id ASC', 'id, revisionhash, timelastchanged');
+        $parts = [];
+        foreach ($rows as $row) {
+            $parts[$row->id] = $row->revisionhash . '@' . ($row->timelastchanged ?? 0);
+        }
+        return md5(json_encode($parts));
     }
 }

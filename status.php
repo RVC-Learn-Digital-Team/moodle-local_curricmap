@@ -33,7 +33,7 @@ $notifications = [];
 
 if ($action === 'csv' && confirm_sesskey()) {
     $rows = $DB->get_records_sql(
-        'SELECT l.*, p.slug FROM {local_curricmap_synclog} l
+        'SELECT l.*, p.slug, p.versionlabel FROM {local_curricmap_synclog} l
            LEFT JOIN {local_curricmap_programme} p ON p.id = l.programmeid
           ORDER BY l.id DESC'
     );
@@ -44,7 +44,10 @@ if ($action === 'csv' && confirm_sesskey()) {
         'inserted', 'updated', 'deleted', 'edges', 'tags', 'requests', 'remaining', 'message'];
     fputcsv($out, $header);
     foreach ($rows as $row) {
-        $line = [$row->id, $row->slug, $row->synctype, $row->status,
+        $programmelabel = $row->slug !== null
+            ? $row->slug . ($row->versionlabel !== null ? ':' . $row->versionlabel : '')
+            : '';
+        $line = [$row->id, $programmelabel, $row->synctype, $row->status,
             userdate($row->timestart), $row->timeend ? userdate($row->timeend) : '',
             $row->nodesfetched, $row->nodesinserted, $row->nodesupdated, $row->nodesdeleted,
             $row->edgeschanged, $row->tagschanged, $row->requestcount,
@@ -217,7 +220,7 @@ if (!$programmes) {
 // Recent sync runs.
 echo $OUTPUT->heading(get_string('status_recentsyncs', 'local_curricmap'), 3);
 $logs = $DB->get_records_sql(
-    'SELECT l.*, p.slug FROM {local_curricmap_synclog} l
+    'SELECT l.*, p.slug, p.versionlabel FROM {local_curricmap_synclog} l
        LEFT JOIN {local_curricmap_programme} p ON p.id = l.programmeid
       ORDER BY l.id DESC',
     [],
@@ -236,9 +239,12 @@ if (!$logs) {
         if (core_text::strlen($report) > 300) {
             $report = core_text::substr($report, 0, 300) . '…';
         }
+        $programmelabel = $row->slug !== null
+            ? $row->slug . ($row->versionlabel !== null ? ':' . $row->versionlabel : '')
+            : '';
         $table->data[] = [
             $row->id,
-            s((string) $row->slug),
+            s($programmelabel),
             s($row->status),
             userdate($row->timestart),
             (int) $row->nodesinserted,

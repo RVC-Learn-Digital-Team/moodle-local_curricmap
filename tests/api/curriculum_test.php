@@ -230,6 +230,37 @@ final class curriculum_test extends \advanced_testcase {
     }
 
     /**
+     * A forced re-apply changes derived rows without moving the Sofia
+     * revision hash — the cache stamp must still move (via timelastchanged),
+     * or query caches keep serving pre-rederivation results.
+     */
+    public function test_cache_invalidation_on_forced_reapply(): void {
+        global $DB;
+        $programme = $this->sync_fixture('a', 'aaaa1111');
+
+        // Prime the cached years list, then slip a new year row in directly:
+        // the cache must NOT see it (same revision, no apply happened).
+        $before = count(curriculum::years((int) $programme->id));
+        $extra = (object) [
+            'programmeid' => $programme->id,
+            'uuid' => 'vet-med_latest_ffffffff-9999-4999-8999-999999999999',
+            'depth' => 0,
+            'role' => 'year',
+            'title' => 'Injected year',
+            'sortorder' => 99,
+            'source' => 'sofia',
+            'deleted' => 0,
+        ];
+        $DB->insert_record('local_curricmap_node', $extra);
+        $this->assertCount($before, curriculum::years((int) $programme->id), 'Cache holds until an apply.');
+
+        // A forced re-apply of the SAME revision bumps timelastchanged —
+        // the stamp moves and queries recompute.
+        $DB->set_field('local_curricmap_programme', 'timelastchanged', time() + 100, ['id' => $programme->id]);
+        $this->assertCount($before + 1, curriculum::years((int) $programme->id), 'Apply invalidates.');
+    }
+
+    /**
      * Programmes list alphabetically: slug, then academic-year version.
      */
     public function test_programmes_ordering(): void {
