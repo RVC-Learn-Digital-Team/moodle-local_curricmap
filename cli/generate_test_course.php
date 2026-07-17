@@ -47,6 +47,7 @@ use local_curricmap\api\curriculum;
     [
         'slug' => 'vet-med',
         'year' => '',
+        'programme_year' => '',
         'strand_course' => '',
         'idnumber' => '',
         'match_existing' => false,
@@ -68,6 +69,10 @@ if ($options['help']) {
 Options:
   --slug=vet-med          Programme slug (default vet-med).
   --year=2026             Academic-year version label (default: latest synced).
+  --programme_year=XXXX   Which programme-year node (\"Year 1\", \"Veterinary
+                          Gateway\", a code, or a composed uuid). Mandatory
+                          when the programme has more than one; the script
+                          lists them with strand counts when unsure.
   --strand_course=XXXX    Single-strand course; XXXX = strand title or code,
                           case-insensitive (\"Locomotor\" or \"UG1-LOCO\"), or a
                           composed uuid. Omit for a whole programme-year course.
@@ -119,10 +124,14 @@ if ($options['list_courses'] !== false) {
              WHERE $where
           ORDER BY cc.sortorder ASC, c.fullname ASC";
     $courses = $DB->get_records_sql($sql, $params);
-    cli_writeln("idnumber\tfullname\tshortname\tcategoryid");
+    // CSV: unambiguous through terminals and straight into a spreadsheet
+    // (tabs render as spaces; fullnames contain commas, so quote properly).
+    $out = fopen('php://stdout', 'w');
+    fputcsv($out, ['idnumber', 'fullname', 'shortname', 'categoryid']);
     foreach ($courses as $course) {
-        cli_writeln("{$course->idnumber}\t{$course->fullname}\t{$course->shortname}\t{$course->category}");
+        fputcsv($out, [$course->idnumber, $course->fullname, $course->shortname, $course->category]);
     }
+    fclose($out);
     cli_writeln(count($courses) . ' course(s).');
     exit(0);
 }
@@ -150,10 +159,53 @@ $years = curriculum::years((int) $programme->id);
 if (!$years) {
     cli_error("Programme {$programme->slug} {$programme->versionlabel} has no year nodes.");
 }
-$yearnode = reset($years);
+
+/**
+ * Print the programme-year nodes with their strand counts.
+ *
+ * @param \stdClass[] $years Year nodes.
+ */
+function local_curricmap_testgen_list_years(array $years): void {
+    cli_writeln('Available programme years:');
+    foreach ($years as $year) {
+        $strandcount = count(curriculum::strands($year->uuid));
+        $code = !empty($year->code) ? "{$year->code}  " : '';
+        cli_writeln("  {$code}{$year->title}  ({$strandcount} strands)");
+    }
+}
+
+// Select the programme-year node: explicit option, or the only one there is.
+$yearnode = null;
+if ($options['programme_year'] !== '') {
+    $needle = core_text::strtolower(trim((string) $options['programme_year']));
+    foreach ($years as $year) {
+        $title = core_text::strtolower((string) $year->title);
+        $code = core_text::strtolower((string) $year->code);
+        if ($needle === $title || $needle === $code || $needle === $year->uuid) {
+            $yearnode = $year;
+            break;
+        }
+        if ($yearnode === null && $title !== '' && strpos($title, $needle) !== false) {
+            $yearnode = $year;
+        }
+    }
+    if (!$yearnode) {
+        cli_writeln("Programme year '{$options['programme_year']}' not found.");
+        local_curricmap_testgen_list_years($years);
+        exit(1);
+    }
+} else if (count($years) === 1) {
+    $yearnode = reset($years);
+} else {
+    cli_writeln('This programme has more than one programme year — pass --programme_year=.');
+    local_curricmap_testgen_list_years($years);
+    exit(1);
+}
 $strands = curriculum::strands($yearnode->uuid);
 if (!$strands) {
-    cli_error("No strands under {$yearnode->title}.");
+    cli_writeln("No strands under {$yearnode->title} — pick a programme year that has some.");
+    local_curricmap_testgen_list_years($years);
+    exit(1);
 }
 cli_writeln("Programme: {$programme->slug} {$programme->versionlabel} — {$yearnode->title}, " . count($strands) . ' strands');
 

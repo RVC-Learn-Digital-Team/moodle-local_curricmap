@@ -449,6 +449,15 @@ its own automation, not part of the matching pages.
       inherit (top-level merge) — paste the new synonyms block into live
       settings by hand; fresh installs get them automatically. Full analysis
       in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md
+- [x] Generator --programme_year selector (v0.18.5/2026071426, from Brian's
+      first rvc-vle-test run against PRODUCTION Sofia: "No strands under
+      Veterinary Gateway"): programmes carry MULTIPLE year-role nodes (Year
+      1..5, Gateway, GAB — even the playground has Year 1 + a strand-less
+      Year 2); the script blindly took the first. Now: exactly one year node
+      = auto; more than one = require --programme_year=<title|code|uuid> and
+      list them WITH strand counts; strand-less pick = guidance + the same
+      list. Also v0.18.4: --list_courses output switched from tabs to
+      quoted CSV (terminals render tabs as spaces; fullnames contain commas)
 - [x] Generator --list_courses[=N] (v0.18.3/2026071424, Brian's spec):
       tab-separated idnumber/fullname/shortname/categoryid listing; bare =
       whole site, =N restricts to category N INCLUDING subcategories (path
