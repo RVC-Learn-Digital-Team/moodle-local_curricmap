@@ -52,7 +52,7 @@ use local_curricmap\api\curriculum;
         'match_existing' => false,
         'strand_sections' => false,
         'maxsessions' => 8,
-        'category' => 1,
+        'categoryid' => '',
         'help' => false,
     ],
     ['h' => 'help']
@@ -76,13 +76,14 @@ Options:
   --strand_sections       Strands become sections of pages/labels/urls instead
                           of the default books-with-chapters layout.
   --maxsessions=8         Sessions used per strand/unit (size cap).
-  --category=1            Course category id for new courses.
+  --categoryid=N          Course category id — MANDATORY when creating a
+                          course (not needed with --match_existing).
   -h, --help              This help.
 
 Examples:
-  php generate_test_course.php --strand_course=Locomotor
-  php generate_test_course.php --slug=vet-med --year=2026 --strand_sections
-  php generate_test_course.php --strand_course=UG1-ALI --idnumber=1VETS90_A_Y_202627");
+  php generate_test_course.php --strand_course=Locomotor --categoryid=2
+  php generate_test_course.php --slug=vet-med --year=2026 --strand_sections --categoryid=2
+  php generate_test_course.php --strand_course=UG1-ALI --idnumber=1VETS90_A_Y_202627 --match_existing");
     exit(0);
 }
 
@@ -162,12 +163,29 @@ if ($existing) {
     $course = $existing;
     cli_writeln("Appending to course {$course->id} '{$course->shortname}'.");
 } else {
+    // Creating a course: an explicit target category is mandatory so test
+    // content never lands somewhere by default.
+    $categoryid = (int) $options['categoryid'];
+    $categoryvalid = $options['categoryid'] !== '' && $categoryid > 0
+        && $DB->record_exists('course_categories', ['id' => $categoryid]);
+    if (!$categoryvalid) {
+        if ($options['categoryid'] === '') {
+            cli_writeln('--categoryid is mandatory when creating a course.');
+        } else {
+            cli_writeln("--categoryid={$options['categoryid']} is not an existing course category.");
+        }
+        cli_writeln('Available categories:');
+        foreach ($DB->get_records('course_categories', [], 'sortorder ASC', 'id, name, parent') as $cat) {
+            cli_writeln("  {$cat->id}  {$cat->name}");
+        }
+        exit(1);
+    }
     $yearlabel = $yearstart . '-' . sprintf('%02d', ($yearstart + 1) % 100);
     $base = $targetstrand ? $targetstrand->title : $yearnode->title;
     $course = create_course((object) [
         'fullname' => $base . ' (generated test course) ' . $yearlabel,
         'shortname' => 'TG-' . preg_replace('/[^A-Za-z0-9]/', '', $targetstrand->code ?? 'YEAR') . '-' . $yearstart,
-        'category' => (int) $options['category'],
+        'category' => $categoryid,
         'idnumber' => $idnumber,
         'summary' => 'Generated from the Sofia mirror by local_curricmap for mapping tests.',
         'summaryformat' => FORMAT_HTML,

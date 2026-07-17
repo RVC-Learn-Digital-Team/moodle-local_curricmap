@@ -449,6 +449,10 @@ its own automation, not part of the matching pages.
       inherit (top-level merge) — paste the new synonyms block into live
       settings by hand; fresh installs get them automatically. Full analysis
       in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md
+- [x] Generator --categoryid mandatory (v0.18.2/2026071423, Brian's ruling):
+      creating a course without --categoryid (or with a nonexistent id)
+      refuses and prints the available category list; --match_existing does
+      not need it. All three paths verified live
 - [x] `cli/generate_test_course.php` (v0.18.1/2026071422, Brian's spec
       2026-07-17) — test content from the mirror itself, because both
       playground AND rvc-vle-test are empty and learn-uat needs a partner
