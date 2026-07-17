@@ -45,7 +45,8 @@ class contentmap {
      */
     public static function label(\stdClass $node): string {
         $year = preg_match('/_(20\d\d)_\d\d_/', $node->uuid, $matches) ? ' - ' . $matches[1] : '';
-        return $node->title . ' [' . $node->role . ']' . $year;
+        $code = !empty($node->code) ? ' (' . $node->code . ')' : '';
+        return $node->title . $code . ' [' . $node->role . ']' . $year;
     }
 
     /**

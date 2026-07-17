@@ -415,10 +415,75 @@ its own automation, not part of the matching pages.
       param (programmeid stays 0-for-all — the ancestor determines the
       subtree). PHPUnit assertions added to test_query_surface; verified via
       read-only harness against the live mirror
-- [ ] `rollover_mapping.php`: input course → output course; recreate bindings
-      with the year segment swapped in composed keys, verified against the new
-      year's mirror; dry-run report first, needs-attention list for
-      restructured nodes
+- [x] Graph-export ws (v0.16.0/2026071410, Brian go 2026-07-16 — the bulk
+      extraction surface for the platform's sofia loader and the external
+      mapping engine, closing the "picker-shaped exports only" gap):
+      curriculum::nodes() (per programme, optional subtree, includedeleted,
+      paged, uncached) + curriculum::edges() (both ends as composed keys);
+      NEW ws local_curricmap_get_nodes (payload rebuilds the tree offline:
+      parentuuid — with out-of-page parents resolved in one extra query —
+      role/subtype/code/title/description/grouplabel/sortorder/depth/
+      sofiaurl/pebblepad/source/sourceversion/deleted/timemodified, plus
+      programme block with revisionhash and a paging-safe total) and
+      local_curricmap_get_edges (sourceuuid/targetuuid/connectiontype/
+      sortorder); both require viewstaffmeta at SYSTEM context (staff/
+      integration surface — course-level teachers refused); service updated.
+      Consumers: learning_tools_content_api CSVs (course_id/cmid/section_id/
+      chapter_id = ready-made binding addresses + clean_text matching
+      corpus) on one side, bind/unbind on the other — the extraction→match→
+      bind loop is now fully closed over the ws. Tests: test_graph_export
+      (tree reconstruction, paging, subtree, deleted flags, implements edge
+      pair, type filter) + permission test. Contract-suite additions pending
+- [x] LO-code display fix (v0.16.1/2026071411, Brian 2026-07-17): both
+      course_mapping.php's proposal label and contentmap::label() (content
+      mapper's dropdowns) now show the node's code — data was always 100%
+      populated on outcomes (UG1-AH-LO8 format), only these two label
+      builders never included it; mappings.php and tiny already did
+- [ ] Search ranking + course-structure matching (Brian's questions,
+      2026-07-17) — full design in Documentation/SEARCH_AND_STRUCTURE_MATCHING.md:
+      curriculum::search() has no relevance ranking (plain LIKE, tree order)
+      while matcher::match_title() does (containment+synonym, top-5) but
+      only runs on automatic proposals, never on typed search — the fix is
+      to score search results too, in the one shared PHP function so every
+      consumer (mappings.php, tiny, future external) inherits it. Course-
+      structure positional matching (section number ↔ session sortorder,
+      "Week N" patterns) is a HYPOTHESIS pending real analysis of the
+      expanded course_data extraction (all 2026-idnumber courses) — do not
+      build before that evidence exists
+- [ ] Coverage / reporting page (Brian, 2026-07-16): read-only central
+      dashboard over existing data — what fraction of courses (per
+      category/programme-year) hold a central match, section/activity
+      mapping depth per course, resource counts per node/strand, orphaned
+      counts. Drives the "what's left to map" conversation and later feeds
+      the external engine's worklist
+- [ ] Rollover — RESHAPED by restore findings (verified against 4.5 core,
+      2026-07-16). Facts: (1) restore rewrites in-content links to course
+      assets via encode/decode rules (mod/xxx/view.php?id=N → token → new
+      id), so copied content points at the new course's copies
+      automatically; (2) LOCAL plugins CAN participate in course backup —
+      add_plugin_structure('local', ...) exists at course, section AND
+      module level on both backup and restore sides, and restore plugins
+      get get_mappingid() (old→new section/cm ids) plus after_restore_*
+      hooks. Therefore, two-part plan:
+      (a) backup/restore support in local_curricmap: bindings (and
+          course-scoped resources) travel INSIDE the course backup at their
+          owning level and are recreated against the NEW sectionids/cmids
+          via the restore mappings — the old→new location matching problem
+          disappears; bind() idempotency guards repeat restores. Restored
+          keys still carry the OLD year segment.
+      (b) rollover_mapping.php shrinks to a post-restore pass: year-swap
+          the composed keys on the new course (uuids stable), verify
+          against the new year's mirror, dry-run + needs-attention report.
+      OPEN QUESTION (Brian to rule): node resources are year-pinned via
+      composed keys — next year's node (same uuid, new key) shows NO
+      resources unless (i) lookups gain a raw-uuid cross-year fallback
+      (material carries forward automatically; stale recordings leak) or
+      (ii) rows stay year-pinned and the rollover pass copies them forward
+      (optionally by type — carry ebooks/links, not last year's Panopto).
+      The studyresources_intro string currently overpromises ("rollover
+      never touches it") and must match the ruling. Once (a) ships, the
+      documented backup/restore limitation in both READMEs and TEST_PLAN §9
+      is lifted
 - [ ] Picker locking: course staff node pickers offer only the anchored
       programme-year(s) once anchors exist (strict-lock decision)
 - [ ] Verify on playground after push: upgrade to 2026071360, matching page

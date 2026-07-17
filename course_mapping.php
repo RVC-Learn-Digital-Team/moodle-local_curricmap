@@ -135,7 +135,8 @@ function local_curricmap_course_mapping_label(stdClass $candidate): string {
     $programme = $candidate->programme->displayname ?: $candidate->programme->slug;
     $year = $candidate->yearstart . '-' . sprintf('%02d', ($candidate->yearstart + 1) % 100);
     $middle = $candidate->yeartitle !== null ? $candidate->yeartitle . ' / ' : '';
-    return $programme . ' / ' . $middle . $candidate->node->title . ' (' . $year . ')';
+    $code = !empty($candidate->node->code) ? ' (' . $candidate->node->code . ')' : '';
+    return $programme . ' / ' . $middle . $candidate->node->title . $code . ' (' . $year . ')';
 }
 
 /**

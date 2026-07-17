@@ -274,4 +274,87 @@ final class curriculum_test extends \advanced_testcase {
         $this->expectException(\required_capability_exception::class);
         \local_curricmap\external\get_programmes::execute($course->id);
     }
+
+    /**
+     * Graph extraction: full node dump with reconstructable tree, paging,
+     * subtree restriction, deleted flags and the edge list.
+     */
+    public function test_graph_export(): void {
+        global $DB;
+        $programme = $this->sync_fixture('a', 'aaaa1111');
+        $this->setAdminUser();
+
+        $export = \local_curricmap\external\get_nodes::execute($programme->id);
+        $export = \core_external\external_api::clean_returnvalue(
+            \local_curricmap\external\get_nodes::execute_returns(),
+            $export
+        );
+        $activecount = $DB->count_records('local_curricmap_node', ['programmeid' => $programme->id, 'deleted' => 0]);
+        $this->assertSame($activecount, $export['total']);
+        $this->assertCount($activecount, $export['nodes']);
+        $this->assertSame('vet-med', $export['programme']['slug']);
+        $this->assertSame('aaaa1111', $export['programme']['revisionhash']);
+
+        // The tree is reconstructable offline: every parent link resolves
+        // within the full export; top-level rows carry none.
+        $byuuid = array_column($export['nodes'], null, 'uuid');
+        foreach ($export['nodes'] as $node) {
+            if (isset($node['parentuuid'])) {
+                $this->assertArrayHasKey($node['parentuuid'], $byuuid);
+            }
+        }
+        $this->assertArrayNotHasKey('parentuuid', $byuuid[$this->key(self::YEAR_UUID)]);
+        $this->assertSame($this->key(self::YEAR_UUID), $byuuid[$this->key(self::LOCO_UUID)]['parentuuid']);
+
+        // Paging slices without losing the total; parents outside the page
+        // still resolve to keys.
+        $page = \local_curricmap\external\get_nodes::execute($programme->id, '', false, 5, 10);
+        $this->assertCount(10, $page['nodes']);
+        $this->assertSame($activecount, $page['total']);
+
+        // Subtree restriction: Locomotor and below only.
+        $subtree = \local_curricmap\external\get_nodes::execute($programme->id, $this->key(self::LOCO_UUID));
+        $this->assertLessThan($activecount, $subtree['total']);
+        $subuuids = array_column($subtree['nodes'], 'uuid');
+        $this->assertContains($this->key(self::LOCO_UUID), $subuuids);
+        $this->assertNotContains($this->key(self::YEAR_UUID), $subuuids);
+
+        // Edges, with the known implements pair, and the type filter.
+        $edges = \local_curricmap\external\get_edges::execute($programme->id);
+        $edges = \core_external\external_api::clean_returnvalue(
+            \local_curricmap\external\get_edges::execute_returns(),
+            $edges
+        );
+        $this->assertNotEmpty($edges);
+        $pairs = array_map(fn($e) => "{$e['sourceuuid']}>{$e['targetuuid']}:{$e['connectiontype']}", $edges);
+        $expected = $this->key(self::URINARY_LO4_UUID) . '>' . $this->key(self::URINARY_LO58_UUID) . ':implements';
+        $this->assertContains($expected, $pairs);
+        $implements = \local_curricmap\external\get_edges::execute($programme->id, 'implements');
+        $this->assertNotEmpty($implements);
+        $this->assertLessThanOrEqual(count($edges), count($implements));
+
+        // Soft-deleted rows appear only on request, flagged.
+        $this->sync_fixture('b', 'bbbb2222', $programme);
+        $withoutdeleted = \local_curricmap\external\get_nodes::execute($programme->id);
+        $this->assertNotContains($this->key(self::TESTFOLDER_UUID), array_column($withoutdeleted['nodes'], 'uuid'));
+        $withdeleted = \local_curricmap\external\get_nodes::execute($programme->id, '', true);
+        $deletedbyuuid = array_column($withdeleted['nodes'], null, 'uuid');
+        $this->assertArrayHasKey($this->key(self::TESTFOLDER_UUID), $deletedbyuuid);
+        $this->assertNotEmpty($deletedbyuuid[$this->key(self::TESTFOLDER_UUID)]['deleted']);
+    }
+
+    /**
+     * Graph extraction is system-level staff/integration territory: a
+     * course-level teacher is refused.
+     */
+    public function test_graph_export_permissions(): void {
+        $programme = $this->sync_fixture('a', 'aaaa1111');
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        $this->setUser($teacher);
+        $this->expectException(\required_capability_exception::class);
+        \local_curricmap\external\get_nodes::execute($programme->id);
+    }
 }

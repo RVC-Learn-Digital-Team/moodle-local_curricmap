@@ -345,6 +345,73 @@ class curriculum {
     }
 
     /**
+     * Full node rows for one programme — the graph-extraction read, built
+     * for external consumers (the data platform's sofia loader, the external
+     * mapping engine) rather than pickers. Uncached: extraction is
+     * infrequent and large.
+     *
+     * @param int $programmeid Programme id.
+     * @param string|null $ancestoruuid Restrict to one node's subtree (itself included).
+     * @param bool $includedeleted Include soft-deleted rows, flagged.
+     * @param int $limitfrom Paging offset.
+     * @param int $limitnum Paging size, 0 for all.
+     * @return array ['total' => int, 'nodes' => \stdClass[]] Rows in id order.
+     */
+    public static function nodes(
+        int $programmeid,
+        ?string $ancestoruuid = null,
+        bool $includedeleted = false,
+        int $limitfrom = 0,
+        int $limitnum = 0
+    ): array {
+        global $DB;
+        $select = 'programmeid = :programmeid';
+        $params = ['programmeid' => $programmeid];
+        if (!$includedeleted) {
+            $select .= ' AND deleted = 0';
+        }
+        if ($ancestoruuid !== null && $ancestoruuid !== '') {
+            $ancestor = self::node($ancestoruuid);
+            if (!$ancestor) {
+                return ['total' => 0, 'nodes' => []];
+            }
+            $pathlike = $DB->sql_like('path', ':ancestorpath');
+            $select .= " AND $pathlike";
+            $params['ancestorpath'] = $DB->sql_like_escape($ancestor->path) . '%';
+        }
+        return [
+            'total' => $DB->count_records_select('local_curricmap_node', $select, $params),
+            'nodes' => array_values(
+                $DB->get_records_select('local_curricmap_node', $select, $params, 'id ASC', '*', $limitfrom, $limitnum)
+            ),
+        ];
+    }
+
+    /**
+     * A programme's edges with both ends resolved to composed keys.
+     *
+     * @param int $programmeid Programme id.
+     * @param string|null $connectiontype Restrict to one type, e.g. implements.
+     * @return \stdClass[] Rows: sourceuuid, targetuuid, connectiontype, sortorder.
+     */
+    public static function edges(int $programmeid, ?string $connectiontype = null): array {
+        global $DB;
+        $where = 'e.programmeid = :programmeid';
+        $params = ['programmeid' => $programmeid];
+        if ($connectiontype !== null && $connectiontype !== '') {
+            $where .= ' AND e.connectiontype = :connectiontype';
+            $params['connectiontype'] = $connectiontype;
+        }
+        $sql = "SELECT e.id, s.uuid AS sourceuuid, t.uuid AS targetuuid, e.connectiontype, e.sortorder
+                  FROM {local_curricmap_edge} e
+                  JOIN {local_curricmap_node} s ON s.id = e.sourceid
+                  JOIN {local_curricmap_node} t ON t.id = e.targetid
+                 WHERE $where
+              ORDER BY e.id ASC";
+        return array_values($DB->get_records_sql($sql, $params));
+    }
+
+    /**
      * Resolve edge-connected node records for one node.
      *
      * @param string $uuid Node uuid.

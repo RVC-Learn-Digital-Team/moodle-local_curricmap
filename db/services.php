@@ -46,6 +46,21 @@ $functions = [
         'ajax' => true,
         'capabilities' => 'local/curricmap:viewstaffmeta',
     ],
+    'local_curricmap_get_nodes' => [
+        'classname' => 'local_curricmap\external\get_nodes',
+        'description' => 'Graph extraction: a programme\'s full node rows (parent links, sortorder, '
+            . 'descriptions, deleted flags), pageable — for external consumers rebuilding the tree.',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:viewstaffmeta',
+    ],
+    'local_curricmap_get_edges' => [
+        'classname' => 'local_curricmap\external\get_edges',
+        'description' => 'Graph extraction: a programme\'s directed edges (implements, ...) as composed-key pairs.',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:viewstaffmeta',
+    ],
     'local_curricmap_bind' => [
         'classname' => 'local_curricmap\external\bind',
         'description' => 'Bind a Moodle address to a curriculum node (idempotent).',
@@ -122,6 +137,8 @@ $services = [
         'functions' => [
             'local_curricmap_get_programmes',
             'local_curricmap_get_children',
+            'local_curricmap_get_nodes',
+            'local_curricmap_get_edges',
             'local_curricmap_search',
             'local_curricmap_bind',
             'local_curricmap_unbind',
