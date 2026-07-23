@@ -651,21 +651,157 @@ its own automation, not part of the matching pages.
       (b) rollover_mapping.php shrinks to a post-restore pass: year-swap
           the composed keys on the new course (uuids stable), verify
           against the new year's mirror, dry-run + needs-attention report.
-      OPEN QUESTION (Brian to rule): node resources are year-pinned via
-      composed keys — next year's node (same uuid, new key) shows NO
-      resources unless (i) lookups gain a raw-uuid cross-year fallback
-      (material carries forward automatically; stale recordings leak) or
-      (ii) rows stay year-pinned and the rollover pass copies them forward
-      (optionally by type — carry ebooks/links, not last year's Panopto).
-      The studyresources_intro string currently overpromises ("rollover
-      never touches it") and must match the ruling. Once (a) ships, the
-      documented backup/restore limitation in both READMEs and TEST_PLAN §9
-      is lifted
+      RULED (Brian, 2026-07-20): the course IDNUMBER is the single source
+      of truth for academic year — no per-course year setting. Rollover to
+      a new year = restored course gets the new-year idnumber; the pass
+      detects "bound keys say year X, idnumber says year Y" and proposes
+      the swap. Archive-and-replace (same year) = new course keeps the
+      idnumber, the OLD course's idnumber is suffixed `_archived`; add
+      `_archived$` to the default skip patterns so archived courses drop
+      out of matching, proposals and coverage. Consequence: the coverage
+      calculator must also ignore BINDINGS belonging to skip-pattern
+      courses (today skips shape the denominator only), or archived
+      courses keep nodes looking covered. Convention must be documented in
+      SITE_ADMIN_GUIDE (it is load-bearing).
+      Node resources RULED: rows stay year-pinned, NO cross-year uuid
+      fallback; the rollover report lists per mapped node "old-year node
+      had N resources, new-year node has 0" with an opt-in copy-forward —
+      nothing carries silently (stale recordings don't leak). The
+      studyresources_intro string currently overpromises ("rollover never
+      touches it") and must match this. In-content chips need NO
+      rewriting — the filter's anchor-aware year fallback resolves them
+      once the course is re-anchored; truly-dead keys surface in the
+      report. Once (a) ships, the documented backup/restore limitation in
+      both READMEs and TEST_PLAN §9 is lifted
 - [ ] Picker locking: course staff node pickers offer only the anchored
       programme-year(s) once anchors exist (strict-lock decision)
 - [ ] Verify on playground after push: upgrade to 2026071360, matching page
       proposes correct anchors for the seeded test estate, confirm round-trip,
       CI green on both DBs
+
+### v0.21.1 (2026072210, 2026-07-22, unpushed)
+
+- [x] `^AVN` added to the shipped default skip patterns (postgraduate
+      veterinary nursing — Sofia holds no postgraduate programmes;
+      Brian's ruling via the external mapper findings).
+- [x] "Reset matching rules to the shipped defaults" — resetrules.php
+      (site-admin only, sesskey + confirm page, redirects back to the
+      matching settings) linked beneath the matchingrules textarea. This
+      is the recovery path for the standing gotcha that a saved setting
+      never inherits new shipped defaults on upgrade.
+- Ruling recorded: MANUAL matching in the plugin stays — the
+  no-idnumber/meta constraints below apply to the AUTOMATIC proposal
+  path only.
+
+### Matcher lessons from the external mapper (sofia_api_mapping_python_experimental, 2026-07-22)
+
+The python experiment ran this plugin's matcher semantics against the full
+learn-uat estate (2,318 courses) with live Sofia and surfaced defects and
+techniques the plugin should absorb. Fold into a matcher-focused release
+(v0.21.x+); each is proven in the experimental repo (its PLAN.md has the
+evidence):
+
+- [ ] **tokens() must html_entity_decode** — get_section_name() returns
+      &amp;-escaped names, so 'amp' scores as a real token today
+      (is_housekeeping already decodes; tokens does not). Convention agreed
+      with Brian: '&' AND the word 'and' are both eliminated from
+      tokenisation; never compare titles by raw string equality (production
+      Sofia itself mixes "X & Y" and "X and Y" across year nodes).
+- [ ] **Q&A collapses to a single token** (Q&A / Q &amp; A / Q and A /
+      Q&As) before the &/and elimination — otherwise the lone letters q/a
+      score as words ("Information and Q&As Term 1" matched "Development
+      Q&A 1" on 'q' + '1').
+- [ ] **genericwords guard in match_title()** (+ key in default_rules):
+      generic teaching vocabulary (assessment, feedback, questions,
+      overview, information, week, term...) counts toward containment but
+      can never carry a hint alone — kills plausible-but-empty 0.6s like
+      "Formative assessment: Exemplar questions / feedback".
+- [ ] **Report name-coverage beside containment** in hints (0.67/0.5): full
+      containment of a short title inside a long name is not the same
+      confidence as a two-way match; reviewers need both numbers.
+- [ ] **skipnames rule** (fullname regexes: do not use / deleted content /
+      \bbackup\b): backup copies carry NO idnumber (cleaned in live), so
+      idnumber skip patterns never see them — 22+ such courses live on
+      learn-uat and were winning matches.
+- [ ] **Category scope**: Sofia is undergraduate-only — courses under
+      out-of-scope TOP-LEVEL categories (Postgraduate Study, CoSector,
+      Discontinued, staff areas) should never be offered as match
+      candidates; resolve top category by path, keyword-matched, never
+      hardcoded ids (curriculum_mapping platform convention). AVN-* is
+      postgraduate but sits in a VN category — needs the idnumber skip
+      `^AVN\b|^AVN-` (Brian's ruling).
+- [ ] **Two-way (adversarial) confirmation** for the matching page /
+      coverage reporting: run node-first (each Sofia node ranks courses on
+      containment + idnumber-year + alias-slug + forward agreement) with
+      ONE-course-one-node assignment; forward+reverse mutual agreement
+      with clear margin = high-confidence tier. Agreement must be
+      suggestion-aware: for module-course estates (vet-nur) the forward
+      pass correctly proposes the year with the module-strand as top
+      suggestion — that IS agreement. Evidence: 8 vet-med + 9 vet-nur
+      confirmed matches at margins 1.6-5.2 with zero false positives after
+      the guards above.
+- [ ] **Meta constraints the matcher should enforce before scoring**
+      (Brian's rulings 2026-07-22 — the plugin's alias engine is stronger
+      than the experiment's scoring, but it does not yet gate on these):
+      (a) **courses with no idnumber cannot be central-matched** — the
+      enrolment system only enrols into idnumber courses, so a
+      no-idnumber course is never a real target (this reverses the
+      v0.11.1 "no-idnumber courses now MATCH from name signals" change
+      for the AUTOMATIC proposal path; the "idnumber only" toggle should
+      default ON and manual matching stays available). On learn-uat this
+      removes 1,539 of 2,318 courses and RAISES the match count.
+      (b) **year of study is a hard constraint, not a signal**: Sofia's
+      year nodes are the year-of-study structure, and a course whose
+      idnumber declares year N must not be offered nodes from year M.
+      Ruling: "Year 4 & Year 5 Rotations" IS year 5; nursing and bio-sc
+      have no rotations. Suggest an explicit `yos` key on alias rules
+      (BVETMED45 → 5, GATEWAY → gateway, GAB → gab) since the captured
+      digit is not always the year.
+      (c) missing alias: `^([1-5])VET` → vet-med year n covers the SRS
+      strand-course estate (1VETS04 → Year 1) that currently only matches
+      by word overlap.
+- [ ] **Body matching against FULL prose needs three extra guards**
+      (measured 2026-07-22 against 32.6M chars of live-Learn chapter text;
+      the plugin's current thresholds were tuned on short intros and
+      produce false positives on chapter bodies): (a) **suppress body
+      hints entirely when a body matches more than ~3 candidates** — 85 of
+      400 Y1-hub bodies matched 10-33 candidates because "Week N
+      (commencing…)" guidance pages list a whole week's teaching, so every
+      session scores and none is identified; (b) raise `bodyminwords` to
+      3 (2 lets "Online activities" match a guidance page at 1.0);
+      (c) require **two** non-generic matched words for a body hint (title
+      hints need one). Note the plugin already reads chapter `content` in
+      full, so it is exposed to this today.
+- [ ] **Modality priors per Sofia role** (Brian's ordered-pipeline design
+      2026-07-22, spec in umbrella MATCHING_KNOWLEDGEBASE §6.0b): strand
+      hints should prefer book titles > sections > pages > labels and
+      NEVER land on quiz/lesson/url/forum; strand-outcome hints should
+      search the located strand's book chapters first; assessment hints
+      should prefer quizzes then lessons. Rules-as-data
+      (strandmodalities/assessmentmodalities keys) so the vocabulary can
+      evolve without releases.
+- [ ] **Activity/chapter pools must include the STRAND itself** (found
+      2026-07-22 tracing why a book named "Locomotor" inside the section
+      "Locomotor" got no hint): contentmap's module pool =
+      content_candidates(roots, TARGET_ROLES) where TARGET_ROLES excludes
+      'strand' — so the strand-spine book (present in 85% of strand
+      sections) can never be hinted at its own strand. Offer the section's
+      matched strand (or the strand pool) alongside the subtree.
+- [ ] **Synonyms must fire in both directions** in match_title: the name
+      side expands today, but a candidate word ('locomotion' in a session
+      title) never meets a name ('Locomotor') whose expansion it is.
+- [ ] **Type markers belong in a FIELD, not the title** (Brian's ruling
+      2026-07-22): strip `DLI:`/`DL:`/`Practical:`/`[QUIZ]` etc. from
+      scoring text but keep the marker as a filter dimension — 39% of
+      Sofia session titles carry one, and staff will want to filter by it.
+- [ ] **Outcome mapping needs body text, not titles**: outcomes are
+      sentences, locations are short titles — title containment is
+      hint-grade only (high containment, name-coverage 0.15-0.3). Outcome
+      CODES (100% populated) appear ZERO times in Learn content names —
+      dead as a matching signal, keep as the review/reporting key. Outcome
+      opening verbs (describe/explain/discuss/understand) belong in a
+      stoplist. Sofia unit grouplabels (15k+ nodes) are the ordering
+      signal; week-named sections are a VN-family habit only.
 
 ### M10 — Hardening (pre-pilot)
 

@@ -10,6 +10,10 @@ Invalid JSON in the setting falls back to the defaults entirely; valid JSON
 overlays the defaults **per top-level key** (a JSON containing only
 `{"minscore": 3}` keeps every other default).
 
+**Before changing any rule, read `Documentation/MATCHING_KNOWLEDGEBASE.md`
+in the umbrella repo** — the consolidated record of what predicts a correct
+mapping (signal hierarchy, proven/disproven findings, measured estate facts).
+
 The evidence base behind the current patterns is in the
 `moodle_mapping_api_test` repo: `MATCHING_SIGNALS.md` (analysis of 78k
 production module rows) and `matcher.py` + `matching_rules.json` (the offline

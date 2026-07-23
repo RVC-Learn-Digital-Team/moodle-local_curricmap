@@ -68,7 +68,11 @@ class matcher {
      */
     public static function default_rules(): array {
         return [
-            'skip' => ['^Temp_', 'shell', '^catalyst_'],
+            // Sofia holds no postgraduate programmes (rulings 2026-07-22):
+            // AVN + RVC_MS* (masters hubs), PG* (PGT/PGR/PGCERT/PGDIP),
+            // OH-* (MSc One Health modules), bare level-7 module codes
+            // (7101_VE_Y_202526-style — level 7 = masters).
+            'skip' => ['^Temp_', 'shell', '^catalyst_', '^AVN', '^RVC_MS', '^PG', '^OH-', '^7\d{3}'],
             'minscore' => 2,
             'mincontainment' => 0.6,
             // Body-text hints (secondary signal): stricter threshold because

@@ -47,6 +47,17 @@ if ($hassiteconfig) {
         \local_curricmap\local\matcher::default_rules_json(),
         PARAM_RAW
     ));
+    // A saved setting is a full replacement — it never inherits new shipped
+    // defaults on upgrade. This link is the recovery path.
+    $resetlink = html_writer::link(
+        new moodle_url('/local/curricmap/resetrules.php'),
+        get_string('settings:matchingrulesreset', 'local_curricmap')
+    );
+    $matchingsettings->add(new admin_setting_description(
+        'local_curricmap/matchingrulesreset',
+        '',
+        $resetlink
+    ));
     $ADMIN->add('local_curricmap_category', $matchingsettings);
 
     $ADMIN->add('local_curricmap_category', new admin_externalpage(
