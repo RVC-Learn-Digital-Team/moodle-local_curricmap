@@ -198,10 +198,10 @@ final class matcher_test extends \advanced_testcase {
     }
 
     /**
-     * An alias-matched course still gets strand suggestions beside the year:
-     * the alias node regex names the YEAR, but module-shaped courses (all of
-     * vet-nur/bio-sc) are named after their module-strand — found live on
-     * vle-test where include-strands showed nothing for either programme.
+     * An alias-matched course named after its module-strand (all of
+     * vet-nur/bio-sc) proposes the STRAND, not the year: the strand title
+     * contained in the course name is the stronger match (ruling
+     * 2026-07-23), with the year kept at the top of the suggestions.
      */
     public function test_alias_course_gets_strand_suggestions(): void {
         global $DB;
@@ -226,19 +226,64 @@ final class matcher_test extends \advanced_testcase {
         $course = $this->course('VN1202_A_Y_202627', 'AAHW1 26/7', 'Applied Animal Health & Welfare 1 (VN1202_A_Y_202627)');
         $rules = matcher::default_rules();
 
-        // With strands on: the year stays the deterministic best, and the
-        // course's own module tops the suggestions.
+        // With strands on: the course is named after its module, so the
+        // module IS the proposal; the year sits first in the suggestions.
         $result = matcher::match($course, matcher::candidates(true), $rules);
         $this->assertSame(matcher::STATUS_MATCH, $result->status);
-        $this->assertSame('Year 1', $result->best->node->title);
+        $this->assertSame('Applied Animal Health & Welfare 1', $result->best->node->title);
+        $this->assertSame('strand', $result->best->node->role);
         $this->assertNotEmpty($result->suggestions);
-        $this->assertSame('Applied Animal Health & Welfare 1', $result->suggestions[0]->candidate->node->title);
-        $this->assertSame('strand', $result->suggestions[0]->candidate->node->role);
+        $this->assertSame('Year 1', $result->suggestions[0]->candidate->node->title);
 
         // With strands off there is nothing to suggest — unchanged behaviour.
         $plain = matcher::match($course, matcher::candidates(false), $rules);
         $this->assertSame(matcher::STATUS_MATCH, $plain->status);
         $this->assertSame([], $plain->suggestions);
+    }
+
+    /**
+     * A strand whose title the course name contains — directly or through
+     * the synonym table (LOC/Locomotion -> Locomotor) — becomes the
+     * proposal itself; without that evidence the year stays the proposal.
+     */
+    public function test_alias_course_matches_strand_when_stronger(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->seed_programme('vet-med', 'Bachelor of Veterinary Medicine', [2025 => 'Year 2']);
+        $year = $DB->get_record('local_curricmap_node', ['role' => 'year'], '*', MUST_EXIST);
+        foreach (['Locomotor', 'Cardiovascular & Respiratory'] as $index => $title) {
+            $DB->insert_record('local_curricmap_node', (object) [
+                'programmeid' => $year->programmeid,
+                'uuid' => 'vet-med_2025_26_strand' . $index,
+                'parentid' => $year->id,
+                'role' => 'strand',
+                'title' => $title,
+                'sortorder' => $index,
+                'source' => 'sofia',
+                'timecreated' => time(),
+                'timemodified' => time(),
+            ]);
+        }
+        $rules = matcher::default_rules();
+        $candidates = matcher::candidates(true);
+
+        $result = matcher::match(
+            $this->course('RVC_BVETMED2_LOC_2025_6', 'BVetMed2 LOC 2025-26', 'BVetMed 2 Locomotion 2025-26'),
+            $candidates,
+            $rules
+        );
+        $this->assertSame(matcher::STATUS_MATCH, $result->status);
+        $this->assertSame('Locomotor', $result->best->node->title);
+        $this->assertSame('Year 2', $result->suggestions[0]->candidate->node->title);
+
+        // No strand title in the name: the year stays the proposal.
+        $plain = matcher::match(
+            $this->course('RVC_BVETMED2_2025_6', 'BVetMed2 2025-26', 'BVetMed Year 2 2025-26'),
+            $candidates,
+            $rules
+        );
+        $this->assertSame(matcher::STATUS_MATCH, $plain->status);
+        $this->assertSame('Year 2', $plain->best->node->title);
     }
 
     /**

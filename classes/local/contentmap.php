@@ -20,7 +20,7 @@ use local_curricmap\api\bindings;
 use local_curricmap\api\resources;
 
 /**
- * Shared building blocks for the course content mapping page and its lazily
+ * Shared building blocks for the Moodle Course Mapping page and its lazily
  * loaded fragments: binding buckets, per-section counts, and the row/cell
  * renderers. The page shows every section up front with its counts; the
  * activity mapping rows (candidate pools, pickers) are the expensive part

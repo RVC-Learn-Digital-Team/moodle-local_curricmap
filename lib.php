@@ -23,7 +23,7 @@
  */
 
 /**
- * Add the per-course "Curriculum mappings" page to the course navigation.
+ * Add the per-course "Add Additional Mappings" page to the course navigation.
  *
  * @param navigation_node $parentnode The course navigation node.
  * @param stdClass $course The course record.
@@ -48,7 +48,7 @@ function local_curricmap_extend_navigation_course(
 }
 
 /**
- * Fragment: one section's activity mapping rows for the content mapping page
+ * Fragment: one section's activity mapping rows for the Moodle Course Mapping page
  * (loaded lazily when the admin opens a section's "Map activities").
  *
  * @param array $args courseid, sectionid, modtypes/nodetypes/pending (csv), returnurl.

@@ -679,6 +679,75 @@ its own automation, not part of the matching pages.
       proposes correct anchors for the seeded test estate, confirm round-trip,
       CI green on both DBs
 
+### v0.22.0 (2026072304, 2026-07-23, unpushed)
+
+- [x] Settings follow the new vocabulary (Brian, 2026-07-23): "Course
+      matching settings" → "Mapping settings", "Course matching rules" →
+      "Mapping rules" ("Mapping", not a page name, because the one JSON
+      rule set drives BOTH Central Admin Mapping proposals and Moodle
+      Course Mapping hints — the descs name the pages), reset link/confirm
+      strings and mappablemodtypes_desc updated, MATCHING_RULES.md title
+      and nav path likewise. resetrules.php follows via the strings.
+
+- [x] Page renames (Brian, 2026-07-23; filenames unchanged, all via the
+      title lang strings so Settings nav, headings, course nav and links
+      follow): "Course content matching" → "Moodle Course Mapping" (incl.
+      the contentmapping_link row link), "Study resources" → "Learning
+      Resource Mapping" (incl. studyresources_forcourse and the coverage
+      resources label), "Curriculum mappings" → "Add Additional Mappings".
+      On Central Admin Mapping course rows the two links now read Moodle
+      Course Mapping first, Add Additional Mappings second (swap). Note:
+      course_mapping's delete-match crud confirmed untouched — the
+      delete-and-redo correction path stands.
+
+- [x] MAPPING MODEL RULING (Brian, 2026-07-23): ONE central decision per
+      course on Central Admin Mapping — strand match = strand course, year
+      match = year course — and NOTHING on that page changes it once made
+      (delete-and-redo is its only correction path). A year course's
+      strands are mapped per-section on section_module_mapping.php. Manual
+      extra mappings (additional strands/nodes) are made on mappings.php,
+      course scope or optionally central. Recorded in the README "mapping
+      model" section, the three page docblocks and the page intro strings.
+- [x] Proposals go away once the course is matched within the proposed
+      programme year (Brian: a course matched to the right strand still
+      showed the year "Matched" — "very likely the whole strand gets
+      mapped by mistake"). Course mode: a row whose central match shares
+      the proposal's slug_year_yy_ composed-key prefix (the year node or
+      any of its strands) bands as existing-only (out of the default
+      Matched view) and renders "Already matched" with NO tick and NO
+      dropdown (per the model ruling above — first cut kept the dropdown
+      "for manual work", withdrawn same day). Sofia mode: EVERY target
+      (year or strand) counts a course already matched anywhere within
+      the target's programme year as "Already matched", no tick — extra
+      strands for multi-strand courses go via mappings.php. Different
+      programme years are untouched by the prefix rule, so rollover
+      re-matching still works.
+- [x] "Central course matching" renamed to "Central Admin Mapping"
+      (Settings nav + page title/heading via the coursemapping string;
+      course_mapping.php filename unchanged).
+
+- [x] Strand IS the proposal when stronger (Brian: "if include strands is
+      on, match to the strand — currently it says matched onto the course
+      when the strand is a much stronger match"). The alias single-survivor
+      branch now scores the matched YEAR's strands by title containment
+      (course tokens synonym-expanded, threshold = mincontainment): the
+      strongest strand at/above threshold becomes result->best, with the
+      year kept first in the suggestions (one click away); weaker overlaps
+      stay suggestions beside the year exactly as v0.20.1 built. Strands
+      from OTHER years of the same slug can never become best. The
+      suggestion overlap scoring now also synonym-expands course tokens
+      (LOC/CVRS-style course names reach their strand). Sofia mode: a
+      course proposed for a strand still ranks as proposed under its YEAR
+      target (fit check extended). Matcher tests updated + new
+      LOC→Locomotor / CVRS→Cardiovascular & Respiratory / other-year-guard
+      coverage; 11-check harness green.
+- [x] "Include strands" now defaults ON on course_mapping.php (Brian,
+      2026-07-23). NOTE for the two-way-confirmation backlog item below:
+      its "forward pass proposes the year with module-strand as top
+      suggestion — that IS agreement" evidence predates this change; the
+      forward pass now proposes the module-strand itself for module-shaped
+      courses.
+
 ### v0.21.1 (2026072210, 2026-07-22, unpushed)
 
 - [x] `^AVN` added to the shipped default skip patterns (postgraduate
@@ -701,6 +770,46 @@ techniques the plugin should absorb. Fold into a matcher-focused release
 (v0.21.x+); each is proven in the experimental repo (its PLAN.md has the
 evidence):
 
+- [ ] **Module/strand-shaped courses should rank their STRAND above the year**
+      (evidence 2026-07-29, curriculum_staging matcher run vs 28 real central
+      anchors). Today the alias resolves deterministically to the programme-year
+      node and strands arrive as suggestions. Measured against Brian's own
+      anchors: 15 agreed at rank 1 (all year-hub courses — BVetMed 1-4, Gateway,
+      GA, bio-sc hubs, UBVETNR_1-4) and **12 sat at rank 2, every one a vet-nur
+      module course** (VN1201/1202/1203, VN2201/2205/2206/2207/2210/2211, both
+      years) where the human had chosen the module-strand. Zero counter-examples.
+      NOT YET ACTIONED, deliberately: (a) evidence is vet-nur-only — vet-med's
+      `1VETS*` strand courses have no confirmed anchors yet, so extending the
+      rule to them would be inference (see the units lesson); (b) in the plugin
+      the strand is already one dropdown click away, so the cost is a click, not
+      a wrong result; (c) it cannot be done in the rules JSON (the strand name is
+      not derivable from `VN2210` — it needs scoring to prefer the best strand
+      over the year node), so it is a real matcher.php change: batch it with the
+      derive.php untyped-container fix, which already needs a force full sync.
+      Proven strand-course idnumber patterns if/when it is built:
+      `^[1-5]VETS\d+_`, `UBVETMD_\d{6}$`, `VN[1-4]\d{3}`.
+      Same run also caught a genuine DATA error the matcher was right about:
+      `1VETS09_A_Y_202627` ("Principles Of Science", a Year 1 module) was
+      centrally anchored to the **Year 4 & Year 5 Rotations** year node; correct
+      target is the Principles of Science strand under Year 1.
+- [ ] **Year-of-study must constrain STRAND suggestions, not just year nodes.**
+      Worked example from the same run — 1VETS09 (yos=1 via the `^([1-5])VET`
+      alias) was offered 5 strand suggestions: Principles of Science under
+      **Year 1** (score 4, correct), PVP under Year 1 (3), Principles of Science
+      under **Year 2** (3), the same under **Year 3** (3), and PVP under
+      **Graduate accelerated** (2). Three of the five are impossible for a Year 1
+      course. The alias has already established the year of study, so strands
+      whose parent year contradicts it should not compete at all — that alone
+      cuts this list from 5 to 2, with score then picking correctly. Note
+      Principles of Science is a MULTI-YEAR strand (exists in Years 1-3 with
+      distinct uuids), so same-title collisions are normal, not a data fault.
+- [ ] **Node pickers must disambiguate same-titled nodes by parent.** Fallout of
+      the above: on course_mapping.php with "include strands" on, the flat
+      autocomplete shows three entries all reading "Principles of Science"
+      (Years 1/2/3) with nothing to distinguish them — a site admin cannot pick
+      correctly without checking the resulting composed key afterwards. Current
+      matches already render "Title - YYYY"; the PICKER needs the same treatment
+      (parent year, or the node code such as GAB-PAFF-CVR where present).
 - [ ] **tokens() must html_entity_decode** — get_section_name() returns
       &amp;-escaped names, so 'amp' scores as a real token today
       (is_housekeeping already decodes; tokens does not). Convention agreed

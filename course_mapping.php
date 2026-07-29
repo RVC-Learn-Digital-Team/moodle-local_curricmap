@@ -15,13 +15,19 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Central course matching, in two directions: by Moodle course (review each
+ * Central Admin Mapping, in two directions: by Moodle course (review each
  * course's proposed programme-year match) or by Sofia curriculum (pick a
  * programme year, then gather the courses that belong to it — including
  * support courses without an idnumber). Ticked rows are confirmed explicitly;
  * confirming creates central-scope anchor bindings and nothing binds
- * unreviewed. Deeper section/module matching lives on each course's own
- * mappings page.
+ * unreviewed.
+ *
+ * ONE central decision per course, and this page never changes it once made
+ * (delete-and-redo is the only correction path here): a course matched to a
+ * strand IS a strand course; a course matched to a year maps its strands
+ * per-section on section_module_mapping.php (Moodle Course Mapping); manual
+ * extra mappings (course scope, or central for central staff) are made on
+ * each course's Add Additional Mappings page (mappings.php).
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
@@ -45,7 +51,7 @@ $show = optional_param('show', 'matched', PARAM_ALPHA);
 if (!in_array($show, ['matched', 'unmatched', 'existing', 'all'])) {
     $show = 'matched';
 }
-$strands = optional_param('strands', 0, PARAM_BOOL);
+$strands = optional_param('strands', 1, PARAM_BOOL);
 $slugyear = optional_param('slugyear', '', PARAM_RAW_TRIMMED);
 $nodeparam = optional_param('node', '', PARAM_RAW_TRIMMED);
 $page = optional_param('page', 0, PARAM_INT);
@@ -152,6 +158,18 @@ function local_curricmap_course_mapping_label(stdClass $candidate): string {
 }
 
 /**
+ * The composed-key prefix (slug_year_yy_) shared by every node of a
+ * candidate's programme year.
+ *
+ * @param stdClass $candidate Matcher candidate.
+ * @return string
+ */
+function local_curricmap_course_mapping_prefix(stdClass $candidate): string {
+    return $candidate->programme->slug . '_' . $candidate->yearstart . '_'
+        . sprintf('%02d', ($candidate->yearstart + 1) % 100) . '_';
+}
+
+/**
  * A status badge span.
  *
  * @param string $status Matcher status or 'searchresult'.
@@ -191,6 +209,25 @@ foreach ($DB->get_records_sql($matchsql, $matchparams) as $binding) {
     $currentmatches[(int) $binding->courseid][] = $binding;
 }
 
+// A course whose existing central match already sits INSIDE the proposal's
+// programme year (the year node or any of its strands — composed keys share
+// the slug_year_yy_ prefix) is DECIDED: an admin may have refined the
+// engine's proposal to the right strand, and keeping the proposal alive
+// invites binding the whole year on top by mistake.
+$decided = function (stdClass $row) use ($currentmatches): bool {
+    $proposal = $row->result->best ?? ($row->result->suggestions[0]->candidate ?? null);
+    if (!$proposal) {
+        return false;
+    }
+    $prefix = local_curricmap_course_mapping_prefix($proposal);
+    foreach ($currentmatches[(int) $row->course->id] ?? [] as $binding) {
+        if (strpos($binding->nodeuuid, $prefix) === 0) {
+            return true;
+        }
+    }
+    return false;
+};
+
 // Search terms: a year-shaped token filters by harmonised year, the rest are
 // keywords that must all appear in name, idnumber or category.
 $searchyear = null;
@@ -228,15 +265,16 @@ foreach ($courses as $course) {
 
 $showcounts = ['matched' => 0, 'unmatched' => 0, 'existing' => 0, 'all' => 0];
 if ($mode === 'course') {
-    // Band per row: matched = the engine proposed something; unmatched = no
-    // proposal AND no current match (courses already matched are not
-    // "unmatched", whatever their proposal status); skipped only shows in all.
-    $band = function ($row) use ($currentmatches) {
+    // Band per row: matched = the engine proposed something the course is
+    // not already matched within; unmatched = no proposal AND no current
+    // match (courses already matched are not "unmatched", whatever their
+    // proposal status); skipped only shows in all.
+    $band = function ($row) use ($currentmatches, $decided) {
         if ($row->result->status === matcher::STATUS_SKIPPED) {
             return 'skipped';
         }
         if (in_array($row->result->status, [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST])) {
-            return 'matched';
+            return $decided($row) ? 'existingonly' : 'matched';
         }
         return empty($currentmatches[(int) $row->course->id]) ? 'unmatched' : 'existingonly';
     };
@@ -262,14 +300,29 @@ if ($mode === 'course') {
 } else if ($target) {
     // Rank each course's fit for the target node: already matched to it,
     // proposed for it, suggested for it (scored), or a plain search result.
+    $targetprefix = local_curricmap_course_mapping_prefix($target);
     $ranked = [];
     foreach ($rows as $row) {
         $courseid = (int) $row->course->id;
         $bound = array_map(fn($b) => $b->nodeuuid, $currentmatches[$courseid] ?? []);
-        if (in_array($target->node->uuid, $bound)) {
+        // A course proposed for a strand still belongs to that strand's year,
+        // so a year target counts it as proposed too.
+        $best = $row->result->best;
+        $bestfits = $best && ($best->node->uuid === $target->node->uuid
+            || ($target->yeartitle === null && $best->yeartitle !== null
+                && $best->programme->slug === $target->programme->slug
+                && $best->yearstart === $target->yearstart
+                && $best->yeartitle === (string) $target->node->title));
+        // Any central anchor within the target's programme year means the
+        // course's decision is made and this page never changes it: a
+        // strand-matched course IS a strand course, a year-matched course
+        // maps its strands on the Moodle Course Mapping page, and extra
+        // mappings belong on the course's Add Additional Mappings page.
+        $boundinyear = array_filter($bound, fn($uuid) => strpos($uuid, $targetprefix) === 0);
+        if (in_array($target->node->uuid, $bound) || $boundinyear) {
             $row->fit = 'existing';
             $row->rank = 1;
-        } else if ($row->result->best && $row->result->best->node->uuid === $target->node->uuid) {
+        } else if ($bestfits) {
             $row->fit = matcher::STATUS_MATCH;
             $row->rank = 2;
         } else {
@@ -407,13 +460,13 @@ foreach ($rows as $row) {
     $subline = trim(s($course->idnumber) . ' · ' . s($course->categoryname ?? ''), ' ·');
     $coursecell .= html_writer::tag('div', $subline, ['class' => 'small text-muted']);
     $coursecell .= html_writer::link(
-        new moodle_url('/local/curricmap/mappings.php', ['courseid' => $courseid]),
-        get_string('mappings', 'local_curricmap'),
+        new moodle_url('/local/curricmap/section_module_mapping.php', ['courseid' => $courseid]),
+        get_string('contentmapping_link', 'local_curricmap'),
         ['class' => 'small']
     );
     $coursecell .= ' · ' . html_writer::link(
-        new moodle_url('/local/curricmap/section_module_mapping.php', ['courseid' => $courseid]),
-        get_string('contentmapping_link', 'local_curricmap'),
+        new moodle_url('/local/curricmap/mappings.php', ['courseid' => $courseid]),
+        get_string('mappings', 'local_curricmap'),
         ['class' => 'small']
     );
 
@@ -458,9 +511,21 @@ foreach ($rows as $row) {
         continue;
     }
 
-    // Course mode: the dropdown holds the engine's proposals, plus — when a
-    // slug-year is selected — that year's offered nodes as a flat, searchable
-    // list. Blank slug-year keeps rows to proposals only (confirm-fast view).
+    // Course mode. A decided course (already matched within the proposed
+    // programme year) gets no tick and no dropdown: a strand-matched course
+    // IS a strand course, a year-matched course maps its strands on the
+    // Moodle Course Mapping page, and NOTHING here changes either —
+    // extra mappings belong on the course's Add Additional Mappings page.
+    if ($decided($row)) {
+        $donelabel = get_string('coursemapping_alreadymatched', 'local_curricmap');
+        $donecell = html_writer::tag('span', $donelabel, ['class' => 'badge badge-secondary']);
+        $table->data[] = ['', $coursecell, $yearcell, $currentcell, $donecell];
+        continue;
+    }
+
+    // The dropdown holds the engine's proposals, plus — when a slug-year is
+    // selected — that year's offered nodes as a flat, searchable list.
+    // Blank slug-year keeps rows to proposals only (confirm-fast view).
     $bounduuids = array_map(fn($binding) => $binding->nodeuuid, $currentmatches[$courseid] ?? []);
     $proposals = [];
     $selected = '';

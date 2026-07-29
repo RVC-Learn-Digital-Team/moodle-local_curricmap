@@ -19,7 +19,8 @@ namespace local_curricmap\local;
 use local_curricmap\api\curriculum;
 
 /**
- * Proposes course -> programme-year anchor matches for the central mapping page.
+ * Proposes course -> programme-year (or strand) anchor matches for the
+ * central mapping page.
  *
  * Signals and rules were derived from production course extracts (see the
  * moodle_mapping_api_test repo's MATCHING_SIGNALS.md). The idnumber carries a
@@ -482,19 +483,22 @@ class matcher {
                     $slugpool = $narrowed;
                 }
                 if (count($slugpool) === 1) {
-                    $result->best = $slugpool[0];
+                    $yearcandidate = $slugpool[0];
                     $result->status = ($field === 'idnumber' && $yearfield === 'idnumber')
                         ? self::STATUS_MATCH : self::STATUS_SUGGEST;
-                    // The alias's node regex names the YEAR, which would
-                    // otherwise silence every strand/module candidate — a
-                    // course named after its module (all of vet-nur/bio-sc)
-                    // still deserves strand suggestions beside the year.
-                    $coursetokens = self::tokens(
-                        $idnumber,
-                        (string) $course->shortname,
-                        (string) $course->fullname
-                    );
+                    // The alias's node regex names the YEAR, but module/strand
+                    // shaped courses (all of vet-nur/bio-sc, the BVetMed
+                    // strand courses) are named after their strand. When the
+                    // course name contains a strand's title (synonyms
+                    // expanded), that strand is the stronger match and
+                    // becomes the proposal, with the year kept one click
+                    // away at the top of the suggestions. Weaker overlaps
+                    // stay suggestions beside the year, as before.
+                    $coursetokens = self::tokens($idnumber, (string) $course->shortname, (string) $course->fullname);
+                    $coursetokens = self::expand_tokens($coursetokens, $rules);
                     $strandscored = [];
+                    $strongest = null;
+                    $strongestcontainment = 0;
                     foreach ($slugpoolfull as $candidate) {
                         if ($candidate->yeartitle === null) {
                             continue;
@@ -503,9 +507,32 @@ class matcher {
                         if ($score > 0) {
                             $strandscored[] = (object) ['candidate' => $candidate, 'score' => $score];
                         }
+                        if ($candidate->yeartitle !== (string) $yearcandidate->node->title) {
+                            continue;
+                        }
+                        $words = array_diff(self::tokens((string) $candidate->node->title), self::STOPWORDS);
+                        if (!$words) {
+                            continue;
+                        }
+                        $containment = count(array_intersect($words, $coursetokens)) / count($words);
+                        if ($containment >= (float) $rules['mincontainment'] && $containment > $strongestcontainment) {
+                            $strongest = $candidate;
+                            $strongestcontainment = $containment;
+                        }
                     }
                     usort($strandscored, fn($a, $b) => $b->score <=> $a->score);
-                    $result->suggestions = array_slice($strandscored, 0, self::MAX_SUGGESTIONS);
+                    if ($strongest !== null) {
+                        $result->best = $strongest;
+                        $others = array_values(array_filter(
+                            $strandscored,
+                            fn($scored) => $scored->candidate !== $strongest
+                        ));
+                        array_unshift($others, (object) ['candidate' => $yearcandidate, 'score' => 0]);
+                        $result->suggestions = array_slice($others, 0, self::MAX_SUGGESTIONS);
+                    } else {
+                        $result->best = $yearcandidate;
+                        $result->suggestions = array_slice($strandscored, 0, self::MAX_SUGGESTIONS);
+                    }
                     return $result;
                 }
                 $pool = $slugpool;

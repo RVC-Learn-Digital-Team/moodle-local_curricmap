@@ -161,7 +161,7 @@ if ($hassiteconfig) {
         PARAM_INT
     ));
 
-    // Which activity module types are offered on the content mapping page.
+    // Which activity module types are offered on the Moodle Course Mapping page.
     $modchoices = [];
     foreach (core_plugin_manager::instance()->get_installed_plugins('mod') as $modname => $unused) {
         $modchoices[$modname] = get_string('pluginname', 'mod_' . $modname);

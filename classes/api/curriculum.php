@@ -16,6 +16,7 @@
 
 namespace local_curricmap\api;
 
+use local_curricmap\local\derive;
 use local_curricmap\local\matcher;
 
 /**
@@ -165,6 +166,87 @@ class curriculum {
             }
             return $units;
         });
+    }
+
+    /**
+     * A strand's grouping level, however Sofia happens to express it.
+     *
+     * Sofia uses TWO structures for the level between a strand and its taught
+     * sessions, and both are live (measured 2026-07-29):
+     *
+     * - **container nodes** - a real node between strand and sessions, with the
+     *   sessions beneath it (vet-med GAB and bio-sc: 131 "Unit n: ..." nodes).
+     *   Sofia sends no typeName for these, so they derive to role `unit` via the
+     *   positional fallback in derive::role().
+     * - **grouping labels** - sessions hang directly off the strand and carry a
+     *   `grouplabel` naming their grouping (vet-med Year 1).
+     *
+     * Consumers must not care which. This returns one ordered list either way,
+     * plus an ungrouped bucket for sessions belonging to neither, so a renderer
+     * or filter has a single shape to work with. A strand using neither
+     * structure returns an empty array and the caller falls back to subtype
+     * grouping as before.
+     *
+     * Note the grouping label is free text and multiplexes several kinds of
+     * thing (unit, theme, term, week, housekeeping) - classifying it is a
+     * separate concern, deliberately not done here.
+     *
+     * @param string $stranduuid Strand node uuid.
+     * @return array[] Each: ['uuid' => string|null, 'label' => string,
+     *         'subtype' => string|null, 'source' => 'node'|'grouplabel'|'ungrouped',
+     *         'sessions' => \stdClass[], 'sessioncount' => int].
+     */
+    public static function groupings(string $stranduuid): array {
+        $strand = self::node($stranduuid);
+        if (!$strand) {
+            return [];
+        }
+        $groupings = [];
+        foreach (self::children($stranduuid, [derive::ROLE_UNIT]) as $container) {
+            $sessions = self::children($container->uuid, [derive::ROLE_SESSION]);
+            $groupings[] = [
+                'uuid' => $container->uuid,
+                'label' => (string) $container->title,
+                'subtype' => $container->subtype,
+                'source' => 'node',
+                'sessions' => $sessions,
+                'sessioncount' => count($sessions),
+            ];
+        }
+        $labelled = [];
+        $ungrouped = [];
+        foreach (self::children($stranduuid, [derive::ROLE_SESSION]) as $session) {
+            $label = $session->grouplabel;
+            if ($label === null || $label === '') {
+                $ungrouped[] = $session;
+                continue;
+            }
+            $labelled[$label] = $labelled[$label] ?? [];
+            $labelled[$label][] = $session;
+        }
+        foreach ($labelled as $label => $sessions) {
+            $groupings[] = [
+                'uuid' => null,
+                'label' => (string) $label,
+                'subtype' => null,
+                'source' => 'grouplabel',
+                'sessions' => $sessions,
+                'sessioncount' => count($sessions),
+            ];
+        }
+        // Loose sessions only earn a bucket when something else grouped - with
+        // no grouping at all the caller keeps its subtype behaviour.
+        if ($groupings && $ungrouped) {
+            $groupings[] = [
+                'uuid' => null,
+                'label' => '',
+                'subtype' => null,
+                'source' => 'ungrouped',
+                'sessions' => $ungrouped,
+                'sessioncount' => count($ungrouped),
+            ];
+        }
+        return $groupings;
     }
 
     /**

@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Reset the course matching rules setting to the shipped defaults.
+ * Reset the mapping rules setting to the shipped defaults.
  *
  * A saved matchingrules setting is a full replacement and never inherits
  * new shipped defaults on upgrade — this confirmed action is the recovery

@@ -15,8 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Study resources: attach learning material (Panopto recordings, ebooks,
- * links...) to curriculum nodes.
+ * Learning Resource Mapping: attach learning material (Panopto recordings,
+ * ebooks, links...) to curriculum nodes.
  *
  * Course-first (the main workflow): pick a course, see every one of its
  * central mappings — whole course, sections, activities — each with the

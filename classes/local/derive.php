@@ -95,6 +95,15 @@ class derive {
         // import-only) - observed live, July 2026.
         'Course' => self::ROLE_YEAR,
         'Year' => self::ROLE_YEAR,
+        // Grouping containers between a strand and its sessions. Sofia sends no
+        // typeName for these today (hence the positional fallback in role()),
+        // but it may start; these keep them on the unit-level render path rather
+        // than regressing to "other". They are one ROLE deliberately - what the
+        // grouping is CALLED stays in subtype/title, the same way Module keeps
+        // its subtype while deriving to strand.
+        'Unit' => self::ROLE_UNIT,
+        'Theme' => self::ROLE_UNIT,
+        'Folder' => self::ROLE_UNIT,
     ];
 
     /**
@@ -107,14 +116,30 @@ class derive {
      *
      * @var string[]
      */
-    const STRANDOUTCOME_PARENTS = [self::ROLE_STRAND, self::ROLE_STRANDOUTCOME, self::ROLE_YEAR];
+    const STRANDOUTCOME_PARENTS = [
+        self::ROLE_STRAND,
+        self::ROLE_STRANDOUTCOME,
+        self::ROLE_YEAR,
+        // A unit-level container is a subdivision of a strand, so outcomes it
+        // owns belong in the strand's outcome bucket.
+        self::ROLE_UNIT,
+    ];
 
     /**
      * Parent roles under which an Outcome node counts as a session outcome.
      *
+     * An assessment sits at session level (a child of the strand), so outcomes
+     * it owns bucket with session outcomes. Without this they fell to "other"
+     * and disappeared from every consumer — 12 such nodes measured on live
+     * vet-med, 2026-07-29.
+     *
      * @var string[]
      */
-    const SESSIONOUTCOME_PARENTS = [self::ROLE_SESSION, self::ROLE_SESSIONOUTCOME];
+    const SESSIONOUTCOME_PARENTS = [
+        self::ROLE_SESSION,
+        self::ROLE_SESSIONOUTCOME,
+        self::ROLE_ASSESSMENT,
+    ];
 
     /**
      * Extract the subtype (doc.typeName) from a Nodes API node.
@@ -156,6 +181,21 @@ class derive {
         if ($type === 'U') {
             if ($subtype !== null && isset(self::UNIT_SUBTYPE_ROLES[$subtype])) {
                 return self::UNIT_SUBTYPE_ROLES[$subtype];
+            }
+            // Sofia ships some containers with NO typeName at all - measured
+            // 2026-07-29 on live Sofia: 255 of them (vet-med 243, bio-sc 12),
+            // carrying 1,297 outcomes that inherited "other" and vanished from
+            // every consumer. Fall back on position in the tree: a container
+            // under a year is a strand (vet-med's 124 clinical rotations), one
+            // under a strand or another container is a unit-level grouping
+            // (the 131 GAB/bio-sc "Unit n: ..." nodes). The subtype table above
+            // is consulted first, so this fallback retires itself the moment
+            // Sofia starts typing these nodes.
+            if ($parentrole === self::ROLE_YEAR) {
+                return self::ROLE_STRAND;
+            }
+            if (in_array($parentrole, [self::ROLE_STRAND, self::ROLE_UNIT], true)) {
+                return self::ROLE_UNIT;
             }
             return self::ROLE_OTHER;
         }

@@ -54,6 +54,20 @@ The base scaffold (M1) plus schema and derivation (M2):
 
 No Sofia client or sync yet — those land per [PLAN.md](PLAN.md) (M3/M4).
 
+## The mapping model (rulings 2026-07-23)
+
+- **Central Admin Mapping** (`course_mapping.php`, site admin) makes ONE
+  central decision per course: match it to a Sofia programme year (a *year
+  course*) or to a strand (a *strand course*). Once made, nothing on that
+  page changes it — a decided course shows "Already matched" with no tick
+  and no dropdown; delete-and-redo is the only correction path there.
+- **Moodle Course Mapping** (`section_module_mapping.php`, site admin) is where a
+  year course's strands are mapped: sections take strands, activities take
+  sessions and outcomes within them.
+- **Add Additional Mappings** (`mappings.php`, per course) is where manual extra
+  mappings are made — additional strands or nodes beyond the central match —
+  at course scope, or central scope for central staff.
+
 ## Installation
 
 1. Clone into your Moodle at `local/curricmap`:

@@ -15,13 +15,18 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Central content matching for one course, all on one page: every section is
+ * Moodle Course Mapping for one course, all on one page: every section is
  * listed up front with its current matches, activity/chapter counts and (when
  * the pool is genuinely ambiguous) a strand proposal; each section's activity
  * mapping rows load lazily on demand. Books link to a chapter view (same
  * page, back button) — the only sub-module grain. Multi-select filters bound
  * what is shown; apply buttons repeat every few sections for long courses.
  * Everything created here is a central-scope anchor binding.
+ *
+ * This is where a year-matched course's strands are mapped: sections take
+ * strands, activities take sessions and outcomes within them. (A
+ * strand-matched course is a strand course — its whole-course scope was
+ * decided on Central Admin Mapping and content maps within that strand.)
  *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College

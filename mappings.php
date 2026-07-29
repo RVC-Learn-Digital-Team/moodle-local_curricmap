@@ -19,6 +19,11 @@
  * activities) is bound to, grouped by location, with scope badges. Central
  * and category-level rows are locked for course staff.
  *
+ * This is THE place for manual extra mappings — additional strands, nodes
+ * from related teaching, etc — at course scope, or central scope for
+ * central staff. The course's central match itself is decided on Central
+ * Admin Mapping (course_mapping.php) and is not changed here.
+ *
  * @package   local_curricmap
  * @copyright 2026 The Royal Veterinary College
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -342,6 +347,7 @@ $templatecontext = [
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('mappings', 'local_curricmap'));
+echo html_writer::tag('p', get_string('mappings_intro', 'local_curricmap'), ['class' => 'text-muted']);
 echo $OUTPUT->render_from_template('local_curricmap/mappings', $templatecontext);
 if ($canresources) {
     $typeoptions = array_map(

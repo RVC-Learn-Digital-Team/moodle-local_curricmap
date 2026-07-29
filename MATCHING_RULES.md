@@ -1,8 +1,13 @@
-# Course matching rules — reference and update runbook
+# Mapping rules — reference and update runbook
+
+> **CANONICAL MATCHING DOC: [`MATCHING.md`](../MATCHING.md) in the umbrella repo root.**
+> This file remains the OPERATOR RUNBOOK for the `matchingrules` setting. Its rule semantics are restated in MATCHING.md §12, and the ways it has drifted from `matcher.php` are listed in MATCHING.md §11.3 — read that before trusting an example here.
+> Change a matching fact **there first**, then ripple here.
+
 
 The matching engine's rules are **data, not code**: they live in the
 `matchingrules` admin setting (Site administration → Plugins → Curriculum map
-→ Course matching settings) as a JSON object. Conventions can evolve — new
+→ Mapping settings) as a JSON object. Conventions can evolve — new
 idnumber formats, renamed strands, new programmes — without a plugin release.
 
 Shipped defaults live in `\local_curricmap\local\matcher::default_rules()`.
@@ -46,14 +51,20 @@ under "Show: all courses"). Serves shell templates, workspace slugs, junk.
 Minimum number of **shared whole words** between a course's tokens
 (idnumber + shortname + fullname, lowercased, year-like tokens dropped) and a
 candidate's tokens (programme display name + slug + year-node title) for a
-fuzzy suggestion on the *course matching* page. Integer, default 2.
+fuzzy suggestion on the *Central Admin Mapping* page. Integer, default 2.
 
 ### mincontainment — content-level fuzzy threshold
-For the *content mapping* page: the fraction (0–1) of a candidate node
+For the *Moodle Course Mapping* page: the fraction (0–1) of a candidate node
 title's words (stopwords dropped: and/of/the/a/an/in/to/for) that must appear
 in the section/module name (after synonym expansion). Default 0.6 — so
 "Endocrine" (1 word) needs its 1 word present; "Integrated and Applied
 Anatomy" (3 significant words) needs 2 of 3.
+
+The same threshold decides when an alias-matched course *proposes a strand
+instead of its year* on the Central Admin Mapping page (include strands on): a
+strand of the matched year whose title clears this containment against the
+course's own tokens becomes the proposal, with the year kept first in the
+suggestions.
 
 ### skipsections — housekeeping section names
 Regexes matched case-insensitively against **section names**. A hit marks the
@@ -62,7 +73,8 @@ hints. Serves "To be archived", "Announcements", "Weekly Guidance", "Module
 Books", "PebblePad", "LEARN Kit" and similar non-teaching sections.
 
 ### synonyms — local vocabulary → Sofia vocabulary
-A flat map applied on the *content mapping* page before containment scoring.
+A flat map applied on the *Moodle Course Mapping* page before containment
+scoring.
 Each key is a single lowercased word that appears in RVC section/module names;
 its value is the space-separated Sofia words it should expand to. This bridges
 the gap where local teaching vocabulary differs from Sofia strand titles:
@@ -94,7 +106,7 @@ between them, convert the `?<n>`/`?P<n>` spelling accordingly.
 
 ## 2. How the matcher applies these
 
-**Course matching page** (`course_mapping.php`):
+**Central Admin Mapping page** (`course_mapping.php`):
 1. Parse an academic year from the idnumber (both dialects), then from names /
    category. No year → no proposal.
 2. Walk `aliases` in order; first `pattern` hit sets the programme `slug` and,
@@ -103,7 +115,7 @@ between them, convert the `?<n>`/`?P<n>` spelling accordingly.
 3. No alias hit → fall back to whole-word overlap ≥ `minscore` against the
    synced nodes for that year.
 
-**Content mapping page** (`section_module_mapping.php`):
+**Moodle Course Mapping page** (`section_module_mapping.php`):
 1. Sections score against the course's matched strands by containment; a hit
    ≥ `mincontainment` (after `synonyms` expansion) is a hint. `skipsections`
    names are skipped.
