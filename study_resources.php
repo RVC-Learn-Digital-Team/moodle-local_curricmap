@@ -306,7 +306,7 @@ if ($slugyear !== '') {
             $yearroots[] = $candidate->node->uuid;
         }
     }
-    $poolroles = ['strand', 'session', 'strandoutcome', 'sessionoutcome', 'assessment'];
+    $poolroles = ['strand', 'unit', 'session', 'strandoutcome', 'sessionoutcome', 'assessment'];
     $pool = matcher::content_candidates($yearroots, $poolroles);
 }
 $node = null;

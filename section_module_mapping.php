@@ -375,7 +375,10 @@ echo html_writer::div(html_writer::empty_tag('input', ['type' => 'submit', 'valu
 echo html_writer::end_tag('form');
 
 // Section proposal pool: shown only when there is a real choice to make.
-$strandpool = matcher::content_candidates($rootuuids, ['strand']);
+// Units belong here beside strands - a unit-level grouping is section-shaped,
+// so a Moodle section may teach one. They are deliberately NOT added to
+// contentmap::TARGET_ROLES, which is the activity/chapter grain and too fine.
+$strandpool = matcher::content_candidates($rootuuids, ['strand', 'unit']);
 $counts = contentmap::section_counts($course, $mappabletypes, $bycm, $bychapter);
 
 // Resource counts for section-level bound nodes.

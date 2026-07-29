@@ -40,7 +40,7 @@ use local_curricmap\api\curriculum;
  */
 class coverage {
     /** @var string[] Roles counted as "teachable" curriculum nodes. */
-    const TEACHABLE_ROLES = ['strand', 'session', 'strandoutcome', 'sessionoutcome', 'assessment'];
+    const TEACHABLE_ROLES = ['strand', 'unit', 'session', 'strandoutcome', 'sessionoutcome', 'assessment'];
 
     /**
      * SQL fragment: active bindings at content grain (section/activity/chapter).
