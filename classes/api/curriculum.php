@@ -17,6 +17,7 @@
 namespace local_curricmap\api;
 
 use local_curricmap\local\derive;
+use local_curricmap\local\grouping;
 use local_curricmap\local\matcher;
 
 /**
@@ -204,9 +205,15 @@ class curriculum {
         $groupings = [];
         foreach (self::children($stranduuid, [derive::ROLE_UNIT]) as $container) {
             $sessions = self::children($container->uuid, [derive::ROLE_SESSION]);
+            // A container node's TITLE is classified the same way a grouping
+            // label is - "Unit 4: Cattle Production" means the same thing
+            // whichever structure Sofia used to express it.
+            $classified = grouping::classify($container->title);
             $groupings[] = [
                 'uuid' => $container->uuid,
                 'label' => (string) $container->title,
+                'canonical' => $classified['label'],
+                'kind' => $classified['kind'],
                 'subtype' => $container->subtype,
                 'source' => 'node',
                 'sessions' => $sessions,
@@ -225,9 +232,12 @@ class curriculum {
             $labelled[$label][] = $session;
         }
         foreach ($labelled as $label => $sessions) {
+            $classified = grouping::classify((string) $label);
             $groupings[] = [
                 'uuid' => null,
                 'label' => (string) $label,
+                'canonical' => $classified['label'],
+                'kind' => $classified['kind'],
                 'subtype' => null,
                 'source' => 'grouplabel',
                 'sessions' => $sessions,
@@ -240,6 +250,8 @@ class curriculum {
             $groupings[] = [
                 'uuid' => null,
                 'label' => '',
+                'canonical' => '',
+                'kind' => grouping::KIND_OTHER,
                 'subtype' => null,
                 'source' => 'ungrouped',
                 'sessions' => $ungrouped,
