@@ -95,15 +95,14 @@ class derive {
         // import-only) - observed live, July 2026.
         'Course' => self::ROLE_YEAR,
         'Year' => self::ROLE_YEAR,
-        // Grouping containers between a strand and its sessions. Sofia sends no
-        // typeName for these today (hence the positional fallback in role()),
-        // but it may start; these keep them on the unit-level render path rather
-        // than regressing to "other". They are one ROLE deliberately - what the
-        // grouping is CALLED stays in subtype/title, the same way Module keeps
-        // its subtype while deriving to strand.
-        'Unit' => self::ROLE_UNIT,
-        'Theme' => self::ROLE_UNIT,
-        'Folder' => self::ROLE_UNIT,
+        // NOTE the grouping subtypes Sofia might one day send - Unit, Theme,
+        // Folder - are deliberately ABSENT from this table. They are containers
+        // whose meaning depends on WHERE they sit, so role() decides them
+        // positionally alongside the untyped ones: under a year they are a
+        // strand, under a strand a unit. Mapping them here would have made a
+        // "Theme" sitting under a YEAR derive to `unit`, and curriculum::strands()
+        // is a shallow children($year, ['strand']) - so that container AND ITS
+        // WHOLE SUBTREE would have vanished from every consumer.
     ];
 
     /**

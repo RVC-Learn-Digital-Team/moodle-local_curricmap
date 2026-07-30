@@ -137,7 +137,31 @@ class curriculum {
      * @return \stdClass[]
      */
     public static function strand_outcomes(string $stranduuid): array {
-        return self::children($stranduuid, ['strandoutcome']);
+        return self::through_containers($stranduuid, [derive::ROLE_STRANDOUTCOME]);
+    }
+
+    /**
+     * A node's children of the given roles, PLUS the same roles one level below
+     * any container (unit/group) sitting between them.
+     *
+     * The hazard this exists to close: every "children with these roles" query
+     * is shallow, so a container in the middle takes its whole subtree with it.
+     * A strand outcome owned by "Unit 3" is a child of the unit, not of the
+     * strand, and a plain children($strand, ['strandoutcome']) never sees it.
+     *
+     * @param string $parentuuid Parent node uuid.
+     * @param string[] $roles Roles to collect.
+     * @return \stdClass[] Parent's own first, then each container's, in sibling order.
+     */
+    public static function through_containers(string $parentuuid, array $roles): array {
+        $found = self::children($parentuuid, $roles);
+        $containers = self::children($parentuuid, [derive::ROLE_UNIT, derive::ROLE_GROUP]);
+        foreach ($containers as $container) {
+            foreach (self::children($container->uuid, $roles) as $node) {
+                $found[] = $node;
+            }
+        }
+        return $found;
     }
 
     /**

@@ -31,8 +31,19 @@ use local_curricmap\api\resources;
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class contentmap {
-    /** @var string[] Node roles offered as activity/chapter targets. */
-    const TARGET_ROLES = ['session', 'strandoutcome', 'sessionoutcome', 'assessment'];
+    /**
+     * Node roles offered as activity/chapter targets.
+     *
+     * `unit` belongs here: in this estate a strand's spine book is chaptered BY
+     * unit ("Unit 1", "Unit 2", each with subchapters), so a unit is the natural
+     * target for a chapter, not merely for a section. It is also what populates
+     * the node-type filter on the content mapper, so leaving it out removed Unit
+     * from the filter as well as from the pool (found on GAB Animal Husbandry,
+     * 2026-07-30).
+     *
+     * @var string[]
+     */
+    const TARGET_ROLES = ['unit', 'session', 'strandoutcome', 'sessionoutcome', 'assessment'];
 
     /** @var int Pools larger than this offer hints only. */
     const POOL_CAP = 300;
