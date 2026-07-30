@@ -471,7 +471,19 @@ class contentmap {
                 ]);
             }
         }
-        $crumbs[] = \html_writer::tag('strong', s($root->title));
+        // The CURRENT node is itself pickable - a chapter that teaches the
+        // whole strand maps to the strand, not to something below it (the
+        // spine-book lesson again: the pool must include the node itself).
+        // Ancestors need no button: drill up and any of them becomes current.
+        $rootyears = self::year_titles([$root]);
+        $rootpick = \html_writer::tag('button', get_string('contentmapping_pick', 'local_curricmap'), [
+            'type' => 'button',
+            'class' => 'btn btn-sm btn-outline-secondary py-0',
+            'data-curricmap-pick' => $root->uuid,
+            'data-curricmap-key' => $key,
+            'data-curricmap-picklabel' => self::label($root, $rootyears[$root->uuid] ?? null),
+        ]);
+        $crumbs[] = \html_writer::tag('strong', s($root->title)) . ' ' . $rootpick;
         $out = \html_writer::div(implode(' &rsaquo; ', $crumbs), 'small mb-2');
 
         $children = curriculum::children($rootuuid);
