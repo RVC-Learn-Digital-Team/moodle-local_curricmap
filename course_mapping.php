@@ -486,7 +486,10 @@ foreach ($rows as $row) {
         if ($binding->title !== null) {
             $node = (object) ['uuid' => $binding->nodeuuid, 'title' => $binding->title,
                 'code' => $binding->code, 'role' => $binding->role, 'path' => $binding->path];
-            $label = s(contentmap::label($node, contentmap::year_titles([$node])[$node->uuid] ?? null));
+            $full = contentmap::label($node, contentmap::year_titles([$node])[$node->uuid] ?? null);
+            // Compact on the page, complete on hover - the full disambiguated
+            // label (code, role, owning year node) rides in the tooltip.
+            $label = html_writer::tag('span', s($binding->title . $year), ['title' => s($full)]);
         } else {
             $label = s($binding->nodeuuid);
         }

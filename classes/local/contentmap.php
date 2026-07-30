@@ -144,7 +144,7 @@ class contentmap {
      */
     public static function buckets(int $courseid): array {
         global $DB;
-        $sql = "SELECT b.id, b.sectionid, b.cmid, b.component, b.subitemid, b.nodeuuid, n.title, n.role
+        $sql = "SELECT b.id, b.sectionid, b.cmid, b.component, b.subitemid, b.nodeuuid, n.title, n.role, n.code, n.path
                   FROM {local_curricmap_binding} b
              LEFT JOIN {local_curricmap_node} n ON n.uuid = b.nodeuuid
                  WHERE b.courseid = :courseid AND b.scope = :scope AND b.status = :status
@@ -257,12 +257,32 @@ class contentmap {
      */
     public static function current_cell(array $rowbindings, string $returnurl, array $rescounts = []): string {
         global $OUTPUT;
+        // Compact on the page, complete on hover (Brian's ruling, 2026-07-30):
+        // the visible text stays "Title - YYYY" so rows do not bloat, and the
+        // full disambiguated label (code, role, owning year node) rides in the
+        // title attribute for the ambiguous-twins cases.
+        $nodes = [];
+        foreach ($rowbindings as $binding) {
+            if ($binding->title !== null) {
+                $nodes[] = (object) ['uuid' => $binding->nodeuuid, 'title' => $binding->title,
+                    'code' => $binding->code ?? null, 'role' => $binding->role ?? null,
+                    'path' => $binding->path ?? null];
+            }
+        }
+        $yeartitles = self::year_titles($nodes);
         $entries = [];
         foreach ($rowbindings as $binding) {
             $removeurl = new \moodle_url($returnurl, ['unbind' => $binding->id, 'sesskey' => sesskey()]);
             $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
             $year = preg_match('/_(20\d\d)_\d\d_/', $binding->nodeuuid, $matches) ? ' - ' . $matches[1] : '';
-            $label = s(($binding->title ?? $binding->nodeuuid) . $year);
+            if ($binding->title !== null) {
+                $node = (object) ['uuid' => $binding->nodeuuid, 'title' => $binding->title,
+                    'code' => $binding->code ?? null, 'role' => $binding->role ?? null];
+                $full = self::label($node, $yeartitles[$binding->nodeuuid] ?? null);
+                $label = \html_writer::tag('span', s($binding->title . $year), ['title' => s($full)]);
+            } else {
+                $label = s($binding->nodeuuid);
+            }
             $resurl = new \moodle_url('/local/curricmap/study_resources.php', ['node' => $binding->nodeuuid]);
             $count = $rescounts[$binding->nodeuuid] ?? 0;
             $reslabel = get_string('studyresources_count', 'local_curricmap', $count);
