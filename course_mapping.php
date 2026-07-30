@@ -479,6 +479,7 @@ foreach ($rows as $row) {
     foreach ($currentmatches[$courseid] ?? [] as $binding) {
         $removeurl = new moodle_url($pageurl, ['unbind' => $binding->id, 'sesskey' => sesskey()]);
         $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
+        $year = preg_match('/_(20\d\d)_\d\d_/', $binding->nodeuuid, $matches) ? ' - ' . $matches[1] : '';
         // Academic year AND year of study both matter: the composed key carries
         // the academic year, but titles also repeat ACROSS the years of one
         // programme (two "Animal Husbandry", three "Principles of Science"), so
