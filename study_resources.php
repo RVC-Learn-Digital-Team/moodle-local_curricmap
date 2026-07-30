@@ -157,7 +157,7 @@ if (optional_param('addres', 0, PARAM_BOOL) && confirm_sesskey()) {
         $type = $typeother;
     }
     $label = trim(optional_param('reslabel', '', PARAM_TEXT));
-    $url = trim(optional_param('resurl', '', PARAM_URL));
+    $url = clean_param(trim(optional_param('resurl', '', PARAM_RAW_TRIMMED)), PARAM_URL);
     if (!$targetnode || $url === '') {
         $warn = \core\output\notification::NOTIFY_WARNING;
         redirect($pageurl, get_string('studyresources_nourl', 'local_curricmap'), null, $warn);

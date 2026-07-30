@@ -294,7 +294,10 @@ foreach (array_keys($boundnodeuuids) as $uuid) {
 if ($canresources && optional_param('addres', 0, PARAM_BOOL) && confirm_sesskey()) {
     $resnode = required_param('resnode', PARAM_ALPHANUMEXT);
     $reslabel = trim(optional_param('reslabel', '', PARAM_TEXT));
-    $resurl = trim(optional_param('resurl', '', PARAM_URL));
+    // Trim BEFORE cleaning: PARAM_URL rejects a value with a trailing space
+    // outright (copy-paste brings one for free), so trimming after the clean
+    // ran was too late - 'https://google.co.uk ' arrived as ''.
+    $resurl = clean_param(trim(optional_param('resurl', '', PARAM_RAW_TRIMMED)), PARAM_URL);
     $restypeother = trim(optional_param('restypeother', '', PARAM_TEXT));
     $restype = $restypeother !== '' ? $restypeother : optional_param('restype', 'link', PARAM_TEXT);
     if (!isset($resnodechoices[$resnode])) {
