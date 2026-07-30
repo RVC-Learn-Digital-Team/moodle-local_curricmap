@@ -38,6 +38,7 @@ require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
 use local_curricmap\api\bindings;
+use local_curricmap\local\contentmap;
 use local_curricmap\local\matcher;
 
 admin_externalpage_setup('local_curricmap_coursemapping');
@@ -198,7 +199,7 @@ $courses = $DB->get_records_sql($sql, ['siteid' => SITEID]);
 
 // Existing course-level central matches, one query for the whole estate.
 $currentmatches = [];
-$matchsql = "SELECT b.id, b.courseid, b.nodeuuid, n.title
+$matchsql = "SELECT b.id, b.courseid, b.nodeuuid, n.title, n.code, n.role, n.path
                FROM {local_curricmap_binding} b
           LEFT JOIN {local_curricmap_node} n ON n.uuid = b.nodeuuid
               WHERE b.relation = :relation AND b.scope = :scope AND b.status = :status
@@ -478,10 +479,17 @@ foreach ($rows as $row) {
     foreach ($currentmatches[$courseid] ?? [] as $binding) {
         $removeurl = new moodle_url($pageurl, ['unbind' => $binding->id, 'sesskey' => sesskey()]);
         $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
-        // The academic year lives in the composed node key (slug_YYYY_YY_uuid);
-        // without it two years of the same strand are indistinguishable.
-        $year = preg_match('/_(20\d\d)_\d\d_/', $binding->nodeuuid, $matches) ? ' - ' . $matches[1] : '';
-        $label = s(($binding->title ?? $binding->nodeuuid) . $year);
+        // Academic year AND year of study both matter: the composed key carries
+        // the academic year, but titles also repeat ACROSS the years of one
+        // programme (two "Animal Husbandry", three "Principles of Science"), so
+        // without the owning year node two matches look identical.
+        if ($binding->title !== null) {
+            $node = (object) ['uuid' => $binding->nodeuuid, 'title' => $binding->title,
+                'code' => $binding->code, 'role' => $binding->role, 'path' => $binding->path];
+            $label = s(contentmap::label($node, contentmap::year_titles([$node])[$node->uuid] ?? null));
+        } else {
+            $label = s($binding->nodeuuid);
+        }
         $currententries[] = $label . ' ' . html_writer::link($removeurl, $removeicon);
     }
     $currentcell = implode(html_writer::empty_tag('br'), $currententries);

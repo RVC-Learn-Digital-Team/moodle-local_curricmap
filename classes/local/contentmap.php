@@ -66,15 +66,74 @@ class contentmap {
     const BODY_CAP = 8000;
 
     /**
-     * A node label: title, role, academic year from the composed key.
+     * A node label: title, code, role, YEAR OF STUDY and academic year.
      *
-     * @param \stdClass $node Node-ish record (title, role, uuid).
+     * The year-of-study segment is not decoration. Node titles repeat across the
+     * years of a programme - vet-med 2025-26 has two strands called "Animal
+     * Husbandry" (one under Year 1, one under Graduate accelerated, only the
+     * latter having units) and three called "Principles of Science" (Years 1, 2
+     * and 3). Without the owning year node on the option, a picker cannot be
+     * used correctly, and choosing the wrong twin silently produces an empty
+     * pool below it (found on GAB, 2026-07-30).
+     *
+     * Pass $yeartitle when labelling a list - year_titles() resolves a whole
+     * pool in one query, where calling this per node would walk the tree each
+     * time.
+     *
+     * @param \stdClass $node Node-ish record (title, role, uuid, code).
+     * @param string|null $yeartitle Owning year node's title, if already known.
      * @return string
      */
-    public static function label(\stdClass $node): string {
+    public static function label(\stdClass $node, ?string $yeartitle = null): string {
         $year = preg_match('/_(20\d\d)_\d\d_/', $node->uuid, $matches) ? ' - ' . $matches[1] : '';
         $code = !empty($node->code) ? ' (' . $node->code . ')' : '';
-        return $node->title . $code . ' [' . $node->role . ']' . $year;
+        $of = ($yeartitle !== null && $yeartitle !== '' && $yeartitle !== $node->title)
+            ? ' - ' . $yeartitle : '';
+        return $node->title . $code . ' [' . $node->role . ']' . $of . $year;
+    }
+
+    /**
+     * Owning year node title for each of the given nodes, in ONE query.
+     *
+     * Ancestry is a materialised path of node ids (/12/47/103/), so every
+     * candidate ancestor can be gathered from the paths and resolved together
+     * rather than walking parents per node.
+     *
+     * @param \stdClass[] $nodes Node records (need id, path).
+     * @return array uuid => year node title (absent where none resolves).
+     */
+    public static function year_titles(array $nodes): array {
+        global $DB;
+        $ancestorids = [];
+        foreach ($nodes as $node) {
+            foreach (explode('/', (string) ($node->path ?? '')) as $part) {
+                if ($part !== '') {
+                    $ancestorids[(int) $part] = true;
+                }
+            }
+        }
+        if (!$ancestorids) {
+            return [];
+        }
+        [$insql, $params] = $DB->get_in_or_equal(array_keys($ancestorids), SQL_PARAMS_NAMED);
+        $params['role'] = 'year';
+        $years = $DB->get_records_select_menu(
+            'local_curricmap_node',
+            "id $insql AND role = :role",
+            $params,
+            '',
+            'id, title'
+        );
+        $titles = [];
+        foreach ($nodes as $node) {
+            foreach (explode('/', (string) ($node->path ?? '')) as $part) {
+                if ($part !== '' && isset($years[(int) $part])) {
+                    $titles[$node->uuid] = $years[(int) $part];
+                    break;
+                }
+            }
+        }
+        return $titles;
     }
 
     /**
@@ -278,18 +337,30 @@ class contentmap {
      * @return string HTML.
      */
     public static function proposal_cell(string $key, array $hints, array $pool, bool $narrowed): string {
-        $options = [];
-        foreach ($hints as $hint) {
-            $percent = (int) round($hint->score * 100);
-            $tag = empty($hint->frombody) ? '' : ' ' . get_string('contentmapping_bodyhint', 'local_curricmap');
-            $options[$hint->candidate->node->uuid] = self::label($hint->candidate->node)
-                . ' [' . $percent . '%' . $tag . ']';
-        }
+        // One query for the whole option list: every node title in this estate
+        // repeats across years, so each option has to name its owning year node.
+        $labelnodes = array_map(fn($hint) => $hint->candidate->node, $hints);
         $capped = count($pool) > self::POOL_CAP;
         if (!$capped) {
             foreach ($pool as $candidate) {
-                if (!isset($options[$candidate->node->uuid])) {
-                    $options[$candidate->node->uuid] = self::label($candidate->node);
+                $labelnodes[] = $candidate->node;
+            }
+        }
+        $yeartitles = self::year_titles($labelnodes);
+
+        $options = [];
+        foreach ($hints as $hint) {
+            $node = $hint->candidate->node;
+            $percent = (int) round($hint->score * 100);
+            $tag = empty($hint->frombody) ? '' : ' ' . get_string('contentmapping_bodyhint', 'local_curricmap');
+            $options[$node->uuid] = self::label($node, $yeartitles[$node->uuid] ?? null)
+                . ' [' . $percent . '%' . $tag . ']';
+        }
+        if (!$capped) {
+            foreach ($pool as $candidate) {
+                $node = $candidate->node;
+                if (!isset($options[$node->uuid])) {
+                    $options[$node->uuid] = self::label($node, $yeartitles[$node->uuid] ?? null);
                 }
             }
         }

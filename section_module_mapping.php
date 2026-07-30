@@ -304,7 +304,11 @@ if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname 
 }
 
 // Main view: every section up front with counts; activity rows lazy-load.
-$anchorlabels = implode(', ', array_map(fn($node) => contentmap::label($node), $anchors));
+$anchoryears = contentmap::year_titles($anchors);
+$anchorlabels = implode(', ', array_map(
+    fn($node) => contentmap::label($node, $anchoryears[$node->uuid] ?? null),
+    $anchors
+));
 $resourcesurl = new moodle_url('/local/curricmap/study_resources.php', ['courseid' => $courseid]);
 $resourceslink = html_writer::link($resourcesurl, get_string('studyresources_forcourse', 'local_curricmap'));
 $headline = s($course->fullname) . ' — ' . s($anchorlabels) . ' · ' . $resourceslink;
