@@ -17,6 +17,7 @@
 namespace local_curricmap\local;
 
 use local_curricmap\api\bindings;
+use local_curricmap\api\curriculum;
 use local_curricmap\api\resources;
 
 /**
@@ -356,7 +357,13 @@ class contentmap {
      * @param bool $narrowed Whether the pool is already below a match.
      * @return string HTML.
      */
-    public static function proposal_cell(string $key, array $hints, array $pool, bool $narrowed): string {
+    public static function proposal_cell(
+        string $key,
+        array $hints,
+        array $pool,
+        bool $narrowed,
+        ?string $browseroot = null
+    ): string {
         // One query for the whole option list: every node title in this estate
         // repeats across years, so each option has to name its owning year node.
         $labelnodes = array_map(fn($hint) => $hint->candidate->node, $hints);
@@ -398,7 +405,126 @@ class contentmap {
             $nopool = get_string('contentmapping_nopool', 'local_curricmap');
             $cell = \html_writer::tag('span', $nopool, ['class' => 'small text-muted']);
         }
+        // Browse: navigate the curriculum instead of searching it. This is the
+        // path for content whose name shares no words with Sofia's ("Base Unit
+        // Test Horse Bladders") - hints are empty and, above POOL_CAP, so is
+        // the dropdown, so without browse such a row is simply unmappable.
+        // Picks land as hidden bind{key}[] inputs beside the select, so Apply
+        // reads them through the exact same code path.
+        if ($browseroot !== null) {
+            $cell .= \html_writer::div(
+                \html_writer::link('#', get_string('contentmapping_browse', 'local_curricmap'), [
+                    'data-curricmap-browse' => $key,
+                    'data-curricmap-root' => $browseroot,
+                ]),
+                'small mt-1'
+            );
+            $cell .= \html_writer::div('', 'curricmap-picks', ['data-curricmap-picks' => $key]);
+            $panelattrs = ['data-curricmap-browsepanel' => $key];
+            $cell .= \html_writer::div('', 'curricmap-browsepanel border rounded p-2 mt-1 d-none', $panelattrs);
+        }
         return $cell;
+    }
+
+    /**
+     * One level of the curriculum tree for a row's Browse panel: breadcrumb
+     * down from the slug-year node, then the root's children with counts,
+     * drill links and pick buttons.
+     *
+     * The ceiling is the YEAR node, ruled 2026-07-30: browsing never goes
+     * above slug-year - cross-year or cross-programme mapping is done
+     * manually, even by admins.
+     *
+     * @param string $rootuuid Node to list the children of.
+     * @param string $key Row key the panel belongs to.
+     * @return string HTML.
+     */
+    public static function browse_panel(string $rootuuid, string $key): string {
+        global $DB;
+        $root = curriculum::node($rootuuid);
+        if (!$root || !empty($root->deleted)) {
+            return \html_writer::tag('em', get_string('contentmapping_nopool', 'local_curricmap'));
+        }
+
+        // Breadcrumb: ancestors from the year node down to the current root.
+        $ancestorids = array_filter(array_map('intval', explode('/', (string) $root->path)));
+        array_pop($ancestorids); // The root itself is not its own ancestor.
+        $crumbs = [];
+        if ($ancestorids) {
+            [$insql, $params] = $DB->get_in_or_equal($ancestorids, SQL_PARAMS_NAMED);
+            $ancestors = $DB->get_records_select('local_curricmap_node', "id $insql", $params);
+            $ordered = [];
+            foreach ($ancestorids as $id) {
+                if (isset($ancestors[$id])) {
+                    $ordered[] = $ancestors[$id];
+                }
+            }
+            $seenyear = false;
+            foreach ($ordered as $ancestor) {
+                if (!$seenyear && $ancestor->role !== 'year') {
+                    continue; // Programme-level and above: never browsable.
+                }
+                $seenyear = true;
+                $crumbs[] = \html_writer::link('#', s($ancestor->title), [
+                    'data-curricmap-drill' => $ancestor->uuid,
+                    'data-curricmap-key' => $key,
+                ]);
+            }
+        }
+        $crumbs[] = \html_writer::tag('strong', s($root->title));
+        $out = \html_writer::div(implode(' &rsaquo; ', $crumbs), 'small mb-2');
+
+        $children = curriculum::children($rootuuid);
+        if (!$children) {
+            $empty = get_string('contentmapping_browseempty', 'local_curricmap');
+            return $out . \html_writer::tag('em', $empty, ['class' => 'small']);
+        }
+
+        // Grandchild counts by role, one query for the whole level.
+        $childids = array_map(fn($node) => (int) $node->id, $children);
+        [$insql, $params] = $DB->get_in_or_equal($childids, SQL_PARAMS_NAMED);
+        $countsql = "SELECT " . $DB->sql_concat('parentid', "'-'", 'role') . " AS pk,
+                            parentid, role, COUNT(id) AS n
+                       FROM {local_curricmap_node}
+                      WHERE parentid $insql AND deleted = 0
+                   GROUP BY parentid, role";
+        $grandcounts = [];
+        foreach ($DB->get_records_sql($countsql, $params) as $row) {
+            $grandcounts[(int) $row->parentid][$row->role] = (int) $row->n;
+        }
+
+        $yeartitles = self::year_titles($children);
+        $items = [];
+        foreach ($children as $child) {
+            $bits = [];
+            $counts = $grandcounts[(int) $child->id] ?? [];
+            $total = array_sum($counts);
+            $roletag = \html_writer::tag('small', '[' . s($child->role) . ']', ['class' => 'text-muted']);
+            $fulltitle = s(self::label($child, $yeartitles[$child->uuid] ?? null));
+            $label = \html_writer::tag('span', s($child->title) . ' ' . $roletag, ['title' => $fulltitle]);
+            if ($total) {
+                $summary = [];
+                foreach ($counts as $role => $n) {
+                    $summary[] = $n . ' ' . $role;
+                }
+                $bits[] = \html_writer::link('#', $label, [
+                    'data-curricmap-drill' => $child->uuid,
+                    'data-curricmap-key' => $key,
+                ]);
+                $bits[] = \html_writer::tag('small', implode(' · ', $summary), ['class' => 'text-muted']);
+            } else {
+                $bits[] = $label;
+            }
+            $bits[] = \html_writer::tag('button', get_string('contentmapping_pick', 'local_curricmap'), [
+                'type' => 'button',
+                'class' => 'btn btn-sm btn-outline-secondary py-0',
+                'data-curricmap-pick' => $child->uuid,
+                'data-curricmap-key' => $key,
+                'data-curricmap-picklabel' => self::label($child, $yeartitles[$child->uuid] ?? null),
+            ]);
+            $items[] = \html_writer::tag('li', implode(' ', $bits), ['class' => 'mb-1']);
+        }
+        return $out . \html_writer::tag('ul', implode('', $items), ['class' => 'list-unstyled mb-0']);
     }
 
     /**
@@ -506,7 +632,8 @@ class contentmap {
                 $namebits .= \html_writer::div(\html_writer::link($bookurl, $booklabel, ['class' => 'small']));
             }
             $currentcell = self::current_cell($bycm[(int) $cm->id] ?? [], $returnurl, $rescounts);
-            $proposalcell = self::proposal_cell($key, $hints, $rowpool, $narrowed || !empty($ownroots));
+            $browseroot = $ownroots[0] ?? ($roots[0] ?? ($rootuuids[0] ?? null));
+            $proposalcell = self::proposal_cell($key, $hints, $rowpool, $narrowed || !empty($ownroots), $browseroot);
             $cells = \html_writer::div(self::tick($key, $cmname), 'curricmap-cell-tick')
                 . \html_writer::div($namebits, 'curricmap-cell-name')
                 . \html_writer::div($currentcell, 'curricmap-cell-current')

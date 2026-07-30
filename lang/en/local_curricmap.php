@@ -29,6 +29,8 @@ $string['cachedef_token'] = 'Sofia API OAuth2 bearer token';
 $string['contentmapping'] = 'Moodle Course Mapping';
 $string['contentmapping_back'] = 'Back to sections';
 $string['contentmapping_bodyhint'] = 'text';
+$string['contentmapping_browse'] = 'Browse curriculum';
+$string['contentmapping_browseempty'] = 'Nothing below this node.';
 $string['contentmapping_chaptercounts'] = '{$a->chapters} chapters, {$a->chaptersmapped} mapped';
 $string['contentmapping_counts'] = '{$a->activities} activities, {$a->mapped} mapped';
 $string['contentmapping_coursesearch'] = 'Find a course by name or ID number';
@@ -49,6 +51,7 @@ $string['contentmapping_narrowfirst'] = 'Match the section to a strand to unlock
 $string['contentmapping_nopool'] = 'No targets available.';
 $string['contentmapping_norows'] = 'Nothing to show for the current filters.';
 $string['contentmapping_notmatched'] = 'This course has no central match yet, so there is no curriculum to map its content against. <a href="{$a}">Match the course first</a>.';
+$string['contentmapping_pick'] = 'Pick';
 $string['contentmapping_section'] = 'Section';
 $string['contentmapping_toolarge'] = 'Too many targets to list — showing name hints only.';
 $string['coursemapping'] = 'Central Admin Mapping';

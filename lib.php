@@ -71,3 +71,16 @@ function local_curricmap_output_fragment_activities(array $args): string {
         $pending
     );
 }
+
+/**
+ * Fragment: one level of the curriculum tree for a mapping row's Browse panel.
+ *
+ * @param array $args courseid, root (node uuid), key (row key).
+ * @return string HTML.
+ */
+function local_curricmap_output_fragment_browsenode(array $args): string {
+    require_capability('local/curricmap:managebindings', context_system::instance());
+    $root = clean_param((string) ($args['root'] ?? ''), PARAM_RAW_TRIMMED);
+    $key = clean_param((string) ($args['key'] ?? ''), PARAM_ALPHANUMEXT);
+    return \local_curricmap\local\contentmap::browse_panel($root, $key);
+}

@@ -157,6 +157,7 @@ $typetosearch = get_string('coursemapping_typetosearch', 'local_curricmap');
 $systemcontext = context_system::instance();
 $PAGE->requires->js_call_amd('core/checkbox-toggleall', 'init');
 $PAGE->requires->js_call_amd('local_curricmap/course_mapping', 'init', [$typetosearch, $systemcontext->id]);
+$PAGE->requires->js_call_amd('local_curricmap/browse', 'init', [$systemcontext->id]);
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('contentmapping', 'local_curricmap'));
@@ -281,7 +282,8 @@ if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname 
         $key = 'h' . (int) $chapter->id;
         $chapterbody = content_to_text((string) $chapter->content, (int) $chapter->contentformat);
         $hints = contentmap::merged_hints($chapter->title, $chapterbody, $chapterpool, $rules);
-        $chapterproposal = contentmap::proposal_cell($key, $hints, $chapterpool, $narrowed);
+        $chapterbrowseroot = $poolroots[0] ?? null;
+        $chapterproposal = contentmap::proposal_cell($key, $hints, $chapterpool, $narrowed, $chapterbrowseroot);
         $name = s($chapter->title);
         if ($chapter->subchapter) {
             $name = html_writer::tag('span', $name, ['style' => 'padding-left: 20px;']);
@@ -457,7 +459,8 @@ foreach ($sections as $section) {
     // Proposal only when there is genuine ambiguity (pool > 1).
     $proposalcell = '';
     if (count($sectionpool) > 1) {
-        $proposalcell = contentmap::proposal_cell($key, $hints, $sectionpool, !empty($sectionroots));
+        $sectionbrowseroot = $sectionroots[0] ?? ($rootuuids[0] ?? null);
+        $proposalcell = contentmap::proposal_cell($key, $hints, $sectionpool, !empty($sectionroots), $sectionbrowseroot);
     }
 
     $sectioncurrent = contentmap::current_cell($bysection[$sid] ?? [], $returnurl, $rescounts);
