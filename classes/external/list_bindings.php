@@ -22,6 +22,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use local_curricmap\api\bindings;
+use local_curricmap\api\curriculum;
 
 /**
  * List bindings by course or by node.
@@ -76,6 +77,18 @@ class list_bindings extends external_api {
             }
         } else {
             $found = bindings::for_node($params['nodeuuid'], $relationfilter);
+        }
+        // Note export_bindings() only exports the node payload for bindings that
+        // arrive with ->node attached, and the api readers return bare rows -
+        // so this ws had returned node-less bindings since it shipped, and the
+        // tiny resources tab (which requires binding.node) always saw an empty
+        // list. Attach live nodes here; dead ones stay unattached, which
+        // consumers already treat as unusable.
+        foreach ($found as $binding) {
+            $node = curriculum::node($binding->nodeuuid);
+            if ($node && empty($node->deleted)) {
+                $binding->node = $node;
+            }
         }
         return helper::export_bindings($found);
     }
