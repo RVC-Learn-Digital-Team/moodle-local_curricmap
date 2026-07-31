@@ -48,6 +48,9 @@ class delete_resource extends external_api {
      * @return array
      */
     public static function execute(int $id): array {
+        if (!resources::enabled()) {
+            throw new \moodle_exception('errorresourcesdisabled', 'local_curricmap');
+        }
         global $DB;
         $params = self::validate_parameters(self::execute_parameters(), ['id' => $id]);
 

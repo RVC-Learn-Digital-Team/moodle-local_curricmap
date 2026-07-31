@@ -45,6 +45,12 @@ class list_resource_types extends external_api {
      * @return string[]
      */
     public static function execute(): array {
+        if (!resources::enabled()) {
+            // The master switch is off: readers degrade to an empty list so
+            // every consumer (filter, presenter, tiny dialog) shows nothing
+            // without needing its own guard.
+            return [];
+        }
         self::validate_parameters(self::execute_parameters(), []);
 
         $context = \context_system::instance();

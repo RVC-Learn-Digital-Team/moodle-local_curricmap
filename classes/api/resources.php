@@ -32,17 +32,42 @@ namespace local_curricmap\api;
  */
 class resources {
     /**
+     * Whether resource linking is enabled at all (the master switch).
+     *
+     * Site setting local_curricmap/resourcelinking, default ON. When off,
+     * every resource surface goes dark at once: management UIs (mappings.php
+     * section, study_resources.php, the tiny dialog tab via can_manage()),
+     * display (filter chips/cards, the mod presenter), and the ws layer.
+     * Existing rows are kept, just not shown - turning the switch back on
+     * restores them untouched.
+     *
+     * Unset config reads as ENABLED: the setting ships default 1, and a site
+     * that has never saved the settings page must keep today's behaviour.
+     *
+     * @return bool
+     */
+    public static function enabled(): bool {
+        $value = get_config('local_curricmap', 'resourcelinking');
+        return $value === false ? true : (bool) $value;
+    }
+
+    /**
      * Whether a user may manage resources at the given scope.
      *
      * Global (institutional) rows need managebindings at system level;
      * course-scoped rows need managecourseresources (or managebindings) in
-     * the course context — the editing-teacher surface.
+     * the course context — the editing-teacher surface. Always false while
+     * resource linking is disabled site-wide (the master switch) - this is
+     * the single gate the tiny dialog tab and mappings.php section key off.
      *
      * @param int|null $courseid Course scope, null for institutional.
      * @param int|null $userid User id, null for the current user.
      * @return bool
      */
     public static function can_manage(?int $courseid, ?int $userid = null): bool {
+        if (!self::enabled()) {
+            return false;
+        }
         if ($courseid === null || $courseid === 0) {
             return has_capability('local/curricmap:managebindings', \context_system::instance(), $userid);
         }

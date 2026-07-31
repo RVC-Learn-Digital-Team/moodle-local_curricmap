@@ -51,6 +51,9 @@ class set_resource_visibility extends external_api {
      * @return array
      */
     public static function execute(int $id, bool $visible): array {
+        if (!resources::enabled()) {
+            throw new \moodle_exception('errorresourcesdisabled', 'local_curricmap');
+        }
         global $DB;
         $params = self::validate_parameters(self::execute_parameters(), ['id' => $id, 'visible' => $visible]);
 

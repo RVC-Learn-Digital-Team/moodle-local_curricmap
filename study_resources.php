@@ -129,6 +129,15 @@ function local_curricmap_resource_addform(string $nodeuuid, moodle_url $pageurl)
 $delres = optional_param('delres', 0, PARAM_INT);
 if ($delres && confirm_sesskey()) {
     require_capability('local/curricmap:managebindings', context_system::instance());
+
+if (!resources::enabled()) {
+    // The master switch (Support resource linking) is off.
+    echo $OUTPUT->header();
+    echo $OUTPUT->heading(get_string('studyresources', 'local_curricmap'));
+    echo $OUTPUT->notification(get_string('resourcesdisabled', 'local_curricmap'), 'info');
+    echo $OUTPUT->footer();
+    exit;
+}
     if (!optional_param('confirm', 0, PARAM_BOOL)) {
         $row = $DB->get_record('local_curricmap_resource', ['id' => $delres], '*', MUST_EXIST);
         $confirmurl = new moodle_url($pageurl, ['delres' => $delres, 'confirm' => 1, 'sesskey' => sesskey()]);

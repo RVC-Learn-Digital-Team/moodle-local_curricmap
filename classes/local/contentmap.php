@@ -284,11 +284,14 @@ class contentmap {
             } else {
                 $label = s($binding->nodeuuid);
             }
-            $resurl = new \moodle_url('/local/curricmap/study_resources.php', ['node' => $binding->nodeuuid]);
-            $count = $rescounts[$binding->nodeuuid] ?? 0;
-            $reslabel = get_string('studyresources_count', 'local_curricmap', $count);
-            $entries[] = $label . ' ' . \html_writer::link($removeurl, $removeicon)
-                . ' ' . \html_writer::link($resurl, $reslabel, ['class' => 'small']);
+            $entry = $label . ' ' . \html_writer::link($removeurl, $removeicon);
+            if (resources::enabled()) {
+                $resurl = new \moodle_url('/local/curricmap/study_resources.php', ['node' => $binding->nodeuuid]);
+                $count = $rescounts[$binding->nodeuuid] ?? 0;
+                $reslabel = get_string('studyresources_count', 'local_curricmap', $count);
+                $entry .= ' ' . \html_writer::link($resurl, $reslabel, ['class' => 'small']);
+            }
+            $entries[] = $entry;
         }
         return implode(\html_writer::empty_tag('br'), $entries);
     }

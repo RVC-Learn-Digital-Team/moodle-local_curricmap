@@ -100,6 +100,13 @@ if ($hassiteconfig) {
         new moodle_url('/local/curricmap/status.php'),
         get_string('statuspage_link', 'local_curricmap')
     );
+    $settings->add(new admin_setting_configcheckbox(
+        'local_curricmap/resourcelinking',
+        get_string('settings:resourcelinking', 'local_curricmap'),
+        get_string('settings:resourcelinking_desc', 'local_curricmap'),
+        1
+    ));
+
     $settings->add(new admin_setting_heading(
         'local_curricmap/sofia_heading',
         get_string('settings:sofia_heading', 'local_curricmap'),

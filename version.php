@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_curricmap';
-$plugin->version   = 2026073101;
+$plugin->version   = 2026073102;
 $plugin->requires  = 2024100700; // Moodle 4.5 LTS.
 $plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = 'v0.28.1';
+$plugin->release   = 'v0.29.0';

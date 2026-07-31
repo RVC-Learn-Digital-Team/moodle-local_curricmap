@@ -65,6 +65,9 @@ class add_resource extends external_api {
         int $courseid = 0,
         int $sortorder = 0
     ): array {
+        if (!resources::enabled()) {
+            throw new \moodle_exception('errorresourcesdisabled', 'local_curricmap');
+        }
         $data = [
             'nodeuuid' => $nodeuuid,
             'type' => $type,

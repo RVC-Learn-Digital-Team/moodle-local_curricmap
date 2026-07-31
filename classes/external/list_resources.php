@@ -54,6 +54,12 @@ class list_resources extends external_api {
      * @return array
      */
     public static function execute(string $nodeuuid = '', string $type = '', int $courseid = 0): array {
+        if (!resources::enabled()) {
+            // The master switch is off: readers degrade to an empty list so
+            // every consumer (filter, presenter, tiny dialog) shows nothing
+            // without needing its own guard.
+            return [];
+        }
         $data = ['nodeuuid' => $nodeuuid, 'type' => $type, 'courseid' => $courseid];
         $params = self::validate_parameters(self::execute_parameters(), $data);
 
