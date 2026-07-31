@@ -103,3 +103,8 @@ from data when course names or structures change.
   `local/curricmap`.
 - All PHP files carry the standard Moodle GPL header; PHPCS `moodle` standard enforced in CI.
 - `main` is releasable; feature work in `feat/...` branches.
+
+## License
+
+GNU GPL v3 or later. Copyright 2026 The Royal Veterinary College.
+See [LICENSE](LICENSE).
