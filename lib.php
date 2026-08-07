@@ -82,5 +82,7 @@ function local_curricmap_output_fragment_browsenode(array $args): string {
     require_capability('local/curricmap:managebindings', context_system::instance());
     $root = clean_param((string) ($args['root'] ?? ''), PARAM_RAW_TRIMMED);
     $key = clean_param((string) ($args['key'] ?? ''), PARAM_ALPHANUMEXT);
-    return \local_curricmap\local\contentmap::browse_panel($root, $key);
+    $grain = clean_param((string) ($args['grain'] ?? 'content'), PARAM_ALPHA);
+    $year = (int) ($args['year'] ?? 0);
+    return \local_curricmap\local\contentmap::browse_panel($root, $key, $grain, $year ?: null);
 }

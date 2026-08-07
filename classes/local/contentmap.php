@@ -436,14 +436,22 @@ class contentmap {
      *
      * The ceiling is the YEAR node, ruled 2026-07-30: browsing never goes
      * above slug-year - cross-year or cross-programme mapping is done
-     * manually, even by admins.
+     * manually, even by admins. That ruling covers CONTENT grain, where the
+     * course's year anchor is known; course grain (course_mapping.php) is the
+     * manual path it defers to and browses ABOVE the year - see $grain.
      *
      * @param string $rootuuid Node to list the children of.
      * @param string $key Row key the panel belongs to.
+     * @param string $grain 'content' (default) or 'course' - see course_browse_panel().
+     * @param int|null $year Course grain only: harmonised academic year to filter by.
      * @return string HTML.
      */
-    public static function browse_panel(string $rootuuid, string $key): string {
+    public static function browse_panel(string $rootuuid, string $key, string $grain = 'content',
+            ?int $year = null): string {
         global $DB;
+        if ($grain === 'course') {
+            return self::course_browse_panel($rootuuid, $key, $year);
+        }
         $root = curriculum::node($rootuuid);
         if (!$root || !empty($root->deleted)) {
             return \html_writer::tag('em', get_string('contentmapping_nopool', 'local_curricmap'));
@@ -537,6 +545,117 @@ class contentmap {
                 'data-curricmap-key' => $key,
                 'data-curricmap-picklabel' => self::label($child, $yeartitles[$child->uuid] ?? null),
             ]);
+            $items[] = \html_writer::tag('li', implode(' ', $bits), ['class' => 'mb-1']);
+        }
+        return $out . \html_writer::tag('ul', implode('', $items), ['class' => 'list-unstyled mb-0']);
+    }
+
+    /**
+     * Course-grain browse (course_mapping.php, ruled 2026-08-06): programme
+     * list -> year node -> strand FLOOR. Courses match to a year or a strand
+     * here, never below - outcomes are mapped at content grain in mod/tiny.
+     *
+     * Roots: '' = the programme-year list, filtered to $year when the matcher
+     * harmonised one (an "All years" crumb escapes the filter); 'all' = the
+     * unfiltered list; a year-node uuid = that year's strands, with a
+     * "Programmes" crumb to escape back up before drilling down.
+     *
+     * @param string $rootuuid '' | 'all' | year-node uuid.
+     * @param string $key Row key the panel belongs to.
+     * @param int|null $year Harmonised academic year, null when unknown.
+     * @return string HTML.
+     */
+    private static function course_browse_panel(string $rootuuid, string $key, ?int $year): string {
+        $acadyear = fn(int $start) => $start . '-' . sprintf('%02d', ($start + 1) % 100);
+
+        if ($rootuuid === '' || $rootuuid === 'all') {
+            $filteryear = $rootuuid === 'all' ? null : $year;
+            $crumbs = [\html_writer::tag('strong', get_string('coursemapping_browseprogrammes', 'local_curricmap'))];
+            if ($filteryear !== null) {
+                $crumbs[0] .= ' ' . $acadyear($filteryear);
+                $crumbs[] = \html_writer::link('#', get_string('coursemapping_browseallyears', 'local_curricmap'), [
+                    'data-curricmap-drill' => 'all',
+                    'data-curricmap-key' => $key,
+                ]);
+            }
+            $items = [];
+            foreach (curriculum::programmes() as $programme) {
+                foreach (curriculum::years((int) $programme->id) as $yearnode) {
+                    if (!preg_match('/_(20\d\d)_\d\d_/', $yearnode->uuid, $matches)) {
+                        continue;
+                    }
+                    if ($filteryear !== null && (int) $matches[1] !== $filteryear) {
+                        continue;
+                    }
+                    $label = ($programme->displayname ?: $programme->slug) . ' — '
+                        . $yearnode->title . ' (' . $acadyear((int) $matches[1]) . ')';
+                    $bits = [
+                        \html_writer::link('#', s($label), [
+                            'data-curricmap-drill' => $yearnode->uuid,
+                            'data-curricmap-key' => $key,
+                        ]),
+                        \html_writer::tag('button', get_string('contentmapping_pick', 'local_curricmap'), [
+                            'type' => 'button',
+                            'class' => 'btn btn-sm btn-outline-secondary py-0',
+                            'data-curricmap-pick' => $yearnode->uuid,
+                            'data-curricmap-key' => $key,
+                            'data-curricmap-picklabel' => $label,
+                        ]),
+                    ];
+                    $items[] = \html_writer::tag('li', implode(' ', $bits), ['class' => 'mb-1']);
+                }
+            }
+            $out = \html_writer::div(implode(' &rsaquo; ', $crumbs), 'small mb-2');
+            if (!$items) {
+                return $out . \html_writer::tag('em',
+                    get_string('contentmapping_browseempty', 'local_curricmap'), ['class' => 'small']);
+            }
+            return $out . \html_writer::tag('ul', implode('', $items), ['class' => 'list-unstyled mb-0']);
+        }
+
+        $root = curriculum::node($rootuuid);
+        if (!$root || !empty($root->deleted) || $root->role !== 'year') {
+            return \html_writer::tag('em', get_string('contentmapping_nopool', 'local_curricmap'));
+        }
+
+        $yearlabel = $root->title;
+        if (preg_match('/_(20\d\d)_\d\d_/', $root->uuid, $matches)) {
+            $yearlabel .= ' (' . $acadyear((int) $matches[1]) . ')';
+        }
+        $rootpick = \html_writer::tag('button', get_string('contentmapping_pick', 'local_curricmap'), [
+            'type' => 'button',
+            'class' => 'btn btn-sm btn-outline-secondary py-0',
+            'data-curricmap-pick' => $root->uuid,
+            'data-curricmap-key' => $key,
+            'data-curricmap-picklabel' => $yearlabel,
+        ]);
+        $crumbs = [
+            \html_writer::link('#', get_string('coursemapping_browseprogrammes', 'local_curricmap'), [
+                'data-curricmap-drill' => '',
+                'data-curricmap-key' => $key,
+            ]),
+            \html_writer::tag('strong', s($root->title)) . ' ' . $rootpick,
+        ];
+        $out = \html_writer::div(implode(' &rsaquo; ', $crumbs), 'small mb-2');
+
+        $strands = curriculum::strands($rootuuid);
+        if (!$strands) {
+            return $out . \html_writer::tag('em',
+                get_string('contentmapping_browseempty', 'local_curricmap'), ['class' => 'small']);
+        }
+        $items = [];
+        foreach ($strands as $strand) {
+            $roletag = \html_writer::tag('small', '[' . s($strand->role) . ']', ['class' => 'text-muted']);
+            $bits = [
+                \html_writer::tag('span', s($strand->title) . ' ' . $roletag),
+                \html_writer::tag('button', get_string('contentmapping_pick', 'local_curricmap'), [
+                    'type' => 'button',
+                    'class' => 'btn btn-sm btn-outline-secondary py-0',
+                    'data-curricmap-pick' => $strand->uuid,
+                    'data-curricmap-key' => $key,
+                    'data-curricmap-picklabel' => $strand->title . ' — ' . $yearlabel,
+                ]),
+            ];
             $items[] = \html_writer::tag('li', implode(' ', $bits), ['class' => 'mb-1']);
         }
         return $out . \html_writer::tag('ul', implode('', $items), ['class' => 'list-unstyled mb-0']);

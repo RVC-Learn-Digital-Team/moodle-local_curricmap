@@ -23,6 +23,12 @@
  * so Apply reads browse picks and dropdown picks through the same path.
  * The panel stays open after a pick (multi-pick, close explicitly).
  *
+ * Course grain (course_mapping.php, ruled 2026-08-06): the browse link
+ * carries data-curricmap-grain="course" (+ optional data-curricmap-year and
+ * data-curricmap-pickmode="select"). The walker then starts at the programme
+ * list, floors at strand, and a pick SETS the row's single select instead of
+ * adding a chip - one central anchor per course, last pick wins.
+ *
  * @module     local_curricmap/browse
  * @copyright  2026 The Royal Veterinary College
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -46,7 +52,14 @@ const load = (key, root) => {
     }
     panel.classList.remove('d-none');
     panel.setAttribute('data-curricmap-loaded', root);
-    Fragment.loadFragment('local_curricmap', 'browsenode', fragmentcontextid, {root: root, key: key})
+    const params = {root: root, key: key};
+    if (panel.dataset.curricmapGrain) {
+        params.grain = panel.dataset.curricmapGrain;
+    }
+    if (panel.dataset.curricmapYear) {
+        params.year = panel.dataset.curricmapYear;
+    }
+    Fragment.loadFragment('local_curricmap', 'browsenode', fragmentcontextid, params)
         .then((html, js) => {
             Templates.replaceNodeContents(panel, html, js);
             return null;
@@ -62,6 +75,26 @@ const load = (key, root) => {
  * @param {string} label Full label for the chip.
  */
 const pick = (key, uuid, label) => {
+    const panel = document.querySelector('[data-curricmap-browsepanel="' + key + '"]');
+    if (panel && panel.dataset.curricmapPickmode === 'select') {
+        const select = document.getElementById('curricmap-bind-' + key);
+        if (!select) {
+            return;
+        }
+        if (![...select.options].some((option) => option.value === uuid)) {
+            select.add(new Option(label, uuid));
+        }
+        select.value = uuid;
+        // Resync the core autocomplete when the select is enhanced, and run
+        // the row's own change behaviours.
+        select.dispatchEvent(new Event('change', {bubbles: true}));
+        const tick = document.querySelector('input[name="apply[' + key + ']"]');
+        if (tick) {
+            tick.checked = true;
+        }
+        panel.classList.add('d-none');
+        return;
+    }
     const picks = document.querySelector('[data-curricmap-picks="' + key + '"]');
     if (!picks || picks.querySelector('input[value="' + uuid + '"]')) {
         return;
@@ -100,6 +133,14 @@ export const init = (contextid = 0) => {
             event.preventDefault();
             const key = browse.getAttribute('data-curricmap-browse');
             const panel = document.querySelector('[data-curricmap-browsepanel="' + key + '"]');
+            if (panel) {
+                ['Grain', 'Year', 'Pickmode'].forEach((suffix) => {
+                    const value = browse.dataset['curricmap' + suffix];
+                    if (value) {
+                        panel.dataset['curricmap' + suffix] = value;
+                    }
+                });
+            }
             if (panel && !panel.classList.contains('d-none')) {
                 panel.classList.add('d-none');
             } else {

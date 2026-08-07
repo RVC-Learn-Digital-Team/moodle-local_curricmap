@@ -73,7 +73,10 @@ class matcher {
             // AVN + RVC_MS* (masters hubs), PG* (PGT/PGR/PGCERT/PGDIP),
             // OH-* (MSc One Health modules), bare level-7 module codes
             // (7101_VE_Y_202526-style — level 7 = masters).
-            'skip' => ['^Temp_', 'shell', '^catalyst_', '^AVN', '^RVC_MS', '^PG', '^OH-', '^7\d{3}'],
+            // DELETED_MATERIAL (2026-08-06): archived-content copies, e.g.
+            // RVC_BVETMED1_2024_5_DELETED_MATERIAL, seen proposed on live.
+            'skip' => ['^Temp_', 'shell', '^catalyst_', '^AVN', '^RVC_MS', '^PG', '^OH-', '^7\d{3}',
+                'DELETED_MATERIAL'],
             'minscore' => 2,
             'mincontainment' => 0.6,
             // Body-text hints (secondary signal): stricter threshold because

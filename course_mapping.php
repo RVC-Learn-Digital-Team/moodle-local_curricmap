@@ -53,6 +53,7 @@ if (!in_array($show, ['matched', 'unmatched', 'existing', 'all'])) {
     $show = 'matched';
 }
 $strands = optional_param('strands', 1, PARAM_BOOL);
+$pre2024 = optional_param('pre2024', 0, PARAM_BOOL);
 $slugyear = optional_param('slugyear', '', PARAM_RAW_TRIMMED);
 $nodeparam = optional_param('node', '', PARAM_RAW_TRIMMED);
 $page = optional_param('page', 0, PARAM_INT);
@@ -61,8 +62,9 @@ $perpage = 50;
 $candidates = matcher::candidates($strands);
 $rules = matcher::rules();
 
-// The slug-year filter narrows which nodes are OFFERED (row dropdowns, the
-// Sofia node select) — never which proposals the engine makes. Blank = all.
+// The slug-year filter narrows which nodes are OFFERED (the Sofia node
+// select) AND, since 2026-08-06, which course rows show: the academic year is
+// enforced on every row, the slug on rows carrying a proposal. Blank = all.
 $slugyears = [];
 foreach ($candidates as $candidate) {
     $key = $candidate->programme->slug . ':' . $candidate->yearstart;
@@ -72,6 +74,12 @@ foreach ($candidates as $candidate) {
 ksort($slugyears);
 if ($slugyear !== '' && !isset($slugyears[$slugyear])) {
     $slugyear = '';
+}
+$slugyearslug = null;
+$slugyearstart = null;
+if ($slugyear !== '') {
+    [$slugyearslug, $slugyearstart] = explode(':', $slugyear);
+    $slugyearstart = (int) $slugyearstart;
 }
 $offered = $candidates;
 if ($slugyear !== '') {
@@ -93,7 +101,7 @@ if ($mode === 'sofia' && $target === null && $offered) {
 }
 
 $urlparams = ['mode' => $mode, 'search' => $search, 'requireid' => $requireid, 'show' => $show,
-    'strands' => $strands, 'slugyear' => $slugyear, 'page' => $page];
+    'strands' => $strands, 'pre2024' => $pre2024, 'slugyear' => $slugyear, 'page' => $page];
 if ($target) {
     $urlparams['node'] = $target->node->uuid;
 }
@@ -261,42 +269,69 @@ foreach ($courses as $course) {
     if ($searchyear !== null && $result->year !== $searchyear) {
         continue;
     }
+    // Pre-2024 courses hidden unless asked for; year-less courses are never
+    // excluded by this toggle (ruled 2026-08-06).
+    if (!$pre2024 && $result->year !== null && $result->year < 2024) {
+        continue;
+    }
+    // A selected slug-year enforces its academic year on every row, and its
+    // slug on rows carrying a proposal - unmatched courses have no programme
+    // yet, so the slug cannot exclude them (ruled 2026-08-06).
+    if ($slugyearstart !== null) {
+        if ($result->year !== $slugyearstart) {
+            continue;
+        }
+        $proposal = $result->best ?? ($result->suggestions[0]->candidate ?? null);
+        if ($proposal && $proposal->programme->slug !== $slugyearslug) {
+            continue;
+        }
+    }
     $rows[] = (object) ['course' => $course, 'result' => $result];
 }
 
-$showcounts = ['matched' => 0, 'unmatched' => 0, 'existing' => 0, 'all' => 0];
+// Slug|yearstart -> year-node uuid, for positioning each row's browse panel
+// at the programme year the engine believes (ruled 2026-08-06).
+$browseyearnodes = [];
+foreach ($candidates as $candidate) {
+    if ($candidate->yeartitle === null) {
+        $browseyearnodes[$candidate->programme->slug . '|' . $candidate->yearstart] = $candidate->node->uuid;
+    }
+}
+
+$showcounts = ['matched' => 0, 'unmatched' => 0, 'existing' => 0, 'skipped' => 0, 'all' => 0];
 if ($mode === 'course') {
-    // Band per row: matched = the engine proposed something the course is
-    // not already matched within; unmatched = no proposal AND no current
-    // match (courses already matched are not "unmatched", whatever their
-    // proposal status); skipped only shows in all.
+    // Every course sits in exactly ONE band, so the Show counts add up to
+    // "all courses" (ruled 2026-08-06): matched = actionable proposal
+    // (including one that conflicts with an existing match elsewhere);
+    // unmatched = no proposal, no match; already matched = the rest that
+    // carry a current match; skipped = skip status, whatever else is true.
     $band = function ($row) use ($currentmatches, $decided) {
         if ($row->result->status === matcher::STATUS_SKIPPED) {
             return 'skipped';
         }
-        if (in_array($row->result->status, [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST])) {
-            return $decided($row) ? 'existingonly' : 'matched';
+        if (in_array($row->result->status, [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST])
+                && !$decided($row)) {
+            return 'matched';
         }
-        return empty($currentmatches[(int) $row->course->id]) ? 'unmatched' : 'existingonly';
+        return empty($currentmatches[(int) $row->course->id]) ? 'unmatched' : 'existing';
     };
     foreach ($rows as $row) {
         $showcounts['all']++;
-        $rowband = $band($row);
-        if (isset($showcounts[$rowband])) {
-            $showcounts[$rowband]++;
-        }
-        if (!empty($currentmatches[(int) $row->course->id])) {
-            $showcounts['existing']++;
-        }
+        $showcounts[$band($row)]++;
     }
-    $rows = array_values(array_filter($rows, function ($row) use ($show, $currentmatches, $band) {
-        if ($show === 'all') {
-            return true;
-        }
-        if ($show === 'existing') {
-            return !empty($currentmatches[(int) $row->course->id]);
-        }
-        return $band($row) === $show;
+    // A search whose hits all sit outside the selected Show band would
+    // display nothing while the results are one filter away - switch the
+    // band to suit (ruled 2026-08-07). Only while searching, only when the
+    // current band is empty, and to the one non-empty band when there is
+    // exactly one ('all' when the hits span several bands).
+    if ($search !== '' && $show !== 'all' && ($showcounts[$show] ?? 0) === 0 && $showcounts['all'] > 0) {
+        $bandcounts = array_intersect_key($showcounts,
+            array_flip(['matched', 'unmatched', 'existing', 'skipped']));
+        $nonempty = array_keys(array_filter($bandcounts));
+        $show = count($nonempty) === 1 ? $nonempty[0] : 'all';
+    }
+    $rows = array_values(array_filter($rows, function ($row) use ($show, $band) {
+        return $show === 'all' || $band($row) === $show;
     }));
 } else if ($target) {
     // Rank each course's fit for the target node: already matched to it,
@@ -357,6 +392,7 @@ $rows = array_slice($rows, $page * $perpage, $perpage);
 $PAGE->requires->js_call_amd('core/checkbox-toggleall', 'init');
 $typetosearch = get_string('coursemapping_typetosearch', 'local_curricmap');
 $PAGE->requires->js_call_amd('local_curricmap/course_mapping', 'init', [$typetosearch]);
+$PAGE->requires->js_call_amd('local_curricmap/browse', 'init', [context_system::instance()->id]);
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('coursemapping', 'local_curricmap'));
@@ -394,6 +430,15 @@ echo html_writer::empty_tag('input', $strandsattrs);
 echo get_string('coursemapping_includestrands', 'local_curricmap');
 echo html_writer::end_tag('label');
 
+$pre2024attrs = ['type' => 'checkbox', 'name' => 'pre2024', 'value' => 1, 'class' => 'mr-1'];
+if ($pre2024) {
+    $pre2024attrs['checked'] = 'checked';
+}
+echo html_writer::start_tag('label', ['class' => 'mb-0 d-flex align-items-center text-nowrap']);
+echo html_writer::empty_tag('input', $pre2024attrs);
+echo get_string('coursemapping_pre2024', 'local_curricmap');
+echo html_writer::end_tag('label');
+
 $slugyearoptions = ['' => get_string('coursemapping_slugyear_all', 'local_curricmap')] + $slugyears;
 $slugyearattrs = ['aria-label' => get_string('coursemapping_slugyear', 'local_curricmap')];
 echo html_writer::select($slugyearoptions, 'slugyear', $slugyear, false, $slugyearattrs);
@@ -403,6 +448,7 @@ if ($mode === 'course') {
         'matched' => get_string('coursemapping_show_matched', 'local_curricmap', $showcounts['matched']),
         'unmatched' => get_string('coursemapping_show_unmatched', 'local_curricmap', $showcounts['unmatched']),
         'existing' => get_string('coursemapping_show_existing', 'local_curricmap', $showcounts['existing']),
+        'skipped' => get_string('coursemapping_show_skipped', 'local_curricmap', $showcounts['skipped']),
         'all' => get_string('coursemapping_show_all', 'local_curricmap', $showcounts['all']),
     ];
     $showattrs = ['aria-label' => get_string('coursemapping_show', 'local_curricmap')];
@@ -535,9 +581,9 @@ foreach ($rows as $row) {
         continue;
     }
 
-    // The dropdown holds the engine's proposals, plus — when a slug-year is
-    // selected — that year's offered nodes as a flat, searchable list.
-    // Blank slug-year keeps rows to proposals only (confirm-fast view).
+    // The dropdown holds the engine's proposals only; manual picks come from
+    // the More curriculum browse below (the old stuff-the-dropdown role of
+    // the slug-year select ended when it became a row filter, 2026-08-06).
     $bounduuids = array_map(fn($binding) => $binding->nodeuuid, $currentmatches[$courseid] ?? []);
     $proposals = [];
     $selected = '';
@@ -555,24 +601,33 @@ foreach ($rows as $row) {
         $proposals[$suggestion->candidate->node->uuid] = $label;
     }
     $options = ['' => get_string('coursemapping_noaction', 'local_curricmap')] + $proposals;
-    if ($slugyear !== '') {
-        foreach ($offered as $candidate) {
-            if (!isset($options[$candidate->node->uuid])) {
-                $options[$candidate->node->uuid] = local_curricmap_course_mapping_label($candidate);
-            }
-        }
-    }
 
     $proposalcell = local_curricmap_course_mapping_badge($result->status);
     if ($result->note) {
         $proposalcell .= ' ' . html_writer::tag('span', s($result->note), ['class' => 'small text-muted']);
     }
     $bindattrs = ['data-curricmap-row' => $courseid, 'id' => 'curricmap-bind-' . $courseid];
-    if ($slugyear !== '') {
-        // The slug-year nodes make this a long flat list — enhance it searchable.
-        $bindattrs['data-curricmap-search'] = 1;
-    }
     $proposalcell .= html_writer::div(html_writer::select($options, "bind[$courseid]", $selected, false, $bindattrs));
+
+    // More curriculum (ruled 2026-08-06): walk the graph when the proposals
+    // carry mixed signals. Starts at the proposal's programme year when there
+    // is one, else at the programme list (filtered to the harmonised year
+    // when known - escapable up); pick floor is STRAND, and a pick sets this
+    // row's select, so Apply reads it through the exact same path.
+    $browseroot = '';
+    if ($result->best) {
+        $browsekey = $result->best->programme->slug . '|' . $result->best->yearstart;
+        $browseroot = $browseyearnodes[$browsekey] ?? '';
+    }
+    $browseattrs = ['data-curricmap-browse' => $courseid, 'data-curricmap-root' => $browseroot,
+        'data-curricmap-grain' => 'course', 'data-curricmap-pickmode' => 'select'];
+    if ($result->year) {
+        $browseattrs['data-curricmap-year'] = $result->year;
+    }
+    $browselink = html_writer::link('#', get_string('contentmapping_browse', 'local_curricmap'), $browseattrs);
+    $proposalcell .= html_writer::div($browselink, 'small mt-1');
+    $proposalcell .= html_writer::div('', 'curricmap-browsepanel border rounded p-2 mt-1 d-none',
+        ['data-curricmap-browsepanel' => $courseid]);
 
     $tick = html_writer::empty_tag('input', $tickattrs);
     $table->data[] = [$tick, $coursecell, $yearcell, $currentcell, $proposalcell];
