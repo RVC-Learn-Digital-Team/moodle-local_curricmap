@@ -48,6 +48,43 @@ function local_curricmap_extend_navigation_course(
 }
 
 /**
+ * Add a "Map to Sofia curriculum" item to each supported activity's More
+ * menu (ruled 2026-08-06): the activity-level sibling of the course item
+ * above, offered only for module types on the mappablemodtypes setting,
+ * linking to the course's Add Additional Mappings page with the activity
+ * preselected as the location.
+ *
+ * @param settings_navigation $settingsnav The settings navigation.
+ * @param context|null $context The current context.
+ */
+function local_curricmap_extend_settings_navigation(settings_navigation $settingsnav, ?context $context): void {
+    global $PAGE;
+    if (!$context || $context->contextlevel !== CONTEXT_MODULE || !$PAGE->cm) {
+        return;
+    }
+    $mappable = array_filter(explode(',', (string) get_config('local_curricmap', 'mappablemodtypes')));
+    if (!in_array($PAGE->cm->modname, $mappable, true)) {
+        return;
+    }
+    if (!has_capability('local/curricmap:viewstaffmeta', context_course::instance((int) $PAGE->cm->course))) {
+        return;
+    }
+    $modulenode = $settingsnav->find('modulesettings', navigation_node::TYPE_SETTING);
+    if (!$modulenode) {
+        return;
+    }
+    $url = new moodle_url('/local/curricmap/mappings.php',
+        ['courseid' => (int) $PAGE->cm->course, 'cmid' => (int) $PAGE->cm->id]);
+    $modulenode->add(
+        get_string('mappings_mapactivity', 'local_curricmap'),
+        $url,
+        navigation_node::TYPE_SETTING,
+        null,
+        'curricmapactivity'
+    );
+}
+
+/**
  * Fragment: one section's activity mapping rows for the Moodle Course Mapping page
  * (loaded lazily when the admin opens a section's "Map activities").
  *

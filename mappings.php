@@ -37,6 +37,8 @@ use local_curricmap\api\resources;
 use local_curricmap\external\helper;
 
 $courseid = required_param('courseid', PARAM_INT);
+// From an activity's More menu: preselect that activity in the add form.
+$focuscm = optional_param('cmid', 0, PARAM_INT);
 $course = get_course($courseid);
 require_login($course);
 $context = context_course::instance($courseid);
@@ -132,6 +134,9 @@ if ($canmanage) {
         $pageurl,
         ['course' => $course, 'cancentral' => $cancentral, 'boundnodeuuids' => $alreadybound]
     );
+    if ($focuscm) {
+        $form->set_data(['location' => 'cm:' . $focuscm]);
+    }
     if ($data = $form->get_data()) {
         $address = ['courseid' => $courseid];
         if (strpos($data->location, 'section:') === 0) {

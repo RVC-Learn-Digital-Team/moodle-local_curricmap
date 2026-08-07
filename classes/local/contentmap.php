@@ -752,7 +752,13 @@ class contentmap {
             $hints = self::merged_hints($cmname, self::body_text($cm), $rowpool, $rules);
             $key = 'c' . (int) $cm->id;
 
-            $namebits = s($cmname) . ' '
+            // Link to the real activity so the mapper can SEE it - always a
+            // new tab so the mapping form state is never lost (ruled
+            // 2026-08-07). Labels have no view page and stay plain text.
+            $namelink = $cm->url
+                ? \html_writer::link($cm->url, s($cmname), ['target' => '_blank', 'rel' => 'noopener'])
+                : s($cmname);
+            $namebits = $namelink . ' '
                 . \html_writer::tag('span', s($cm->modname), ['class' => 'small text-muted']);
             if ($cm->modname === 'book') {
                 $chapters = count($bychapter[(int) $cm->id] ?? []);

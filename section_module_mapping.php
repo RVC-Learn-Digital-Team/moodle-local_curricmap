@@ -284,7 +284,10 @@ if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname 
         $hints = contentmap::merged_hints($chapter->title, $chapterbody, $chapterpool, $rules);
         $chapterbrowseroot = $poolroots[0] ?? null;
         $chapterproposal = contentmap::proposal_cell($key, $hints, $chapterpool, $narrowed, $chapterbrowseroot);
-        $name = s($chapter->title);
+        $chapterurl = new moodle_url('/mod/book/view.php',
+            ['id' => $bookcm, 'chapterid' => (int) $chapter->id]);
+        $name = html_writer::link($chapterurl, s($chapter->title),
+            ['target' => '_blank', 'rel' => 'noopener']);
         if ($chapter->subchapter) {
             $name = html_writer::tag('span', $name, ['style' => 'padding-left: 20px;']);
         }
@@ -433,7 +436,11 @@ foreach ($sections as $section) {
     $hints = $housekeeping ? [] : matcher::match_title($sectionname, $sectionpool, $rules);
     $key = 's' . $sid;
 
-    $namecell = html_writer::tag('strong', s($sectionname));
+    // Link to the real content so the mapper can SEE it - always a new tab
+    // so the mapping form state is never lost (ruled 2026-08-07).
+    $sectionurl = new moodle_url('/course/section.php', ['id' => $sid]);
+    $namecell = html_writer::tag('strong',
+        html_writer::link($sectionurl, s($sectionname), ['target' => '_blank', 'rel' => 'noopener']));
     if ($housekeeping) {
         $hklabel = get_string('contentmapping_housekeeping', 'local_curricmap');
         $namecell .= ' ' . html_writer::tag('span', $hklabel, ['class' => 'badge badge-secondary']);

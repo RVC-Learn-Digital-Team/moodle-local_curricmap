@@ -164,6 +164,7 @@ $string['mappings_location'] = 'Location';
 $string['mappings_location_activity'] = 'Activity: {$a}';
 $string['mappings_location_course'] = 'Whole course';
 $string['mappings_location_section'] = 'Section: {$a}';
+$string['mappings_mapactivity'] = 'Map to Sofia curriculum';
 $string['mappings_matchedscope'] = 'Matched curriculum';
 $string['mappings_node'] = 'Curriculum node';
 $string['mappings_node_help'] = 'Pick the programme year first, then search by title or code. Any node can be mapped, including individual outcomes.';
