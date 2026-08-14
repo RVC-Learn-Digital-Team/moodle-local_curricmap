@@ -32,7 +32,8 @@ services by the companion plugins:
 - **Binding API** — a generic join surface between Moodle locations (course → section →
   activity → sub-activity) and curriculum nodes, with soft-typed relations (`anchor`,
   `teaches`, …) and Moodle-context permissions. API-first: mapping UIs and coverage
-  reporting come later as clients.
+  reporting come later as clients. Cookbook with per-grain web-service examples:
+  [docs/BINDING_API.md](docs/BINDING_API.md).
 - **Admin tooling** — sync status/trigger/log, statistics export, orphan reports.
 
 ## What v0.2.0 actually contains
