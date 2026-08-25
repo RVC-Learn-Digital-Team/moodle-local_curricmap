@@ -912,6 +912,26 @@ evidence):
       stoplist. Sofia unit grouplabels (15k+ nodes) are the ordering
       signal; week-named sections are a VN-family habit only.
 
+### Content-mapping follow-ups from the vet-nur weekly estate (learn-uat, 2026-08-25)
+
+v0.32.3 made delegated subsection rows carry their parent section's name
+("Week 1 - 6th Oct › Weekly Activities") on display, in the section filter and
+into match_title — Moodle 4.5 subsection courses previously rendered context-free
+"Monday" rows. Remaining, not yet built:
+
+- [ ] Day subsections' only module is usually a LABEL whose text lists that
+      day's teaching — section-grain BODY-TEXT matching (labels' text feeding
+      match_body for the section row) would turn those rows matchable. Activity
+      grain already reads bodies; section grain matches names only.
+- [ ] Consider grouping/indenting delegated sections under their parent row
+      instead of the flat get_section_info_all() order (parents first, then all
+      delegated) — display-order change, Brian's call on layout.
+- [ ] "N activities" counts are gated by the "Course activities to map"
+      setting (saved settings never inherit new defaults): learn-uat showed
+      "1 activities" for a subsection holding quiz×3 + resource×2 + url×3.
+      Review the live/learn-uat mappablemodtypes value; consider whether label
+      belongs in the default list once label body matching exists.
+
 ### M10 — Hardening (pre-pilot)
 
 - [ ] Webhook receiver (HMAC-signed, event_at dedupe) queuing adhoc sync

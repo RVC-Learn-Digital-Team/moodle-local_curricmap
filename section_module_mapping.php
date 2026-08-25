@@ -326,6 +326,21 @@ echo html_writer::tag('p', get_string('contentmapping_help', 'local_curricmap'),
 // Toolbar: current course + switch, then labelled multi-select filters
 // (sections, module types, strand/node types), applied by Go.
 $sections = $modinfo->get_section_info_all();
+
+// Moodle 4.5 subsections: each delegated section is owned by a mod_subsection
+// course module sitting inside a parent section, and get_section_info_all()
+// lists the delegated sections AFTER all the parents - so a vet-nur weekly
+// course renders eleven bare "Monday" rows with no week in sight (learn-uat,
+// 2026-08-25). Map subsection instance id -> parent section name so every
+// delegated row can carry its context.
+$subsectionparents = [];
+foreach ($modinfo->get_instances_of('subsection') as $instanceid => $subcm) {
+    $parentinfo = $modinfo->get_section_info($subcm->sectionnum);
+    if ($parentinfo) {
+        $subsectionparents[(int) $instanceid] = get_section_name($course, $parentinfo);
+    }
+}
+
 $fullpool = matcher::content_candidates($rootuuids, contentmap::TARGET_ROLES);
 $formurl = new moodle_url('/local/curricmap/section_module_mapping.php');
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => $formurl->out_omit_querystring(),
@@ -342,7 +357,12 @@ echo html_writer::end_div();
 
 $sectionoptions = [];
 foreach ($sections as $section) {
-    $sectionoptions[(int) $section->id] = get_section_name($course, $section);
+    $optionname = get_section_name($course, $section);
+    $isdelegated = ($section->component ?? null) === 'mod_subsection';
+    if ($isdelegated && isset($subsectionparents[(int) $section->itemid])) {
+        $optionname = $subsectionparents[(int) $section->itemid] . ' › ' . $optionname;
+    }
+    $sectionoptions[(int) $section->id] = $optionname;
 }
 echo html_writer::start_div('curricmap-filter');
 $sectionslabel = get_string('contentmapping_filtersections', 'local_curricmap');
@@ -425,6 +445,14 @@ foreach ($sections as $section) {
         continue;
     }
     $sectionname = get_section_name($course, $section);
+    // A delegated subsection row shows and matches WITH its parent's name -
+    // "Week 1 - 6th Oct › Weekly Activities" - because the parent carries the
+    // signal ("Monday" alone matches nothing). Housekeeping stays on the own
+    // name: its patterns are anchored.
+    $isdelegated = ($section->component ?? null) === 'mod_subsection';
+    $parentname = $isdelegated ? ($subsectionparents[(int) $section->itemid] ?? null) : null;
+    $displayname = $parentname !== null ? $parentname . ' › ' . $sectionname : $sectionname;
+    $matchname = $parentname !== null ? $parentname . ' ' . $sectionname : $sectionname;
     $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[$sid] ?? []);
 
     // Once matched, the section's own picker deepens to its node's subtree.
@@ -434,14 +462,14 @@ foreach ($sections as $section) {
         $sectionpool = array_merge($strandpool, contentmap::filter_pool($deepened, $nodetypesfilter));
     }
     $housekeeping = matcher::is_housekeeping($sectionname, $rules);
-    $hints = $housekeeping ? [] : matcher::match_title($sectionname, $sectionpool, $rules);
+    $hints = $housekeeping ? [] : matcher::match_title($matchname, $sectionpool, $rules);
     $key = 's' . $sid;
 
     // Link to the real content so the mapper can SEE it - always a new tab
     // so the mapping form state is never lost (ruled 2026-08-07).
     $sectionurl = new moodle_url('/course/section.php', ['id' => $sid]);
     $namecell = html_writer::tag('strong',
-        html_writer::link($sectionurl, s($sectionname), ['target' => '_blank', 'rel' => 'noopener']));
+        html_writer::link($sectionurl, s($displayname), ['target' => '_blank', 'rel' => 'noopener']));
     if ($housekeeping) {
         $hklabel = get_string('contentmapping_housekeeping', 'local_curricmap');
         $namecell .= ' ' . html_writer::tag('span', $hklabel, ['class' => 'badge badge-secondary']);
@@ -479,7 +507,7 @@ foreach ($sections as $section) {
     }
 
     $sectioncurrent = contentmap::current_cell($bysection[$sid] ?? [], $returnurl, $rescounts);
-    $cells = html_writer::div(contentmap::tick($key, $sectionname), 'curricmap-cell-tick')
+    $cells = html_writer::div(contentmap::tick($key, $displayname), 'curricmap-cell-tick')
         . html_writer::div($namecell, 'curricmap-cell-name', ['style' => 'min-width: 280px;'])
         . html_writer::div($sectioncurrent, 'curricmap-cell-current')
         . html_writer::div($proposalcell, 'curricmap-cell-proposal');
