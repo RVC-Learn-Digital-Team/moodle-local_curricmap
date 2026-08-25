@@ -95,6 +95,34 @@ if ($action === 'discover' && confirm_sesskey()) {
     }
 }
 
+// Purge a programme-year outright (are-you-sure first): the recovery path for
+// mirror rows a server change left behind - ghost years live Sofia does not
+// have, or stale mirrors carrying another server's revision hashes.
+if ($action === 'purge' && confirm_sesskey()) {
+    $programmeid = required_param('programmeid', PARAM_INT);
+    $programme = $DB->get_record('local_curricmap_programme', ['id' => $programmeid]);
+    if (!$programme) {
+        $notifications[] = ['warning', get_string('status_programmegone', 'local_curricmap')];
+    } else if (!optional_param('confirm', 0, PARAM_BOOL)) {
+        $a = (object) [
+            'name' => ($programme->displayname ?: $programme->slug) . ' ' . $programme->versionlabel,
+            'nodes' => $DB->count_records('local_curricmap_node', ['programmeid' => $programme->id]),
+        ];
+        $confirmparams = ['action' => 'purge', 'programmeid' => $programmeid, 'confirm' => 1, 'sesskey' => sesskey()];
+        $confirmurl = new moodle_url($pageurl, $confirmparams);
+        echo $OUTPUT->header();
+        echo $OUTPUT->confirm(get_string('status_purgeconfirm', 'local_curricmap', $a), $confirmurl, $pageurl);
+        echo $OUTPUT->footer();
+        exit;
+    } else {
+        $a = (object) [
+            'name' => ($programme->displayname ?: $programme->slug) . ' ' . $programme->versionlabel,
+            'nodes' => \local_curricmap\local\sync::purge_programme($programme),
+        ];
+        $notifications[] = ['success', get_string('status_purged', 'local_curricmap', $a)];
+    }
+}
+
 if ($action === 'sync' && confirm_sesskey()) {
     $programmeid = required_param('programmeid', PARAM_INT);
     $force = optional_param('force', 0, PARAM_BOOL);
@@ -197,8 +225,11 @@ if (!$programmes) {
         $syncparams = ['action' => 'sync', 'programmeid' => $programme->id, 'sesskey' => sesskey()];
         $syncurl = new moodle_url($pageurl, $syncparams);
         $forceurl = new moodle_url($syncurl, ['force' => 1]);
+        $purgeparams = ['action' => 'purge', 'programmeid' => $programme->id, 'sesskey' => sesskey()];
+        $purgeurl = new moodle_url($pageurl, $purgeparams);
         $buttons = $OUTPUT->single_button($syncurl, get_string('status_syncnow', 'local_curricmap'), 'post')
-            . $OUTPUT->single_button($forceurl, get_string('status_forcesync', 'local_curricmap'), 'post');
+            . $OUTPUT->single_button($forceurl, get_string('status_forcesync', 'local_curricmap'), 'post')
+            . $OUTPUT->single_button($purgeurl, get_string('status_purge', 'local_curricmap'), 'post');
         $nodecount = $DB->count_records('local_curricmap_node', ['programmeid' => $programme->id, 'deleted' => 0]);
         $label = $programme->versionlabel;
         if (preg_match('/^\d{4}$/', $label)) {

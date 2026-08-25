@@ -176,6 +176,40 @@ class sync {
     }
 
     /**
+     * Purge one programme-year: its node mirror, edges, tag schema, sync
+     * history and the programme row itself, in one transaction. Bindings to
+     * its nodes become orphaned - every consumer already treats a binding
+     * whose node row is missing as orphaned.
+     *
+     * A year that still exists upstream reappears as a fresh "never synced"
+     * row on the next discovery run; a ghost year (absent upstream, e.g.
+     * left over from a different Sofia server) stays gone, because the
+     * discovery probe 404s it.
+     *
+     * @param \stdClass $programme Programme record.
+     * @return int Node rows removed.
+     */
+    public static function purge_programme(\stdClass $programme): int {
+        global $DB;
+
+        $transaction = $DB->start_delegated_transaction();
+        $nodescope = 'nodeid IN (SELECT id FROM {local_curricmap_node} WHERE programmeid = :pid)';
+        $pid = ['pid' => $programme->id];
+        $nodes = $DB->count_records('local_curricmap_node', ['programmeid' => $programme->id]);
+        $DB->delete_records_select('local_curricmap_nodetag', $nodescope, $pid);
+        $DB->delete_records_select('local_curricmap_audit', $nodescope, $pid);
+        $DB->delete_records('local_curricmap_edge', ['programmeid' => $programme->id]);
+        $fieldscope = 'tagfieldid IN (SELECT id FROM {local_curricmap_tagfield} WHERE programmeid = :pid)';
+        $DB->delete_records_select('local_curricmap_tagoption', $fieldscope, $pid);
+        $DB->delete_records('local_curricmap_tagfield', ['programmeid' => $programme->id]);
+        $DB->delete_records('local_curricmap_node', ['programmeid' => $programme->id]);
+        $DB->delete_records('local_curricmap_synclog', ['programmeid' => $programme->id]);
+        $DB->delete_records('local_curricmap_programme', ['id' => $programme->id]);
+        $transaction->allow_commit();
+        return $nodes;
+    }
+
+    /**
      * Is this programme in the hourly sync tier?
      *
      * The two most recent discovered years per slug (on live: latest + upcoming)
@@ -225,7 +259,26 @@ class sync {
             // and yields the human-readable delta report; the fallback of comparing
             // a label with itself still resolves the current hash.
             $comparefrom = $log->fromhash ?: $programme->versionlabel;
-            $compare = $this->client->compare($programme->slug, $comparefrom, $programme->versionlabel);
+            $diffablefrom = $log->fromhash;
+            try {
+                $compare = $this->client->compare($programme->slug, $comparefrom, $programme->versionlabel);
+            } catch (\local_curricmap\api\client_exception $exception) {
+                // A 404 on a stored hash means THIS server has never seen that
+                // revision - the configured Sofia server changed (the test-to-
+                // live migration, 2026-08-25) or the revision was purged
+                // upstream. Compare the label with itself instead: that
+                // resolves the server's current hash and the mirror heals
+                // through a normal full sync (missing nodes soft-delete,
+                // their bindings orphan).
+                $unknownhash = $exception->httpcode === 404 && $comparefrom !== $programme->versionlabel;
+                if (!$unknownhash) {
+                    throw $exception;
+                }
+                $compare = $this->client->compare($programme->slug, $programme->versionlabel, $programme->versionlabel);
+                // A self-compare carries no delta, so the report must not
+                // pretend "0 changed since <old hash>" - treat as initial.
+                $diffablefrom = null;
+            }
             $tohash = $compare['meta']['compare']['to'] ?? ($compare['meta']['compare']['from'] ?? null);
             if (!is_string($tohash) || $tohash === '') {
                 throw new \moodle_exception('errorsyncnohash', 'local_curricmap');
@@ -236,7 +289,7 @@ class sync {
                 return $this->finish($log, $programme, 'noop');
             }
 
-            $log->message = $this->change_report($compare, $log->fromhash);
+            $log->message = $this->change_report($compare, $diffablefrom);
 
             $nodespayload = $this->client->nodes($programme->slug, $programme->versionlabel);
             $metadatapayload = $this->client->metadata($programme->slug, $programme->versionlabel);
