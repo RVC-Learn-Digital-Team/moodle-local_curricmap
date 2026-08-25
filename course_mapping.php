@@ -289,12 +289,17 @@ foreach ($courses as $course) {
     $rows[] = (object) ['course' => $course, 'result' => $result];
 }
 
-// Slug|yearstart -> year-node uuid, for positioning each row's browse panel
-// at the programme year the engine believes (ruled 2026-08-06).
+// Slug|yearstart|yeartitle -> year-node uuid, for positioning a strand
+// proposal's browse panel at its OWNING programme year (ruled 2026-08-06).
+// The year title is part of the key because multi-year-node programmes
+// (vet-nur's Year 1-4, vet-med's Year 1-5/Gateway/GAB) share slug|yearstart:
+// without it the map kept only the last year node, so every browse panel
+// opened at Year 4 whatever the proposal said.
 $browseyearnodes = [];
 foreach ($candidates as $candidate) {
     if ($candidate->yeartitle === null) {
-        $browseyearnodes[$candidate->programme->slug . '|' . $candidate->yearstart] = $candidate->node->uuid;
+        $browsekey = $candidate->programme->slug . '|' . $candidate->yearstart . '|' . $candidate->node->title;
+        $browseyearnodes[$browsekey] = $candidate->node->uuid;
     }
 }
 
@@ -616,8 +621,15 @@ foreach ($rows as $row) {
     // row's select, so Apply reads it through the exact same path.
     $browseroot = '';
     if ($result->best) {
-        $browsekey = $result->best->programme->slug . '|' . $result->best->yearstart;
-        $browseroot = $browseyearnodes[$browsekey] ?? '';
+        if ($result->best->yeartitle === null) {
+            // The proposal IS a year node - open the panel right on it.
+            $browseroot = $result->best->node->uuid;
+        } else {
+            // A strand proposal opens at its owning year node.
+            $browsekey = $result->best->programme->slug . '|' . $result->best->yearstart
+                . '|' . $result->best->yeartitle;
+            $browseroot = $browseyearnodes[$browsekey] ?? '';
+        }
     }
     $browseattrs = ['data-curricmap-browse' => $courseid, 'data-curricmap-root' => $browseroot,
         'data-curricmap-grain' => 'course', 'data-curricmap-pickmode' => 'select'];

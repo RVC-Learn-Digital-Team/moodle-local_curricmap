@@ -16,8 +16,9 @@
 
 /**
  * Moodle Course Mapping for one course, all on one page: every section is
- * listed up front with its current matches, activity/chapter counts and (when
- * the pool is genuinely ambiguous) a strand proposal; each section's activity
+ * listed up front with its current matches, activity/chapter counts and a
+ * strand proposal (even a one-strand pool: WHICH sections teach the strand
+ * is still the decision); each section's activity
  * mapping rows load lazily on demand. Books link to a chapter view (same
  * page, back button) — the only sub-module grain. Multi-select filters bound
  * what is shown; apply buttons repeat every few sections for long courses.
@@ -385,7 +386,7 @@ echo html_writer::div(html_writer::empty_tag('input', ['type' => 'submit', 'valu
     'class' => 'btn btn-secondary']), 'curricmap-filter align-self-end');
 echo html_writer::end_tag('form');
 
-// Section proposal pool: shown only when there is a real choice to make.
+// Section proposal pool.
 // Units belong here beside strands - a unit-level grouping is section-shaped,
 // so a Moodle section may teach one. They are deliberately NOT added to
 // contentmap::TARGET_ROLES, which is the activity/chapter grain and too fine.
@@ -465,9 +466,14 @@ foreach ($sections as $section) {
         );
     }
 
-    // Proposal only when there is genuine ambiguity (pool > 1).
+    // Proposal whenever the pool holds anything. The old pool > 1 gate
+    // ("redundant when the course matched one strand") left strand-matched
+    // courses - the whole modular estate - with tick boxes but NO way to map
+    // a section at all, because hiding the cell also hid the Browse link
+    // (live, 2026-08-19). A one-strand pool is still a real decision: WHICH
+    // sections teach the strand.
     $proposalcell = '';
-    if (count($sectionpool) > 1) {
+    if ($sectionpool) {
         $sectionbrowseroot = $sectionroots[0] ?? ($rootuuids[0] ?? null);
         $proposalcell = contentmap::proposal_cell($key, $hints, $sectionpool, !empty($sectionroots), $sectionbrowseroot);
     }
