@@ -82,6 +82,13 @@ $functions = [
         'ajax' => true,
         'capabilities' => 'local/curricmap:viewstaffmeta',
     ],
+    'local_curricmap_content_hints' => [
+        'classname' => 'local_curricmap\external\content_hints',
+        'description' => 'Scored curriculum hints for content being edited, from the deepest mapping in the cascade.',
+        'type' => 'read',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:viewstaffmeta',
+    ],
     'local_curricmap_list_bindings' => [
         'classname' => 'local_curricmap\external\list_bindings',
         'description' => 'List bindings by course or by node.',
