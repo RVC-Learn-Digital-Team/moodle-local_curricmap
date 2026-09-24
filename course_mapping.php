@@ -48,9 +48,9 @@ $mode = $mode === 'sofia' ? 'sofia' : 'course';
 $search = trim(optional_param('search', '', PARAM_RAW_TRIMMED));
 // Support courses often have no idnumber, so the Sofia-first mode includes them by default.
 $requireid = optional_param('requireid', $mode === 'sofia' ? 0 : 1, PARAM_BOOL);
-$show = optional_param('show', 'matched', PARAM_ALPHA);
-if (!in_array($show, ['matched', 'unmatched', 'existing', 'all'])) {
-    $show = 'matched';
+$show = optional_param('show', 'suggested', PARAM_ALPHA);
+if (!in_array($show, ['suggested', 'matched', 'unmatched', 'skipped', 'all'])) {
+    $show = 'suggested';
 }
 $strands = optional_param('strands', 1, PARAM_BOOL);
 $pre2024 = optional_param('pre2024', 0, PARAM_BOOL);
@@ -63,8 +63,9 @@ $candidates = matcher::candidates($strands);
 $rules = matcher::rules();
 
 // The slug-year filter narrows which nodes are OFFERED (the Sofia node
-// select) AND, since 2026-08-06, which course rows show: the academic year is
-// enforced on every row, the slug on rows carrying a proposal. Blank = all.
+// select) AND which course rows show: the academic year is enforced on every
+// row, and the slug on what the course is MATCHED to, falling back to its
+// proposal when nothing is matched yet. Blank = all.
 $slugyears = [];
 foreach ($candidates as $candidate) {
     $key = $candidate->programme->slug . ':' . $candidate->yearstart;
@@ -167,6 +168,34 @@ function local_curricmap_course_mapping_label(stdClass $candidate): string {
 }
 
 /**
+ * A current match's label: what shows in the column, and the fully
+ * disambiguated version for its tooltip.
+ *
+ * The visible form names the programme the way the proposal dropdown does,
+ * so both columns read alike; the tooltip adds the slug, the node code and
+ * its role for the cases where display names collide.
+ *
+ * @param stdClass $binding Binding row carrying the joined node columns.
+ * @param stdClass|null $programme Owning programme record, null when unknown.
+ * @param string|null $yeartitle Owning year-node title, null at year level.
+ * @return string[] [visible label, tooltip].
+ */
+function local_curricmap_course_mapping_match_label(stdClass $binding, ?stdClass $programme, ?string $yeartitle): array {
+    $slug = $programme ? $programme->slug : '';
+    $name = $programme ? ($programme->displayname ?: $programme->slug) : '';
+    $year = '';
+    if (preg_match('/_(20\d\d)_(\d\d)_/', $binding->nodeuuid, $matches)) {
+        $year = ' (' . $matches[1] . '-' . $matches[2] . ')';
+    }
+    $middle = ($yeartitle !== null && $yeartitle !== '' && $yeartitle !== $binding->title)
+        ? $yeartitle . ' / ' : '';
+    $code = !empty($binding->code) ? ' (' . $binding->code . ')' : '';
+    $visible = ltrim($name . ' / ' . $middle . $binding->title . $year, ' /');
+    $tooltip = ltrim($slug . ' / ' . $middle . $binding->title . $code . ' [' . $binding->role . ']' . $year, ' /');
+    return [$visible, $tooltip];
+}
+
+/**
  * The composed-key prefix (slug_year_yy_) shared by every node of a
  * candidate's programme year.
  *
@@ -198,16 +227,26 @@ function local_curricmap_course_mapping_badge(string $status): string {
 
 // Every non-site course with its category name; visibility filters run in PHP
 // because matching signals (harmonised year, proposals) are parsed, not stored.
-$sql = "SELECT c.id, c.fullname, c.shortname, c.idnumber, cc.name AS categoryname
+$sql = "SELECT c.id, c.fullname, c.shortname, c.idnumber, cc.name AS categoryname, cc.path AS categorypath
           FROM {course} c
      LEFT JOIN {course_categories} cc ON cc.id = c.category
          WHERE c.id <> :siteid
       ORDER BY c.fullname ASC";
 $courses = $DB->get_records_sql($sql, ['siteid' => SITEID]);
 
+// The excludecategories rule matches the TOP of the category tree, so a
+// subcategory cannot escape the area it belongs to. Resolved here because
+// only this page runs the matcher over whole-estate course records.
+$categorynames = $DB->get_records_menu('course_categories', null, '', 'id, name');
+foreach ($courses as $course) {
+    $path = array_filter(array_map('intval', explode('/', (string) $course->categorypath)));
+    $topid = $path ? reset($path) : 0;
+    $course->topcategoryname = $topid ? ($categorynames[$topid] ?? '') : (string) $course->categoryname;
+}
+
 // Existing course-level central matches, one query for the whole estate.
 $currentmatches = [];
-$matchsql = "SELECT b.id, b.courseid, b.nodeuuid, n.title, n.code, n.role, n.path
+$matchsql = "SELECT b.id, b.courseid, b.nodeuuid, n.title, n.code, n.role, n.path, n.programmeid
                FROM {local_curricmap_binding} b
           LEFT JOIN {local_curricmap_node} n ON n.uuid = b.nodeuuid
               WHERE b.relation = :relation AND b.scope = :scope AND b.status = :status
@@ -218,24 +257,21 @@ foreach ($DB->get_records_sql($matchsql, $matchparams) as $binding) {
     $currentmatches[(int) $binding->courseid][] = $binding;
 }
 
-// A course whose existing central match already sits INSIDE the proposal's
-// programme year (the year node or any of its strands — composed keys share
-// the slug_year_yy_ prefix) is DECIDED: an admin may have refined the
-// engine's proposal to the right strand, and keeping the proposal alive
-// invites binding the whole year on top by mistake.
-$decided = function (stdClass $row) use ($currentmatches): bool {
-    $proposal = $row->result->best ?? ($row->result->suggestions[0]->candidate ?? null);
-    if (!$proposal) {
-        return false;
-    }
-    $prefix = local_curricmap_course_mapping_prefix($proposal);
-    foreach ($currentmatches[(int) $row->course->id] ?? [] as $binding) {
-        if (strpos($binding->nodeuuid, $prefix) === 0) {
-            return true;
+// Programme and owning-year context for the Current matches column: on its
+// own "Year 2 - 2024" names neither the programme nor the full academic year
+// (Brian, 2026-09-24). Resolved once for the whole estate.
+$programmes = $DB->get_records('local_curricmap_programme');
+$matchnodes = [];
+foreach ($currentmatches as $bindings) {
+    foreach ($bindings as $binding) {
+        if ($binding->title !== null) {
+            $matchnodes[$binding->nodeuuid] = (object) ['uuid' => $binding->nodeuuid,
+                'title' => $binding->title, 'code' => $binding->code,
+                'role' => $binding->role, 'path' => $binding->path];
         }
     }
-    return false;
-};
+}
+$matchyeartitles = $matchnodes ? contentmap::year_titles(array_values($matchnodes)) : [];
 
 // Search terms: a year-shaped token filters by harmonised year, the rest are
 // keywords that must all appear in name, idnumber or category.
@@ -281,9 +317,25 @@ foreach ($courses as $course) {
         if ($result->year !== $slugyearstart) {
             continue;
         }
-        $proposal = $result->best ?? ($result->suggestions[0]->candidate ?? null);
-        if ($proposal && $proposal->programme->slug !== $slugyearslug) {
-            continue;
+        // What a course is MATCHED to outranks what the engine proposes: a
+        // 1VETS course matched to vet-med must not surface under a bio-sc
+        // filter merely because it carries no proposal (Brian, 2026-09-24).
+        $bound = $currentmatches[(int) $course->id] ?? [];
+        if ($bound) {
+            $inslug = false;
+            foreach ($bound as $binding) {
+                if (strpos($binding->nodeuuid, $slugyearslug . '_') === 0) {
+                    $inslug = true;
+                }
+            }
+            if (!$inslug) {
+                continue;
+            }
+        } else {
+            $proposal = $result->best ?? ($result->suggestions[0]->candidate ?? null);
+            if ($proposal && $proposal->programme->slug !== $slugyearslug) {
+                continue;
+            }
         }
     }
     $rows[] = (object) ['course' => $course, 'result' => $result];
@@ -303,22 +355,24 @@ foreach ($candidates as $candidate) {
     }
 }
 
-$showcounts = ['matched' => 0, 'unmatched' => 0, 'existing' => 0, 'skipped' => 0, 'all' => 0];
+$showcounts = ['suggested' => 0, 'matched' => 0, 'unmatched' => 0, 'skipped' => 0, 'all' => 0];
 if ($mode === 'course') {
     // Every course sits in exactly ONE band, so the Show counts add up to
-    // "all courses" (ruled 2026-08-06): matched = actionable proposal
-    // (including one that conflicts with an existing match elsewhere);
-    // unmatched = no proposal, no match; already matched = the rest that
-    // carry a current match; skipped = skip status, whatever else is true.
-    $band = function ($row) use ($currentmatches, $decided) {
+    // "all courses". MATCHED means a match the user selected (Brian,
+    // 2026-09-24) - it wins over every other band, including a skip pattern,
+    // because a deliberate decision must stay visible, and a proposal that
+    // disagrees with it never drags the course back into the working queue.
+    // suggested = the engine proposes something and nothing is matched yet;
+    // unmatched = no proposal and no match; skipped = a skip rule fired.
+    $band = function ($row) use ($currentmatches) {
+        if (!empty($currentmatches[(int) $row->course->id])) {
+            return 'matched';
+        }
         if ($row->result->status === matcher::STATUS_SKIPPED) {
             return 'skipped';
         }
-        if (in_array($row->result->status, [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST])
-                && !$decided($row)) {
-            return 'matched';
-        }
-        return empty($currentmatches[(int) $row->course->id]) ? 'unmatched' : 'existing';
+        $proposed = [matcher::STATUS_MATCH, matcher::STATUS_SUGGEST];
+        return in_array($row->result->status, $proposed) ? 'suggested' : 'unmatched';
     };
     foreach ($rows as $row) {
         $showcounts['all']++;
@@ -330,8 +384,8 @@ if ($mode === 'course') {
     // current band is empty, and to the one non-empty band when there is
     // exactly one ('all' when the hits span several bands).
     if ($search !== '' && $show !== 'all' && ($showcounts[$show] ?? 0) === 0 && $showcounts['all'] > 0) {
-        $bandcounts = array_intersect_key($showcounts,
-            array_flip(['matched', 'unmatched', 'existing', 'skipped']));
+        $bandkeys = array_flip(['suggested', 'matched', 'unmatched', 'skipped']);
+        $bandcounts = array_intersect_key($showcounts, $bandkeys);
         $nonempty = array_keys(array_filter($bandcounts));
         $show = count($nonempty) === 1 ? $nonempty[0] : 'all';
     }
@@ -450,9 +504,9 @@ echo html_writer::select($slugyearoptions, 'slugyear', $slugyear, false, $slugye
 
 if ($mode === 'course') {
     $showoptions = [
+        'suggested' => get_string('coursemapping_show_suggested', 'local_curricmap', $showcounts['suggested']),
         'matched' => get_string('coursemapping_show_matched', 'local_curricmap', $showcounts['matched']),
         'unmatched' => get_string('coursemapping_show_unmatched', 'local_curricmap', $showcounts['unmatched']),
-        'existing' => get_string('coursemapping_show_existing', 'local_curricmap', $showcounts['existing']),
         'skipped' => get_string('coursemapping_show_skipped', 'local_curricmap', $showcounts['skipped']),
         'all' => get_string('coursemapping_show_all', 'local_curricmap', $showcounts['all']),
     ];
@@ -530,18 +584,16 @@ foreach ($rows as $row) {
     foreach ($currentmatches[$courseid] ?? [] as $binding) {
         $removeurl = new moodle_url($pageurl, ['unbind' => $binding->id, 'sesskey' => sesskey()]);
         $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
-        $year = preg_match('/_(20\d\d)_\d\d_/', $binding->nodeuuid, $matches) ? ' - ' . $matches[1] : '';
-        // Academic year AND year of study both matter: the composed key carries
-        // the academic year, but titles also repeat ACROSS the years of one
-        // programme (two "Animal Husbandry", three "Principles of Science"), so
-        // without the owning year node two matches look identical.
+        // Programme, year of study, strand and academic year all matter:
+        // titles repeat ACROSS the years of one programme (two "Animal
+        // Husbandry", three "Principles of Science") and across programmes,
+        // so a bare "Year 2 - 2024" identifies nothing. Compact on the page,
+        // fully disambiguated (slug, code, role) on hover.
         if ($binding->title !== null) {
-            $node = (object) ['uuid' => $binding->nodeuuid, 'title' => $binding->title,
-                'code' => $binding->code, 'role' => $binding->role, 'path' => $binding->path];
-            $full = contentmap::label($node, contentmap::year_titles([$node])[$node->uuid] ?? null);
-            // Compact on the page, complete on hover - the full disambiguated
-            // label (code, role, owning year node) rides in the tooltip.
-            $label = html_writer::tag('span', s($binding->title . $year), ['title' => s($full)]);
+            $programme = $programmes[$binding->programmeid] ?? null;
+            $yeartitle = $matchyeartitles[$binding->nodeuuid] ?? null;
+            $labels = local_curricmap_course_mapping_match_label($binding, $programme, $yeartitle);
+            $label = html_writer::tag('span', s($labels[0]), ['title' => s($labels[1])]);
         } else {
             $label = s($binding->nodeuuid);
         }
@@ -574,12 +626,12 @@ foreach ($rows as $row) {
         continue;
     }
 
-    // Course mode. A decided course (already matched within the proposed
-    // programme year) gets no tick and no dropdown: a strand-matched course
+    // Course mode. A course the user has already matched gets no tick and no
+    // dropdown - delete-and-redo is the correction path: a strand-matched course
     // IS a strand course, a year-matched course maps its strands on the
     // Moodle Course Mapping page, and NOTHING here changes either —
     // extra mappings belong on the course's Add Additional Mappings page.
-    if ($decided($row)) {
+    if (!empty($currentmatches[$courseid])) {
         $donelabel = get_string('coursemapping_alreadymatched', 'local_curricmap');
         $donecell = html_writer::tag('span', $donelabel, ['class' => 'badge badge-secondary']);
         $table->data[] = ['', $coursecell, $yearcell, $currentcell, $donecell];

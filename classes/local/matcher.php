@@ -73,17 +73,59 @@ class matcher {
             // AVN + RVC_MS* (masters hubs), PG* (PGT/PGR/PGCERT/PGDIP),
             // OH-* (MSc One Health modules), bare level-7 module codes
             // (7101_VE_Y_202526-style — level 7 = masters).
-            // DELETED_MATERIAL (2026-08-06): archived-content copies, e.g.
-            // RVC_BVETMED1_2024_5_DELETED_MATERIAL, seen proposed on live.
-            'skip' => ['^Temp_', 'shell', '^catalyst_', '^AVN', '^RVC_MS', '^PG', '^OH-', '^7\d{3}',
-                'DELETED_MATERIAL'],
+            // Archived-content copies (*_DELETED_MATERIAL) are deliberately
+            // NOT skipped (Brian, 2026-09-24): they stay visible and matchable.
+            'skip' => ['^Temp_', 'shell', '^catalyst_', '^AVN', '^RVC_MS', '^PG', '^OH-', '^7\d{3}'],
             'minscore' => 2,
             'mincontainment' => 0.6,
             // Body-text hints (secondary signal): stricter threshold because
             // long content matches more easily, and candidates need at least
             // this many significant title words to qualify at all.
             'bodymincontainment' => 0.75,
-            'bodyminwords' => 2,
+            'bodyminwords' => 3,
+            // A body matching many candidates is describing a whole week, not
+            // one session ("Week N (commencing ...)" guidance pages matched
+            // 10-33 candidates in the external mapper): above this the body
+            // signal carries no information and is dropped entirely.
+            'bodymaxmatches' => 3,
+            // Words common to teaching titles everywhere. They still count
+            // toward containment, but cannot carry a hint on their own -
+            // without this, "Formative assessment" matched every assessment.
+            'genericwords' => [
+                'assessment', 'assessments', 'formative', 'summative', 'introduction',
+                'intro', 'overview', 'session', 'sessions', 'lecture', 'lectures',
+                'practical', 'practicals', 'seminar', 'tutorial', 'workshop', 'revision',
+                'week', 'weekly', 'unit', 'module', 'course', 'study', 'learning',
+                'teaching', 'skills', 'principles', 'general', 'directed', 'independent',
+                'activity', 'activities', 'resources', 'material', 'materials', 'notes',
+            ],
+            // Course FULLNAME patterns. Backup and archived copies usually
+            // carry no idnumber, so the idnumber 'skip' list never sees them
+            // (19 such courses measured on learn-uat, 2026-07-22).
+            'skipnames' => ['do not use', 'deleted content', '\bbackup\b'],
+            // TOP-LEVEL category names that are out of Sofia's scope. Empty by
+            // default: populate per site rather than guessing (no silent
+            // filters), e.g. a postgraduate-only category tree.
+            'excludecategories' => [],
+            // Session-type prefixes Sofia puts in front of titles ("DL: ",
+            // "[QUIZ] "). 39% of session titles carry one, and they are
+            // formatting, not subject matter: strip them before scoring
+            // rather than letting them dilute containment.
+            // Measured on the live mirror 2026-09-24: 6,761 of 16,169 session
+            // titles (42%) open with a marker. These are the unambiguous
+            // delivery modes. Abbreviations whose meaning is site-specific
+            // (ppa, vcc, cal) and any that double as a synonym key (cs, rs,
+            // cvs name strands) are deliberately absent - add them per site
+            // once confirmed, never guess a subject away.
+            'typetokens' => [
+                'dl', 'dli', 'sdl', 'digital dl', 'ebl', 'cbl', 'pbl', 'quiz',
+                'lecture', 'digital lecture', 'lecture recording', 'practical',
+                'seminar', 'digital seminar', 'tutorial', 'workshop', 'discussion',
+                'directed learning', 'self-directed learning', 'independent learning',
+                'directed reading', 'digital learning interaction', 'journal club',
+                'clinical scenario', 'clinical scenario summary', 'live session',
+                'feedback', 'feedback session',
+            ],
             // Patterns are unanchored regexes over section names — anchor
             // anything that could hide inside a real teaching title
             // ("General" must never swallow "General Pathology").
@@ -127,6 +169,12 @@ class matcher {
                 ['pattern' => 'BVETMEDGA|GRADUATE ACCELERATED|\\bGAB\\b', 'slug' => 'vet-med',
                     'node' => 'accelerated|\\bGAB\\b'],
                 ['pattern' => 'GATEWAY', 'slug' => 'vet-med', 'node' => 'gateway'],
+                // The BVetMed Year 1 2026-27 strand-course estate (1VETS01
+                // Alimentary, 1VETS04 Locomotor, ...) plus the year hub
+                // 1VET1E: the leading digit IS the year of study. Without
+                // this they fell through to plain token overlap, which also
+                // leaked them into other programmes' filters (2026-09-24).
+                ['pattern' => '^(?<n>[1-5])VET', 'slug' => 'vet-med', 'node' => 'year\s*{n}'],
                 ['pattern' => 'BVETMED(?<n>[1-5])|UBVETMD|BVETMED', 'slug' => 'vet-med', 'node' => 'year\\s*{n}'],
                 ['pattern' => 'FD_BSC_VN(?<n>[1-4])|UBVETNR_(?<n2>[1-4])', 'slug' => 'vet-nur', 'node' => 'year\\s*{n}'],
                 ['pattern' => 'VN(?<n>[1-4])\\d{3}', 'slug' => 'vet-nur', 'node' => 'year\\s*{n}'],
@@ -218,7 +266,13 @@ class matcher {
      * @return string[] Unique tokens.
      */
     public static function tokens(string ...$texts): array {
-        $joined = \core_text::strtolower(self::normalise(implode(' ', $texts)));
+        // Decode first: names arrive HTML-escaped, so "Q&amp;A" would
+        // otherwise contribute the phantom token "amp" to every score.
+        $decoded = html_entity_decode(implode(' ', $texts), ENT_QUOTES | ENT_HTML5);
+        $joined = \core_text::strtolower(self::normalise($decoded));
+        // Q&A / Q and A / Q & A name the same thing: collapse to one token
+        // before the split strips the punctuation that distinguishes it.
+        $joined = preg_replace('/\bq\s*(?:&|and)\s*a\b/', 'qanda', $joined);
         $words = preg_split('/[^a-z0-9]+/', $joined, -1, PREG_SPLIT_NO_EMPTY);
         $words = array_filter($words, fn($word) => !preg_match('/^(20\d\d(\d\d)?|\d\d)$/', $word));
         return array_values(array_unique($words));
@@ -240,7 +294,9 @@ class matcher {
     public static function match_body(string $bodytext, array $candidates, ?array $rules = null): array {
         $rules = $rules ?? self::rules();
         $threshold = (float) ($rules['bodymincontainment'] ?? 0.75);
-        $minwords = (int) ($rules['bodyminwords'] ?? 2);
+        $minwords = (int) ($rules['bodyminwords'] ?? 3);
+        $maxmatches = (int) ($rules['bodymaxmatches'] ?? 3);
+        $generic = $rules['genericwords'] ?? [];
         $bodytokens = self::expand_tokens(self::tokens($bodytext), $rules);
         if (!$bodytokens) {
             return [];
@@ -252,10 +308,21 @@ class matcher {
             if (count($words) < $minwords) {
                 continue;
             }
-            $score = count(array_intersect($words, $bodytokens)) / count($words);
+            $matched = self::matched_words($words, $bodytokens, $rules);
+            // Prose shares generic words with everything: a body hint needs
+            // at least two words of real substance in common.
+            if (count(array_diff($matched, $generic)) < 2) {
+                continue;
+            }
+            $score = count($matched) / count($words);
             if ($score >= $threshold) {
                 $scored[] = (object) ['candidate' => $candidate, 'score' => $score, 'frombody' => true];
             }
+        }
+        // Matching many candidates means the text describes a whole week
+        // rather than any one of them - no signal, so offer nothing.
+        if (count($scored) > $maxmatches) {
+            return [];
         }
         usort($scored, fn($a, $b) => $b->score <=> $a->score);
         return array_slice($scored, 0, self::MAX_SUGGESTIONS);
@@ -329,7 +396,8 @@ class matcher {
      * @param string[]|null $roles Roles to include, null for all.
      * @return \stdClass[] Each with node and tokens.
      */
-    public static function content_candidates(array $rootuuids, ?array $roles = null): array {
+    public static function content_candidates(array $rootuuids, ?array $roles = null, bool $includeroots = false): array {
+        $rules = self::rules();
         $out = [];
         $seen = [];
         foreach ($rootuuids as $rootuuid) {
@@ -337,17 +405,73 @@ class matcher {
                 if (isset($seen[$node->uuid])) {
                     continue;
                 }
-                if ($roles !== null && !in_array($node->role, $roles)) {
+                // The root ITSELF passes the role filter when asked: a
+                // strand-spine book teaches its own strand, but 'strand' is
+                // not a content role, so otherwise the pool can never offer
+                // the very node the course is matched to.
+                $isroot = $includeroots && $node->uuid === $rootuuid;
+                if (!$isroot && $roles !== null && !in_array($node->role, $roles)) {
                     continue;
                 }
                 $seen[$node->uuid] = true;
                 $out[] = (object) [
                     'node' => $node,
-                    'tokens' => self::tokens((string) $node->title),
+                    'tokens' => self::tokens(self::strip_types((string) $node->title, $rules)),
                 ];
             }
         }
         return $out;
+    }
+
+    /**
+     * The candidate words present in a set of text tokens, with synonyms
+     * firing in BOTH directions: the text may carry the abbreviation and the
+     * node the full phrase ("CVRS" vs "Cardiovascular & Respiratory"), or the
+     * other way round. The candidate's own words stay the denominator, so an
+     * expansion can never dilute its containment.
+     *
+     * @param string[] $words Candidate title words, stopwords already dropped.
+     * @param string[] $texttokens Tokens of the name or body, synonyms expanded.
+     * @param array $rules Active rule set.
+     * @return string[] The matched candidate words.
+     */
+    public static function matched_words(array $words, array $texttokens, array $rules): array {
+        $matched = array_values(array_intersect($words, $texttokens));
+        foreach (array_diff($words, $matched) as $word) {
+            if (!isset($rules['synonyms'][$word])) {
+                continue;
+            }
+            $expansion = explode(' ', (string) $rules['synonyms'][$word]);
+            if (!array_diff($expansion, $texttokens)) {
+                $matched[] = $word;
+            }
+        }
+        return $matched;
+    }
+
+    /**
+     * Strip a leading session-type marker ("DL: ", "[QUIZ] ") from a title.
+     *
+     * The type is formatting, not subject matter: 39% of Sofia session titles
+     * carry one, and leaving it in dilutes containment against a Moodle name
+     * that spells the same teaching without the prefix. Only a LEADING marker
+     * is removed, so a colon inside a real title survives.
+     *
+     * @param string $title Node or module title.
+     * @param array|null $rules Rule set, null for the active one.
+     * @return string
+     */
+    public static function strip_types(string $title, ?array $rules = null): string {
+        $rules = $rules ?? self::rules();
+        $text = trim($title);
+        $text = trim(preg_replace('/^\s*\[[^\]]*\]\s*/', '', $text));
+        foreach ($rules['typetokens'] ?? [] as $type) {
+            $pattern = '/^' . preg_quote((string) $type, '/') . '\s*:\s*/i';
+            if (preg_match($pattern, $text)) {
+                return trim(preg_replace($pattern, '', $text));
+            }
+        }
+        return $text;
     }
 
     /**
@@ -364,7 +488,9 @@ class matcher {
      */
     public static function match_title(string $name, array $candidates, ?array $rules = null): array {
         $rules = $rules ?? self::rules();
-        $nametokens = self::expand_tokens(self::tokens($name), $rules);
+        $nametokens = self::expand_tokens(self::tokens(self::strip_types($name, $rules)), $rules);
+        $generic = $rules['genericwords'] ?? [];
+        $namewords = array_diff($nametokens, self::STOPWORDS);
 
         $scored = [];
         foreach ($candidates as $candidate) {
@@ -372,9 +498,17 @@ class matcher {
             if (!$words) {
                 continue;
             }
-            $score = count(array_intersect($words, $nametokens)) / count($words);
+            $matched = self::matched_words($words, $nametokens, $rules);
+            // Generic words count toward containment but can never carry a
+            // hint alone: one shared "assessment" is not evidence.
+            if (!$matched || !array_diff($matched, $generic)) {
+                continue;
+            }
+            $score = count($matched) / count($words);
             if ($score >= (float) $rules['mincontainment']) {
-                $scored[] = (object) ['candidate' => $candidate, 'score' => $score];
+                $namecoverage = $namewords ? count($matched) / count($namewords) : 0.0;
+                $scored[] = (object) ['candidate' => $candidate, 'score' => $score,
+                    'namecoverage' => $namecoverage];
             }
         }
         usort($scored, fn($a, $b) => $b->score <=> $a->score);
@@ -426,6 +560,29 @@ class matcher {
             if (preg_match('/' . $pattern . '/i', $idnumber)) {
                 $result->status = self::STATUS_SKIPPED;
                 $result->note = 'skip pattern: ' . $pattern;
+                return $result;
+            }
+        }
+
+        // Backup and archived copies usually carry NO idnumber, so the
+        // idnumber skip list above never sees them - match the fullname too.
+        $fullname = self::normalise((string) ($course->fullname ?? ''));
+        foreach ($rules['skipnames'] ?? [] as $pattern) {
+            if (preg_match('/' . $pattern . '/i', $fullname)) {
+                $result->status = self::STATUS_SKIPPED;
+                $result->note = 'skip name pattern: ' . $pattern;
+                return $result;
+            }
+        }
+        // Whole category trees can be out of Sofia's scope. Matched against
+        // the TOP-LEVEL category (the caller resolves it), never the
+        // immediate one, so a subcategory cannot escape its tree. Empty by
+        // default - nothing is excluded until a site says so.
+        $topcategory = self::normalise((string) ($course->topcategoryname ?? ''));
+        foreach ($rules['excludecategories'] ?? [] as $pattern) {
+            if ($topcategory !== '' && preg_match('/' . $pattern . '/i', $topcategory)) {
+                $result->status = self::STATUS_SKIPPED;
+                $result->note = 'excluded category: ' . $topcategory;
                 return $result;
             }
         }
