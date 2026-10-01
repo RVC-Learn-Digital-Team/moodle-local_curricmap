@@ -240,7 +240,7 @@ if ($bookcm && isset($modinfo->cms[$bookcm]) && $modinfo->cms[$bookcm]->modname 
     $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[(int) $cm->section] ?? []);
     $sectionroots = array_values(array_unique(array_merge($sectionroots, $pendingroots)));
     $poolroots = $ownroots ?: ($sectionroots ?: $rootuuids);
-    $rawpool = matcher::content_candidates($poolroots, contentmap::TARGET_ROLES);
+    $rawpool = matcher::content_candidates($poolroots, contentmap::TARGET_ROLES, true);
     $chapterpool = contentmap::filter_pool($rawpool, $nodetypesfilter);
     $narrowed = !empty($ownroots) || !empty($sectionroots);
 
@@ -341,7 +341,7 @@ foreach ($modinfo->get_instances_of('subsection') as $instanceid => $subcm) {
     }
 }
 
-$fullpool = matcher::content_candidates($rootuuids, contentmap::TARGET_ROLES);
+$fullpool = matcher::content_candidates($rootuuids, contentmap::TARGET_ROLES, true);
 $formurl = new moodle_url('/local/curricmap/section_module_mapping.php');
 echo html_writer::start_tag('form', ['method' => 'get', 'action' => $formurl->out_omit_querystring(),
     'class' => 'local-curricmap-filterform d-flex flex-wrap mb-3', 'style' => 'gap: 12px;']);
@@ -462,7 +462,10 @@ foreach ($sections as $section) {
         $sectionpool = array_merge($strandpool, contentmap::filter_pool($deepened, $nodetypesfilter));
     }
     $housekeeping = matcher::is_housekeeping($sectionname, $rules);
-    $hints = $housekeeping ? [] : matcher::match_title($matchname, $sectionpool, $rules);
+    $sectionbody = $housekeeping ? '' : contentmap::section_body_text($course, $section);
+    $hints = $housekeeping
+        ? []
+        : contentmap::merged_hints($matchname, $sectionbody, $sectionpool, $rules);
     $key = 's' . $sid;
 
     // Link to the real content so the mapper can SEE it - always a new tab

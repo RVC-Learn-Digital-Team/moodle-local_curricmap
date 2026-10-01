@@ -324,6 +324,34 @@ class contentmap {
     }
 
     /**
+     * A section's own prose: its summary plus the text of any LABEL modules
+     * in it.
+     *
+     * The vet-nur weekly estate names day subsections "Monday", "Tuesday",
+     * ... and puts the actual teaching in a label inside them, so the section
+     * NAME carries no signal at all. Only labels are read: including every
+     * module's body would make a section match everything it contains.
+     *
+     * @param \stdClass $course Course record.
+     * @param \section_info $section Section info.
+     * @return string Plain text, capped like module body text.
+     */
+    public static function section_body_text(\stdClass $course, \section_info $section): string {
+        $modinfo = get_fast_modinfo($course);
+        $parts = [];
+        if (!empty($section->summary)) {
+            $parts[] = content_to_text((string) $section->summary, FORMAT_HTML);
+        }
+        foreach ($modinfo->sections[(int) $section->section] ?? [] as $cmid) {
+            $cm = $modinfo->cms[$cmid];
+            if ($cm->modname === 'label') {
+                $parts[] = self::body_text($cm);
+            }
+        }
+        return \core_text::substr(trim(implode(' ', $parts)), 0, self::BODY_CAP);
+    }
+
+    /**
      * Title hints first, then body-text hints for nodes the title missed —
      * the two-signal proposal list. Body hints keep their frombody flag so
      * the picker can mark them.
@@ -383,8 +411,13 @@ class contentmap {
             $node = $hint->candidate->node;
             $percent = (int) round($hint->score * 100);
             $tag = empty($hint->frombody) ? '' : ' ' . get_string('contentmapping_bodyhint', 'local_curricmap');
+            // Containment / name coverage: how much of the NODE title the
+            // name carries, then how much of the NAME the node accounts for.
+            // A short node title inside a long name scores 100% on its own.
+            $coverage = isset($hint->namecoverage)
+                ? '/' . (int) round($hint->namecoverage * 100) . '%' : '';
             $options[$node->uuid] = self::label($node, $yeartitles[$node->uuid] ?? null)
-                . ' [' . $percent . '%' . $tag . ']';
+                . ' [' . $percent . '%' . $coverage . $tag . ']';
         }
         if (!$capped) {
             foreach ($pool as $candidate) {
@@ -716,7 +749,7 @@ class contentmap {
         $sectionroots = array_map(fn($b) => $b->nodeuuid, $bysection[$sectionid] ?? []);
         $roots = array_values(array_unique(array_merge($sectionroots, $pendingroots)));
         $narrowed = !empty($roots);
-        $modulepool = matcher::content_candidates($roots ?: $rootuuids, self::TARGET_ROLES);
+        $modulepool = matcher::content_candidates($roots ?: $rootuuids, self::TARGET_ROLES, true);
         $modulepool = self::filter_pool($modulepool, $nodetypes);
 
         // Resource counts for the bound nodes shown in these rows.

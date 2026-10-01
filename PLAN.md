@@ -932,6 +932,141 @@ into match_title — Moodle 4.5 subsection courses previously rendered context-f
       Review the live/learn-uat mappablemodtypes value; consider whether label
       belongs in the default list once label body matching exists.
 
+### Next development cycle — agreed 2026-09-24 (SHIPPED in v0.35.0 except where noted)
+
+Scope (Brian): the `show=skipped` bug, vet-nur subsection labels, a UX pass on
+course_mapping.php, and a matching-quality batch. OUT of scope: changing any
+external matching system (the python experiment stays as it is) and rollover.
+This section SUPERSEDES the overlapping entries in "Matcher lessons from the
+external mapper" and "Content-mapping follow-ups" below; those stay as the
+evidence trail.
+
+**Bug**
+
+- [x] `show=skipped` is unreachable: course_mapping.php validates `show`
+      against matched/unmatched/existing/all, but the dropdown offers
+      "Show: skipped (N)" and the band logic counts it, so choosing it
+      silently falls back to "matched". One-line fix.
+
+**Matching quality.** New rule keys are inherited automatically by sites with
+saved settings (matcher::rules() unions the saved JSON with default_rules()),
+but CHANGED values of keys already saved need resetrules.php or a hand-edit.
+
+- [x] Body-match guards — prerequisite for the subsection work below:
+      `bodymaxmatches` (3), `bodyminwords` 2 -> 3, and require 2 non-generic
+      matched words. The plugin reads FULL chapter content, so it is exposed
+      today; "Week N (commencing ...)" pages matched 10-33 candidates in the
+      external mapper.
+- [x] `genericwords` rule key: generic words count toward containment but
+      cannot carry a hint on their own.
+- [x] `skipnames` (fullname regexes: do not use / deleted content / backup):
+      backup courses carry no idnumber, so the idnumber `skip` list never
+      sees them — 19 such courses on learn-uat.
+- [x] `excludecategories` against the TOP-LEVEL category name: Sofia is
+      undergraduate-only.
+- [x] `qanda`: Q&A / Q and A / Q &amp; A collapse to one token.
+- [x] Bidirectional synonym firing in match_title (CVRS -> Cardiovascular &
+      Respiratory fires one way only today).
+- [x] Activity/chapter pools must include the STRAND itself:
+      contentmap::TARGET_ROLES excludes 'strand', so a strand-spine book can
+      never match its own strand on section_module_mapping.php. Already fixed
+      in the content_hints ws for the tiny editor; the admin page still has
+      the gap.
+- [x] `typetokens`: split DL:/DLI:/Practical:/[QUIZ] prefixes into a separate
+      field rather than scoring or discarding them — 39% of Sofia session
+      titles carry a type prefix.
+- [x] Report name-coverage beside containment in hints (0.67/0.5).
+- [x] NEW (found 2026-09-24): the `1VETS*` strand-course estate has NO alias
+      rule — there is no VETS pattern in matcher.php — so the whole BVetMed
+      Year 1 2026-27 strand set gets no deterministic programme resolution and
+      falls through to plain token overlap. The external mapper uses
+      `^([1-5])VET` -> vet-med year n. This is also the root cause of the
+      bio-sc filter leak recorded below.
+
+**Subsection labels (vet-nur weekly estate)**
+
+- [x] Section-grain BODY-TEXT matching: a day subsection's only module is
+      usually a LABEL whose text lists that day's teaching, but section rows
+      score on names only (section_module_mapping.php calls match_title, while
+      activities and chapters call merged_hints). Feed the section's label
+      text into match_body so those rows become matchable. Ship WITH the body
+      guards above — this is exactly the case that over-matched in the
+      external mapper.
+
+**course_mapping.php UX**
+
+- [x] Current matches column is uninformative (Brian, 2026-09-24): for
+      RVC_FD_BSC_VN2_2024_5 it shows "Year 2 - 2024", tooltip
+      "Year 2 (y2) [year] - 2024". Neither carries the programme, so nothing
+      says vet-nur / nursing, and the academic year reads "2024" while the
+      Year column on the same row says "2024-25". Add the programme and use
+      the full academic year. NOTE: reverses the v0.11.5 choice to leave the
+      slug off.
+- [x] Slug-year filter leaks across programmes (Brian, 2026-09-24): selecting
+      bio-sc 2026-27 correctly lists the three BioScience hubs but ALSO lists
+      1VETS* courses (matched to vet-med 2026-27) under "already matched".
+      Cause: the filter tests only the PROPOSAL's slug, and skips that test
+      entirely when there is no proposal; it never looks at what the course is
+      already MATCHED to. Fix: for rows carrying a current match, filter on
+      the match's slug.
+- [x] General pass over search and the filter set: confirm every filter and
+      the search box do what they claim, alone and in combination, in both
+      modes.
+- [ ] Pending-only band ("unmapped matched": a proposal exists AND there is no
+      current match) so the working view empties as matches are applied.
+- [ ] Cross-navigation between the plugin's admin pages — status.php and
+      coverage.php have no sibling links at all.
+
+
+**Built and verified 2026-09-24 (v0.35.0).** Rulings taken during the build:
+
+- BANDS: "matched" means a match the USER selected (Brian) - it now wins over
+  every other band, including a skip rule, and a disagreeing proposal never
+  drags a course back into the working queue. Engine proposals are their own
+  band, "suggested", which is the page's new default view. The `existing`
+  band and its string are gone.
+- A course carrying any current match is read-only on this page (no tick, no
+  dropdown): delete-and-redo, as the page header has always said. Previously
+  a course matched OUTSIDE its proposed programme year still offered a
+  dropdown.
+- `*_DELETED_MATERIAL` is NOT skipped (Brian): the shipped default no longer
+  carries that pattern, so code and the live setting agree again.
+- `excludecategories` ships EMPTY. The mechanism matches the TOP-LEVEL
+  category name (course_mapping.php resolves it from the category path); the
+  site's own list still has to be supplied - guessing category names would be
+  a silent filter.
+- `typetokens` was rebuilt from evidence, not memory: 6,761 of 16,169 live
+  session titles (42%) open with a marker. Top markers dl 1192, practical
+  815, sdl 761, dli 691, seminar 488. Deliberately EXCLUDED: `cs`, `rs`,
+  `cvs` (they double as strand synonym keys) and site-specific abbreviations
+  (`ppa`, `vcc`, `cal`) whose meaning is unconfirmed.
+- `bodyminwords` 3 means a node whose title has only TWO significant words
+  can no longer be proposed from prose alone. Title matching for those nodes
+  is unaffected. This is the intended guard, not a regression.
+- `skipnames` uses an unanchored `\bbackup\b`, so a course legitimately
+  named "Backup ..." is skipped. Proven pattern from the external mapper;
+  revisit if a real course is ever caught.
+
+Regression sweep over all 76 playground courses (old matcher vs new): 26
+changed, every one a `1VETS*`/`1VET1E` course moving from `suggest` with no
+proposal to `match` on the right strand. match 43 -> 69, suggest 30 -> 4,
+nothing newly skipped and nothing lost.
+
+Still open from this cycle:
+
+- [ ] Cross-navigation between the plugin's five admin pages - status.php and
+      coverage.php still have no sibling links. Awaiting Brian's yes/no; the
+      rest of the cycle shipped without it.
+- [ ] The pending-only band is NOT needed: the banding ruling above achieves
+      what the 2026-07-11 note asked for. Revisit only if conflicts (a course
+      matched one place while the engine proposes another) turn out to need
+      their own view.
+
+**Deferred from this cycle by agreement**: year-of-study as a hard constraint,
+modality priors, outcome-to-body matching at scale, course-structure positional
+matching, two-way adversarial confirmation, grouping delegated sections under
+their parent row, grouplabel/unit filtering.
+
 ### M10 — Hardening (pre-pilot)
 
 - [ ] Webhook receiver (HMAC-signed, event_at dedupe) queuing adhoc sync

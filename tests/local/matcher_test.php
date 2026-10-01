@@ -426,4 +426,184 @@ final class matcher_test extends \advanced_testcase {
         $this->assertSame(3, $rules['minscore']);
         $this->assertNotEmpty($rules['aliases']);
     }
+
+    /**
+     * Names arrive HTML-escaped, and Q&A is one thing however it is spelled.
+     */
+    public function test_tokens_decode_entities_and_collapse_qanda(): void {
+        $tokens = matcher::tokens('Q&amp;A session on Bone');
+        $this->assertContains('qanda', $tokens);
+        $this->assertNotContains('amp', $tokens);
+        $this->assertContains('qanda', matcher::tokens('Q and A review'));
+        $this->assertContains('qanda', matcher::tokens('Q & A review'));
+    }
+
+    /**
+     * A leading delivery-mode marker is formatting, not subject matter: it is
+     * stripped from both sides before scoring, so a Moodle name that omits it
+     * still reaches its session. Measured 2026-09-24: 42% of live session
+     * titles carry one.
+     */
+    public function test_type_prefixes_are_stripped_before_scoring(): void {
+        $rules = matcher::default_rules();
+        $this->assertSame('Bone and the Skeleton', matcher::strip_types('DL: Bone and the Skeleton', $rules));
+        $this->assertSame('Week 3 test', matcher::strip_types('[QUIZ] Week 3 test', $rules));
+        $this->assertSame('OSCE practice', matcher::strip_types('Practical: OSCE practice', $rules));
+        // A colon inside a real title is not a marker.
+        $this->assertSame('Anatomy: an introduction', matcher::strip_types('Anatomy: an introduction', $rules));
+
+        $title = 'Independent Learning: Anatomical Terminology';
+        $candidates = [(object) ['node' => (object) ['uuid' => 'vet-med_2026_27_a', 'title' => $title,
+            'role' => 'session'], 'tokens' => matcher::tokens(matcher::strip_types($title, $rules))]];
+        $hints = matcher::match_title('Anatomical Terminology', $candidates, $rules);
+        $this->assertCount(1, $hints);
+    }
+
+    /**
+     * Generic teaching words still count toward containment but can never
+     * carry a hint by themselves.
+     */
+    public function test_generic_words_cannot_carry_a_hint_alone(): void {
+        $rules = matcher::default_rules();
+        $candidates = [];
+        foreach (['Formative assessment', 'Bone and the Skeleton'] as $index => $title) {
+            $candidates[] = (object) ['node' => (object) ['uuid' => 'vet-med_2026_27_' . $index,
+                'title' => $title, 'role' => 'session'], 'tokens' => matcher::tokens($title)];
+        }
+        $this->assertSame([], matcher::match_title('Assessment', $candidates, $rules));
+
+        $hints = matcher::match_title('Bone and the Skeleton', $candidates, $rules);
+        $this->assertCount(1, $hints);
+        $this->assertSame('Bone and the Skeleton', $hints[0]->candidate->node->title);
+        // Containment is reported beside name coverage for the picker.
+        $this->assertEqualsWithDelta(1.0, $hints[0]->score, 0.001);
+        $this->assertEqualsWithDelta(1.0, $hints[0]->namecoverage, 0.001);
+    }
+
+    /**
+     * A synonym matches whichever side spells the abbreviation.
+     */
+    public function test_synonyms_fire_in_both_directions(): void {
+        $rules = matcher::default_rules();
+        $abbreviated = [(object) ['node' => (object) ['uuid' => 'vet-med_2026_27_a', 'title' => 'CVRS',
+            'role' => 'strand'], 'tokens' => matcher::tokens('CVRS')]];
+        $this->assertCount(1, matcher::match_title('Cardiovascular and Respiratory week 1', $abbreviated, $rules));
+
+        $spelledout = [(object) ['node' => (object) ['uuid' => 'vet-med_2026_27_b',
+            'title' => 'Cardiovascular Respiratory', 'role' => 'strand'],
+            'tokens' => matcher::tokens('Cardiovascular Respiratory')]];
+        $this->assertCount(1, matcher::match_title('CVRS revision', $spelledout, $rules));
+    }
+
+    /**
+     * Body text only speaks when it is about ONE thing: a page listing a
+     * whole week's teaching matches many candidates and must say nothing.
+     */
+    public function test_body_over_match_guards(): void {
+        $rules = matcher::default_rules();
+        $titles = ['Bone and the axial skeleton', 'Muscle Contraction in the horse',
+            'Joints of the distal limb', 'Gait and the stride cycle', 'Comparative locomotion in birds'];
+        $candidates = [];
+        foreach ($titles as $index => $title) {
+            $candidates[] = (object) ['node' => (object) ['uuid' => 'vet-med_2026_27_' . $index,
+                'title' => $title, 'role' => 'session'], 'tokens' => matcher::tokens($title)];
+        }
+        $week = 'This week covers bone and the axial skeleton, muscle contraction in the horse, '
+            . 'joints of the distal limb, gait and the stride cycle, and comparative locomotion in birds.';
+        $this->assertSame([], matcher::match_body($week, $candidates, $rules));
+
+        // The same prose still speaks when only one candidate is in scope.
+        $single = [$candidates[1]];
+        $this->assertCount(1, matcher::match_body($week, $single, $rules));
+
+        // Sharing only generic words is not evidence.
+        $generic = [(object) ['node' => (object) ['uuid' => 'vet-med_2026_27_g',
+            'title' => 'Weekly learning activities', 'role' => 'session'],
+            'tokens' => matcher::tokens('Weekly learning activities')]];
+        $this->assertSame([], matcher::match_body('Weekly learning activities are listed below.', $generic, $rules));
+    }
+
+    /**
+     * Backup copies carry no idnumber, so the fullname carries the skip;
+     * whole category trees can be excluded, matched at the TOP of the tree.
+     */
+    public function test_skipnames_and_excluded_categories(): void {
+        $this->resetAfterTest();
+        $rules = matcher::default_rules();
+
+        $backup = $this->course('', '', 'BVetMed Year 1 2025-26 BACKUP');
+        $this->assertSame(matcher::STATUS_SKIPPED, matcher::match($backup, [], $rules)->status);
+        $donotuse = $this->course('', '', 'Animal Husbandry (do not use)');
+        $this->assertSame(matcher::STATUS_SKIPPED, matcher::match($donotuse, [], $rules)->status);
+
+        // Archived-content copies are deliberately NOT skipped (2026-09-24).
+        $deleted = $this->course('RVC_BVETMED1_2024_5_DELETED_MATERIAL');
+        $this->assertNotSame(matcher::STATUS_SKIPPED, matcher::match($deleted, [], $rules)->status);
+
+        // Nothing is excluded until a site populates the rule.
+        $course = $this->course('VN1202_A_Y_202526');
+        $course->topcategoryname = 'Postgraduate programmes';
+        $this->assertNotSame(matcher::STATUS_SKIPPED, matcher::match($course, [], $rules)->status);
+
+        $rules['excludecategories'] = ['^Postgraduate'];
+        $this->assertSame(matcher::STATUS_SKIPPED, matcher::match($course, [], $rules)->status);
+        $course->topcategoryname = 'Undergraduate programmes';
+        $this->assertNotSame(matcher::STATUS_SKIPPED, matcher::match($course, [], $rules)->status);
+    }
+
+    /**
+     * The 1VETS* strand-course estate resolves deterministically: the leading
+     * digit is the year of study. Before this alias the whole set fell through
+     * to plain word overlap and leaked into other programmes' filters.
+     */
+    public function test_srs_strand_course_alias(): void {
+        $this->resetAfterTest();
+        $this->seed_programme('vet-med', 'Bachelor of Veterinary Medicine', [2026 => 'Year 1']);
+        $candidates = matcher::candidates();
+        $rules = matcher::default_rules();
+
+        $course = $this->course('1VETS01_A_Y_202627', '', 'Alimentary (1VETS01_A_Y_202627)');
+        $result = matcher::match($course, $candidates, $rules);
+        $this->assertSame(matcher::STATUS_MATCH, $result->status);
+        $this->assertSame('Year 1', $result->best->node->title);
+        $this->assertSame('vet-med', $result->best->programme->slug);
+
+        $hub = $this->course('1VET1E_A_Y_202627', '', '(BVetMed) Year 1 Hub 2026-27');
+        $this->assertSame('Year 1', matcher::match($hub, $candidates, $rules)->best->node->title);
+    }
+
+    /**
+     * Content pools can keep their ROOT: a strand-spine book teaches its own
+     * strand, but 'strand' is not a content role, so without this the pool
+     * could never offer the node the course is matched to.
+     */
+    public function test_content_candidates_can_include_roots(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $programmeid = $DB->insert_record('local_curricmap_programme', (object) [
+            'slug' => 'vet-med', 'displayname' => 'BVetMed', 'versionlabel' => 'TEST', 'enabled' => 1,
+        ]);
+        $make = function (string $role, string $title, ?int $parentid) use ($DB, $programmeid): int {
+            $parent = $parentid ? $DB->get_record('local_curricmap_node', ['id' => $parentid]) : null;
+            $record = (object) ['programmeid' => $programmeid, 'uuid' => 'vet-med_2026_27_' . $role . $title,
+                'parentid' => $parentid, 'depth' => $parent ? $parent->depth + 1 : 0, 'role' => $role,
+                'title' => $title, 'sortorder' => 0, 'source' => 'sofia', 'deleted' => 0,
+                'timecreated' => time(), 'timemodified' => time()];
+            $record->id = $DB->insert_record('local_curricmap_node', $record);
+            $record->path = ($parent ? $parent->path : '/') . $record->id . '/';
+            $DB->update_record('local_curricmap_node', $record);
+            return (int) $record->id;
+        };
+        $strandid = $make('strand', 'Locomotor', null);
+        $make('session', 'Bone and the Skeleton', $strandid);
+        $rooturl = $DB->get_field('local_curricmap_node', 'uuid', ['id' => $strandid]);
+
+        $roles = ['session', 'sessionoutcome'];
+        $without = matcher::content_candidates([$rooturl], $roles);
+        $with = matcher::content_candidates([$rooturl], $roles, true);
+        $uuids = array_map(fn($candidate) => $candidate->node->uuid, $without);
+        $this->assertNotContains($rooturl, $uuids);
+        $this->assertSame($rooturl, $with[0]->node->uuid);
+        $this->assertCount(count($without) + 1, $with);
+    }
 }
