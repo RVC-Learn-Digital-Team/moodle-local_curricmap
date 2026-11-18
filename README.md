@@ -122,3 +122,49 @@ from data when course names or structures change.
 
 GNU GPL v3 or later. Copyright 2026 The Royal Veterinary College.
 See [LICENSE](LICENSE).
+
+
+## JavaScript builds and releases
+
+Edit `amd/src/` and generate all four AMD modules with Moodle's own ESLint and
+Rollup tasks. The standalone build service in the Docker playground mounts Moodle
+core read-only and this development checkout at `/moodle/local/curricmap`.
+The running playground and its installed plugin checkout are not changed.
+
+The Node 22 image and Moodle npm dependencies were provisioned on 2026-11-18 in
+the separate `curricmapbuild` Compose project. Normal rebuild from this checkout:
+
+```bash
+cd /Volumes/MacMiniSSD/dev/sofia_api_explorer/moodle-local_curricmap
+docker compose -p curricmapbuild \
+    -f /Volumes/MacMiniSSD/dev/docker/learning_tools_ai_playground/docker-compose.tools.yml \
+    run --rm --no-deps amdbuild \
+    node node_modules/grunt/bin/grunt eslint:amd rollup \
+    --root=local/curricmap --show-lint-warnings
+node --test tests/content_mapping_test.cjs
+```
+
+These are the lint and build tasks used by `grunt amd`, omitting its `ignorefiles`
+task because that writes Moodle-root configuration files. Do not use `--force`.
+Stop if Grunt reports an error; do not ship stale generated files. The three
+existing callback warnings in `nodeselector.js` are separate from this fragment
+fix. Both `.min.js` and `.min.js.map` files must be included in the release.
+
+If the standalone build dependency volume is removed, provision it again without
+writing a lockfile or installing packages in the managed Moodle checkout:
+
+```bash
+cd /Volumes/MacMiniSSD/dev/sofia_api_explorer/moodle-local_curricmap
+mkdir -p test_results/amd_build
+docker compose -p curricmapbuild \
+    -f /Volumes/MacMiniSSD/dev/docker/learning_tools_ai_playground/docker-compose.tools.yml \
+    run --rm --no-deps \
+    -e npm_config_cache=/moodle/node_modules/.npm-cache \
+    -e npm_config_logs_dir=/moodle/local/curricmap/test_results/amd_build \
+    amdbuild npm install --no-audit --no-fund --package-lock=false --ignore-scripts
+```
+
+Always increase `version.php`, even for JavaScript-only changes. After deploying,
+complete Moodle's upgrade through Site administration so its normal upgrade cache
+refresh runs. Never manage playground submodules as part of this build; Brian's
+scripts handle their Git updates.

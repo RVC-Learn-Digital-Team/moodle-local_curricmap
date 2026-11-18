@@ -92,6 +92,7 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
                     preview.open = previewsOpen;
                 });
                 update();
+                return null;
             }).catch((error) => {
                 container.textContent = failed;
                 throw error;
@@ -112,7 +113,9 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
             remaining = branches().filter((branch) => !branch.open ||
                 (branch.dataset.sectionid && branch.dataset.loaded !== '1'));
         }
-        previews().forEach((preview) => { preview.open = openText; });
+        previews().forEach((preview) => {
+            preview.open = openText;
+        });
         update();
     };
     tree.addEventListener('toggle', (event) => {
@@ -143,18 +146,24 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
             event.returnValue = '';
         }
     });
-    tree.addEventListener('submit', () => { dirty = false; });
+    tree.addEventListener('submit', () => {
+        dirty = false;
+    });
     controls.forEach((button) => button.addEventListener('click', async() => {
         if (bulk) {
             return;
         }
         bulk = true;
-        controls.forEach((control) => { control.disabled = true; });
+        controls.forEach((control) => {
+            control.disabled = true;
+        });
         status.textContent = loading;
         try {
             switch (button.dataset.curricmapControl) {
                 case 'topsections':
-                    branches().forEach((branch) => { branch.open = false; });
+                    branches().forEach((branch) => {
+                        branch.open = false;
+                    });
                     break;
                 case 'showall':
                     await showAll(false);
@@ -162,7 +171,9 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
                 case 'expandall':
                     if (fullyExpanded()) {
                         previewsOpen = false;
-                        previews().forEach((preview) => { preview.open = false; });
+                        previews().forEach((preview) => {
+                            preview.open = false;
+                        });
                     } else {
                         await showAll(true);
                     }
@@ -174,7 +185,9 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
             Notification.exception(error);
         } finally {
             bulk = false;
-            controls.forEach((control) => { control.disabled = false; });
+            controls.forEach((control) => {
+                control.disabled = false;
+            });
             update();
         }
     }));

@@ -88,13 +88,17 @@ function local_curricmap_extend_settings_navigation(settings_navigation $setting
  * Fragment: one section's activity mapping rows for the Moodle Course Mapping page
  * (loaded lazily when the admin opens a section's "Map activities").
  *
- * @param array $args courseid, sectionid, modtypes/nodetypes/pending (csv), returnurl.
+ * @param array $args context, courseid, sectionid, modtypes/nodetypes/pending (csv), returnurl.
  * @return string HTML rows.
  */
 function local_curricmap_output_fragment_activities(array $args): string {
-    $course = get_course((int) $args['courseid']);
-    require_login($course);
-    require_capability('local/curricmap:managebindings', context_course::instance($course->id));
+    // Core has already required login and initialised the theme for this context.
+    $context = $args['context'];
+    if ($context->contextlevel !== CONTEXT_COURSE || (int) $context->instanceid !== (int) $args['courseid']) {
+        throw new invalid_parameter_exception('The fragment context must match the requested course.');
+    }
+    require_capability('local/curricmap:managebindings', $context);
+    $course = get_course($context->instanceid);
     $modtypes = array_filter(explode(',', (string) ($args['modtypes'] ?? '')));
     $returnurl = clean_param((string) ($args['returnurl'] ?? ''), PARAM_LOCALURL)
         ?: '/local/curricmap/section_module_mapping.php?courseid=' . $course->id;
@@ -114,14 +118,18 @@ function local_curricmap_output_fragment_activities(array $args): string {
 /**
  * Fragment: one level of the curriculum tree for a mapping row's Browse panel.
  *
- * @param array $args courseid, root (node uuid), key (row key).
+ * @param array $args context, courseid, root (node uuid), key (row key).
  * @return string HTML.
  */
 function local_curricmap_output_fragment_browsenode(array $args): string {
     $courseid = (int) ($args['courseid'] ?? 0);
     if ($courseid && ($args['grain'] ?? 'content') !== 'course') {
-        require_login(get_course($courseid));
-        require_capability('local/curricmap:managebindings', context_course::instance($courseid));
+        // Reuse core's validated context; require_login() would reset the page's course after theme setup.
+        $context = $args['context'];
+        if ($context->contextlevel !== CONTEXT_COURSE || (int) $context->instanceid !== $courseid) {
+            throw new invalid_parameter_exception('The fragment context must match the requested course.');
+        }
+        require_capability('local/curricmap:managebindings', $context);
     } else {
         require_capability('local/curricmap:managebindings', context_system::instance());
     }

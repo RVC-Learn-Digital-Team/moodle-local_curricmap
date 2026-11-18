@@ -53,11 +53,30 @@ read-only to course staff. Course affiliation remains site-admin-only.
 Local implementation is on `next_steps`: the site/course routes share one editor,
 content and chapter text have previews, both binding scopes display, content edit
 permissions are shared, affiliation remains site-managed, and subsection ancestors
-participate in resolution. Seven synthetic regression tests have been added.
-AMD files were rebuilt and JavaScript syntax/whitespace checks pass. The approved
-PHPUnit runner exited 69 because Docker was not running; PHP execution, PHPCS,
-browser checks and restored-course testing are still required. No deployment or
-live database change has occurred. The unchecked items above await that validation.
+participate in resolution. Seven synthetic hierarchy/content regression tests pass.
+
+2026-11-18, v0.36.1 (`2026111800`): fixed both content fragment callbacks to reuse
+Moodle's already-validated context instead of calling `require_login()` after the
+theme is initialised. The requested course must match that context, and mapping
+capabilities remain required. Ten endpoint regressions now pass through
+`core_external::get_fragment`, covering nested section text, both administrator
+roles, mismatched contexts, student denial and site-only course affiliations.
+
+All four AMD modules were rebuilt with Moodle's official Grunt ESLint/Rollup tasks
+in the existing standalone Docker build service, with core mounted read-only.
+Five JavaScript regressions pass against that build; source maps and syntax match.
+The build has three existing callback warnings in `nodeselector.js`. The approved
+isolated Moodle 4.5.16+/PostgreSQL PHPUnit run has 119 tests: 114 pass, with five
+pre-existing failures/errors in content hints, derivation and sync (also present
+in the before-fix baseline). PHPCS reports 118 existing errors and two warnings;
+there are no new findings in the fragment fix or new endpoint tests.
+
+The build and test containers were removed; cached build/test volumes remain.
+Logs are ignored under `test_results/fragment_lifecycle_20261118/`. No playground
+core, installed plugin checkout or live database was changed. Browser checks and
+restored-course testing remain pending; the unchecked items above await that
+validation. The build procedure and mandatory version bumps are in README.md and
+AGENTS.md.
 
 ## Milestones
 

@@ -124,7 +124,8 @@ const pick = (key, uuid, label) => {
 /**
  * Initialise the delegated handlers.
  *
- * @param {number} contextid System context id for the fragment calls.
+ * @param {number} contextid Course or system context id for the fragment calls.
+ * @param {number} courseid Course whose content is being mapped, or zero for site-level mapping.
  */
 export const init = (contextid = 0, courseid = 0) => {
     mappingcourseid = courseid;
