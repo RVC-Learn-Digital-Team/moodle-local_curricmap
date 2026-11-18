@@ -80,8 +80,11 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
         const params = {courseid: tree.dataset.courseid, sectionid: branch.dataset.sectionid,
             modtypes: tree.dataset.modtypes, nodetypes: tree.dataset.ntypes,
             pending: pending.join(','), returnurl: tree.dataset.returnurl};
-        const request = Fragment.loadFragment('local_curricmap', 'activities', contextid, params)
-            .then(async(html, js) => {
+        // Preserve both values from Moodle's jQuery promise before using native Promise methods.
+        const fragment = Fragment.loadFragment('local_curricmap', 'activities', contextid, params)
+            .then((html, js) => ({html, js}));
+        const request = Promise.resolve(fragment)
+            .then(async({html, js}) => {
                 await Templates.replaceNodeContents(container, html, js);
                 branch.dataset.loaded = '1';
                 initrows(container);
