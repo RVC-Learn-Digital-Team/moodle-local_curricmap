@@ -25,6 +25,40 @@ umbrella repo.
 - Databases: **MySQL 8.4 (RVC production)**, MariaDB 10.6.7+, PostgreSQL 13+ (dev/CI).
   CI matrix runs Postgres 14 and MySQL 8.4; anything DB-specific is a bug.
 
+## Shared content mapper — agreed 2026-11-12/13, implementation in progress
+
+Canonical decision: umbrella `MATCHING.md` §4.4. This supersedes the separate
+site-admin/course content-editor approach and central content mappings being
+read-only to course staff. Course affiliation remains site-admin-only.
+
+- [ ] One hierarchy/content mapper reached from both entry points; display
+      section summaries, label text, activity descriptions and book/chapter text.
+- [ ] Permit authorised course administrators to overwrite existing central
+      section/subsection/activity/chapter mappings; reconcile page, fragment and
+      API checks without permitting course-affiliation changes.
+- [ ] Allow a session/outcome at multiple locations; remove course-wide node
+      exclusion and prevent duplicates only at the same address/node/relation.
+- [ ] Individual expand/collapse, Expand all changing to Collapse all, and
+      Show only top sections / Show all. Top-section view is presentation only;
+      individual branches remain expandable and pending selections survive.
+      Brian confirmed 2026-11-13: Show all reveals the hierarchy with text
+      closed; Expand all opens the text too, becoming Collapse all. Collapse all
+      closes text previews; Show only top sections closes hierarchy branches.
+- [ ] Verify the Nursing APD1 2025/26 Week 6 example: two subsections, one label
+      with visible text and four resources; verify book/chapter text separately.
+- [ ] Verify both roles and both entry points, including initially unloaded
+      content, then the TinyMCE/filter/presenter consumers. Companion plans carry
+      the decision; implementation and restored-course validation remain pending.
+
+Local implementation is on `next_steps`: the site/course routes share one editor,
+content and chapter text have previews, both binding scopes display, content edit
+permissions are shared, affiliation remains site-managed, and subsection ancestors
+participate in resolution. Seven synthetic regression tests have been added.
+AMD files were rebuilt and JavaScript syntax/whitespace checks pass. The approved
+PHPUnit runner exited 69 because Docker was not running; PHP execution, PHPCS,
+browser checks and restored-course testing are still required. No deployment or
+live database change has occurred. The unchecked items above await that validation.
+
 ## Milestones
 
 ### M1 — Scaffold (this release, v0.1.0)
@@ -1077,8 +1111,9 @@ their parent row, grouplabel/unit filtering.
 
 ## Open questions (tracked in the umbrella repo, mirrored here)
 
-1. Binding authority — `managebindings` for editing teachers in-course (current default)
-   or admin-only?
+1. Binding authority — resolved 2026-11-12: course affiliation is site-admin-only;
+   authorised course administrators and site administrators manage content,
+   including existing central content mappings. Implementation tracked above.
 2. Binding survival across backup/restore (cmids renumber) — local-plugin backup hooks vs
    idnumber-assisted rebinding + orphan report.
 3. TimeEdit fusion key for future week/section bindings — shared identifier written into

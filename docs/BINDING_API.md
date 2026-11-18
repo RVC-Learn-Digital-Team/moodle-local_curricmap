@@ -12,7 +12,7 @@ token authorised for the **Curriculum mapping API** service
 
 Capabilities: curriculum reads need `local/curricmap:viewstaffmeta`; binding
 and resource writes need `local/curricmap:managebindings` (system context
-for central-scope writes). The ws user needs no course enrolments.
+for course-affiliation writes). The ws user needs no course enrolments.
 
 ## 1. The model in one paragraph
 
@@ -96,9 +96,16 @@ Parameters: `nodeuuid`, `categoryid`, `courseid`, `sectionid`, `cmid`,
 **Category** (rare; central admins only): `categoryid` alone.
 
 Relations in use: `anchor` = the mapping pages' "this teaches that";
-`related` = additional/extra mappings (mappings.php). Scope: `central` =
-site-admin-managed, locked for course staff; `course` = editable by any
-managebindings holder in the course.
+`related` = additional links. Course-level `anchor` bindings establish affiliation
+and require site-level `managebindings`, regardless of scope. Section, activity
+and book-chapter bindings are editable by authorised course administrators in
+both `central` and `course` scope, including removal of existing central content
+bindings (Brian, 2026-11-12). A session/outcome can occur at multiple locations;
+idempotency applies to the same full address, node and relation.
+
+Submitted content addresses are checked against their owning course and book.
+Resolution walks chapter → activity → subsection → parent section(s) → course
+before category fallback, using the nearest level with an active binding.
 
 ## 5. Reading and removing
 
@@ -135,8 +142,8 @@ while the **Support resource linking** master setting is off.
 - **Year-pinning**: rollover to a new academic year means new composed keys
   — bindings never carry across years implicitly.
 - **Contexts**: category-grain and node-mode calls validate at system
-  context; course-grain calls at course context. A token whose user only
-  has course-level capability cannot write central scope.
+  context. Content writes use the owning course context in either scope.
+  Course-affiliation writes and deletes require the system capability.
 - **The pytest contract suite** (`moodle_mapping_api_test`) exercises this
   surface against a live site — run it after each deploy. It does not yet
   cover chapter-grain binding; the plugin's own PHPUnit does.

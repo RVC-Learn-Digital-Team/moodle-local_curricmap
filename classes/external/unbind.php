@@ -52,19 +52,11 @@ class unbind extends external_api {
         $params = self::validate_parameters(self::execute_parameters(), ['id' => $id]);
 
         $binding = $DB->get_record('local_curricmap_binding', ['id' => $params['id']], '*', MUST_EXIST);
-        $address = [
-            'categoryid' => $binding->categoryid !== null ? (int) $binding->categoryid : null,
-            'courseid' => $binding->courseid !== null ? (int) $binding->courseid : null,
-        ];
-        if ($binding->scope === 'central') {
+        try {
+            $context = bindings::management_context((array) $binding, $binding->scope, $binding->relation);
+        } catch (\moodle_exception $e) {
+            // Orphaned binding whose Moodle end is gone: manage centrally.
             $context = \context_system::instance();
-        } else {
-            try {
-                $context = bindings::address_context($address);
-            } catch (\moodle_exception $e) {
-                // Orphaned binding whose Moodle end is gone: manage centrally.
-                $context = \context_system::instance();
-            }
         }
         self::validate_context($context);
         require_capability('local/curricmap:managebindings', $context);

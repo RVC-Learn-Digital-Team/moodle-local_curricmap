@@ -62,12 +62,25 @@ No Sofia client or sync yet — those land per [PLAN.md](PLAN.md) (M3/M4).
   course*) or to a strand (a *strand course*). Once made, nothing on that
   page changes it — a decided course shows "Already matched" with no tick
   and no dropdown; delete-and-redo is the only correction path there.
-- **Moodle Course Mapping** (`section_module_mapping.php`, site admin) is where a
-  year course's strands are mapped: sections take strands, activities take
-  sessions and outcomes within them.
-- **Add Additional Mappings** (`mappings.php`, per course) is where manual extra
-  mappings are made — additional strands or nodes beyond the central match —
-  at course scope, or central scope for central staff.
+- **Map course content** (`section_module_mapping.php`) is one shared editor
+  for site administrators and authorised course administrators. The course menu
+  and activity menu (`mappings.php` compatibility route) open this editor.
+  Sections/subsections retain Moodle order; label text, activity descriptions,
+  page bodies, book descriptions and chapter/subchapter text appear with mappings.
+- Course administrators may remove/replace central content mappings. Course
+  affiliation remains site-admin-only. The same session/outcome can be mapped
+  at several locations; duplicate bindings at the same address remain idempotent.
+- **Show only top sections** collapses the hierarchy but permits opening any
+  branch. **Show all** reveals the hierarchy with text previews closed.
+  **Expand all** opens all branches and text, then becomes **Collapse all**,
+  which closes text previews. Loaded rows and unsaved selections survive these
+  controls. Leaving the page with pending edits prompts before navigation.
+- Course study-resource management remains available from the editor's resource
+  link (`mappings.php?resources=1`). Activity types disabled in the plugin settings
+  still display their content, with an explanation beside the disabled mapping
+  controls. Labels are included in new installations' defaults; existing saved
+  activity-type settings are retained.
+
 
 ## Installation
 

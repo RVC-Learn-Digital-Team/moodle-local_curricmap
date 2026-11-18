@@ -23,7 +23,7 @@
  */
 
 /**
- * Add the per-course "Add Additional Mappings" page to the course navigation.
+ * Add the shared content mapper to the course navigation.
  *
  * @param navigation_node $parentnode The course navigation node.
  * @param stdClass $course The course record.
@@ -34,7 +34,7 @@ function local_curricmap_extend_navigation_course(
     stdClass $course,
     context_course $context
 ): void {
-    if (!has_capability('local/curricmap:viewstaffmeta', $context)) {
+    if (!has_capability('local/curricmap:managebindings', $context)) {
         return;
     }
     $url = new moodle_url('/local/curricmap/mappings.php', ['courseid' => $course->id]);
@@ -66,7 +66,7 @@ function local_curricmap_extend_settings_navigation(settings_navigation $setting
     if (!in_array($PAGE->cm->modname, $mappable, true)) {
         return;
     }
-    if (!has_capability('local/curricmap:viewstaffmeta', context_course::instance((int) $PAGE->cm->course))) {
+    if (!has_capability('local/curricmap:managebindings', context_course::instance((int) $PAGE->cm->course))) {
         return;
     }
     $modulenode = $settingsnav->find('modulesettings', navigation_node::TYPE_SETTING);
@@ -92,10 +92,12 @@ function local_curricmap_extend_settings_navigation(settings_navigation $setting
  * @return string HTML rows.
  */
 function local_curricmap_output_fragment_activities(array $args): string {
-    require_capability('local/curricmap:managebindings', context_system::instance());
     $course = get_course((int) $args['courseid']);
+    require_login($course);
+    require_capability('local/curricmap:managebindings', context_course::instance($course->id));
     $modtypes = array_filter(explode(',', (string) ($args['modtypes'] ?? '')));
-    $returnurl = (string) ($args['returnurl'] ?? '/local/curricmap/section_module_mapping.php?courseid=' . $course->id);
+    $returnurl = clean_param((string) ($args['returnurl'] ?? ''), PARAM_LOCALURL)
+        ?: '/local/curricmap/section_module_mapping.php?courseid=' . $course->id;
     $nodetypes = array_filter(explode(',', (string) ($args['nodetypes'] ?? '')));
     $pending = array_filter(explode(',', (string) ($args['pending'] ?? '')));
     $pending = array_slice(array_map(fn($uuid) => clean_param($uuid, PARAM_RAW_TRIMMED), $pending), 0, 20);
@@ -116,7 +118,13 @@ function local_curricmap_output_fragment_activities(array $args): string {
  * @return string HTML.
  */
 function local_curricmap_output_fragment_browsenode(array $args): string {
-    require_capability('local/curricmap:managebindings', context_system::instance());
+    $courseid = (int) ($args['courseid'] ?? 0);
+    if ($courseid && ($args['grain'] ?? 'content') !== 'course') {
+        require_login(get_course($courseid));
+        require_capability('local/curricmap:managebindings', context_course::instance($courseid));
+    } else {
+        require_capability('local/curricmap:managebindings', context_system::instance());
+    }
     $root = clean_param((string) ($args['root'] ?? ''), PARAM_RAW_TRIMMED);
     $key = clean_param((string) ($args['key'] ?? ''), PARAM_ALPHANUMEXT);
     $grain = clean_param((string) ($args['grain'] ?? 'content'), PARAM_ALPHA);

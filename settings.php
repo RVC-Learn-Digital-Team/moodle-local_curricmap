@@ -175,7 +175,7 @@ if ($hassiteconfig) {
     }
     asort($modchoices);
     $moddefaults = array_intersect(
-        ['book', 'forum', 'lesson', 'lti', 'page', 'quiz', 'resource', 'url'],
+        ['book', 'forum', 'label', 'lesson', 'lti', 'page', 'quiz', 'resource', 'url'],
         array_keys($modchoices)
     );
     $settings->add(new admin_setting_configmultiselect(
