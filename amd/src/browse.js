@@ -38,6 +38,7 @@ import Fragment from 'core/fragment';
 import Templates from 'core/templates';
 
 let fragmentcontextid = 0;
+let mappingcourseid = 0;
 
 /**
  * Load one level of the tree into a row's panel.
@@ -52,7 +53,7 @@ const load = (key, root) => {
     }
     panel.classList.remove('d-none');
     panel.setAttribute('data-curricmap-loaded', root);
-    const params = {root: root, key: key};
+    const params = {root: root, key: key, courseid: mappingcourseid};
     if (panel.dataset.curricmapGrain) {
         params.grain = panel.dataset.curricmapGrain;
     }
@@ -123,9 +124,11 @@ const pick = (key, uuid, label) => {
 /**
  * Initialise the delegated handlers.
  *
- * @param {number} contextid System context id for the fragment calls.
+ * @param {number} contextid Course or system context id for the fragment calls.
+ * @param {number} courseid Course whose content is being mapped, or zero for site-level mapping.
  */
-export const init = (contextid = 0) => {
+export const init = (contextid = 0, courseid = 0) => {
+    mappingcourseid = courseid;
     fragmentcontextid = contextid;
     document.addEventListener('click', (event) => {
         const browse = event.target.closest('[data-curricmap-browse]');

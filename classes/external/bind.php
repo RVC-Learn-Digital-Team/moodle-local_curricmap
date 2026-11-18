@@ -92,10 +92,10 @@ class bind extends external_api {
         $params = self::validate_parameters(self::execute_parameters(), $data);
 
         $address = bindings::normalise_address($params);
-        $context = $params['scope'] === 'central'
-            ? \context_system::instance() : bindings::address_context($address);
+        $context = bindings::management_context($address, $params['scope'], $params['relation']);
         self::validate_context($context);
         require_capability('local/curricmap:managebindings', $context);
+        bindings::validate_location($address);
 
         $id = bindings::bind(
             $address,

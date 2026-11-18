@@ -23,7 +23,7 @@
  */
 
 /**
- * Add the per-course "Add Additional Mappings" page to the course navigation.
+ * Add the shared content mapper to the course navigation.
  *
  * @param navigation_node $parentnode The course navigation node.
  * @param stdClass $course The course record.
@@ -34,7 +34,7 @@ function local_curricmap_extend_navigation_course(
     stdClass $course,
     context_course $context
 ): void {
-    if (!has_capability('local/curricmap:viewstaffmeta', $context)) {
+    if (!has_capability('local/curricmap:managebindings', $context)) {
         return;
     }
     $url = new moodle_url('/local/curricmap/mappings.php', ['courseid' => $course->id]);
@@ -66,7 +66,7 @@ function local_curricmap_extend_settings_navigation(settings_navigation $setting
     if (!in_array($PAGE->cm->modname, $mappable, true)) {
         return;
     }
-    if (!has_capability('local/curricmap:viewstaffmeta', context_course::instance((int) $PAGE->cm->course))) {
+    if (!has_capability('local/curricmap:managebindings', context_course::instance((int) $PAGE->cm->course))) {
         return;
     }
     $modulenode = $settingsnav->find('modulesettings', navigation_node::TYPE_SETTING);
@@ -88,14 +88,20 @@ function local_curricmap_extend_settings_navigation(settings_navigation $setting
  * Fragment: one section's activity mapping rows for the Moodle Course Mapping page
  * (loaded lazily when the admin opens a section's "Map activities").
  *
- * @param array $args courseid, sectionid, modtypes/nodetypes/pending (csv), returnurl.
+ * @param array $args context, courseid, sectionid, modtypes/nodetypes/pending (csv), returnurl.
  * @return string HTML rows.
  */
 function local_curricmap_output_fragment_activities(array $args): string {
-    require_capability('local/curricmap:managebindings', context_system::instance());
-    $course = get_course((int) $args['courseid']);
+    // Core has already required login and initialised the theme for this context.
+    $context = $args['context'];
+    if ($context->contextlevel !== CONTEXT_COURSE || (int) $context->instanceid !== (int) $args['courseid']) {
+        throw new invalid_parameter_exception('The fragment context must match the requested course.');
+    }
+    require_capability('local/curricmap:managebindings', $context);
+    $course = get_course($context->instanceid);
     $modtypes = array_filter(explode(',', (string) ($args['modtypes'] ?? '')));
-    $returnurl = (string) ($args['returnurl'] ?? '/local/curricmap/section_module_mapping.php?courseid=' . $course->id);
+    $returnurl = clean_param((string) ($args['returnurl'] ?? ''), PARAM_LOCALURL)
+        ?: '/local/curricmap/section_module_mapping.php?courseid=' . $course->id;
     $nodetypes = array_filter(explode(',', (string) ($args['nodetypes'] ?? '')));
     $pending = array_filter(explode(',', (string) ($args['pending'] ?? '')));
     $pending = array_slice(array_map(fn($uuid) => clean_param($uuid, PARAM_RAW_TRIMMED), $pending), 0, 20);
@@ -112,11 +118,21 @@ function local_curricmap_output_fragment_activities(array $args): string {
 /**
  * Fragment: one level of the curriculum tree for a mapping row's Browse panel.
  *
- * @param array $args courseid, root (node uuid), key (row key).
+ * @param array $args context, courseid, root (node uuid), key (row key).
  * @return string HTML.
  */
 function local_curricmap_output_fragment_browsenode(array $args): string {
-    require_capability('local/curricmap:managebindings', context_system::instance());
+    $courseid = (int) ($args['courseid'] ?? 0);
+    if ($courseid && ($args['grain'] ?? 'content') !== 'course') {
+        // Reuse core's validated context; require_login() would reset the page's course after theme setup.
+        $context = $args['context'];
+        if ($context->contextlevel !== CONTEXT_COURSE || (int) $context->instanceid !== $courseid) {
+            throw new invalid_parameter_exception('The fragment context must match the requested course.');
+        }
+        require_capability('local/curricmap:managebindings', $context);
+    } else {
+        require_capability('local/curricmap:managebindings', context_system::instance());
+    }
     $root = clean_param((string) ($args['root'] ?? ''), PARAM_RAW_TRIMMED);
     $key = clean_param((string) ($args['key'] ?? ''), PARAM_ALPHANUMEXT);
     $grain = clean_param((string) ($args['grain'] ?? 'content'), PARAM_ALPHA);

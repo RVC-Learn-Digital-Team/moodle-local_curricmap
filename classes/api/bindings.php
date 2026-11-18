@@ -23,8 +23,8 @@ namespace local_curricmap\api;
  * section, course module, sub-activity (component+subitemid) - to one node key.
  * Relations are soft-validated verbs; v1 vocabulary is "anchor" (a course's
  * default curriculum scope, machine-consumed) and "related". Scope is
- * "central" (site-managed) or "course" (shared-editable by managebindings
- * holders in the context). Bindings never involve users beyond audit fields
+ * "central" or "course". Content in either scope is shared-editable by
+ * managebindings holders in the course; affiliation remains site-managed. Bindings never involve users beyond audit fields
  * and are year-pinned by the composed node key.
  *
  * @package   local_curricmap
@@ -78,20 +78,90 @@ class bindings {
     }
 
     /**
+     * Context for editing: content is shared, affiliation remains site-managed.
+     *
+     * @param array $address Moodle address.
+     * @param string $scope Stored scope.
+     * @param string $relation Binding relation.
+     * @return \context
+     */
+    public static function management_context(array $address, string $scope, string $relation = 'related'): \context {
+        if (!empty($address['courseid']) && (!empty($address['sectionid']) || !empty($address['cmid']))) {
+            return \context_course::instance($address['courseid']);
+        }
+        if ($scope === 'central' || $relation === self::RELATION_ANCHOR) {
+            return \context_system::instance();
+        }
+        return self::address_context(self::normalise_address($address));
+    }
+
+    /**
+     * Validate that a submitted content location belongs to its course.
+     *
+     * @param array $address Normalised address.
+     */
+    public static function validate_location(array $address): void {
+        global $DB;
+        if (empty($address['courseid'])) {
+            return;
+        }
+        $modinfo = get_fast_modinfo($address['courseid']);
+        if (!empty($address['sectionid']) && !$modinfo->get_section_info_by_id($address['sectionid'])) {
+            throw new \moodle_exception('errorbindaddress', 'local_curricmap');
+        }
+        $cm = !empty($address['cmid']) ? ($modinfo->cms[$address['cmid']] ?? null) : null;
+        if (!empty($address['cmid']) && (!$cm || (!empty($address['sectionid']) && $cm->section != $address['sectionid']))) {
+            throw new \moodle_exception('errorbindaddress', 'local_curricmap');
+        }
+        if (!empty($address['subitemid'])) {
+            if (!$cm || $cm->modname !== 'book' || $address['component'] !== 'mod_book'
+                    || !$DB->record_exists('book_chapters', ['id' => $address['subitemid'], 'bookid' => $cm->instance])) {
+                throw new \moodle_exception('errorbindaddress', 'local_curricmap');
+            }
+        }
+    }
+
+    /**
+     * Section and subsection ancestors, nearest first.
+     *
+     * @param int $courseid Course id.
+     * @param int $sectionid Immediate section id.
+     * @return int[]
+     */
+    public static function section_path(int $courseid, int $sectionid): array {
+        $modinfo = get_fast_modinfo($courseid);
+        $owners = $modinfo->get_instances_of('subsection');
+        $path = [];
+        while ($sectionid && !in_array($sectionid, $path)) {
+            $section = $modinfo->get_section_info_by_id($sectionid);
+            if (!$section) {
+                break;
+            }
+            $path[] = $sectionid;
+            $owner = ($section->component ?? '') === 'mod_subsection' ? ($owners[$section->itemid] ?? null) : null;
+            $sectionid = $owner ? (int) $owner->section : 0;
+        }
+        return $path;
+    }
+
+    /**
      * May the given (or current) user manage a binding at this address and scope?
      *
-     * Central-scope bindings require the capability at system context.
+     * Central content bindings use the course capability; affiliation uses system context.
      *
      * @param array $address Normalised address.
      * @param string $scope central or course.
      * @param int|null $userid User id, null for the current user.
+     * @param string $relation Binding relation.
      * @return bool
      */
-    public static function can_manage(array $address, string $scope, ?int $userid = null): bool {
-        if ($scope === 'central') {
-            return has_capability('local/curricmap:managebindings', \context_system::instance(), $userid);
-        }
-        return has_capability('local/curricmap:managebindings', self::address_context($address), $userid);
+    public static function can_manage(
+        array $address,
+        string $scope,
+        ?int $userid = null,
+        string $relation = 'related'
+    ): bool {
+        return has_capability('local/curricmap:managebindings', self::management_context($address, $scope, $relation), $userid);
     }
 
     /**
@@ -168,14 +238,21 @@ class bindings {
 
         $levels = [];
         if (!empty($location['cmid']) && !empty($location['component']) && !empty($location['subitemid'])) {
-            $levels[] = ['cmid' => (int) $location['cmid'], 'component' => $location['component'],
+            $levels[] = ['courseid' => (int) $location['courseid'], 'cmid' => (int) $location['cmid'], 'component' => $location['component'],
                 'subitemid' => (int) $location['subitemid']];
         }
         if (!empty($location['cmid'])) {
-            $levels[] = ['cmid' => (int) $location['cmid'], 'component' => null, 'subitemid' => null];
+            $levels[] = ['courseid' => (int) $location['courseid'], 'cmid' => (int) $location['cmid'], 'component' => null, 'subitemid' => null];
         }
-        if (!empty($location['sectionid'])) {
-            $levels[] = ['sectionid' => (int) $location['sectionid'], 'cmid' => null];
+        $sectionid = (int) ($location['sectionid'] ?? 0);
+        if (!empty($location['courseid'])) {
+            if (!empty($location['cmid'])) {
+                $cm = get_fast_modinfo($location['courseid'])->cms[$location['cmid']] ?? null;
+                $sectionid = $cm ? (int) $cm->section : $sectionid;
+            }
+            foreach (self::section_path((int) $location['courseid'], $sectionid) as $ancestor) {
+                $levels[] = ['courseid' => (int) $location['courseid'], 'sectionid' => $ancestor, 'cmid' => null];
+            }
         }
         if (!empty($location['courseid'])) {
             $levels[] = ['courseid' => (int) $location['courseid'], 'sectionid' => null, 'cmid' => null];

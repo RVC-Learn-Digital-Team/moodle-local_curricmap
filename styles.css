@@ -65,3 +65,63 @@
 .curricmap-courseres-form > button {
     margin-bottom: 0.5rem;
 }
+
+/* Shared course hierarchy: previews take the reading space; mappings stay alongside. */
+.curricmap-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+.curricmap-branch {
+    border: 1px solid #dee2e6;
+    border-radius: 0.4rem;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+}
+.curricmap-branch > summary {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0.25rem;
+}
+.curricmap-branch > .curricmap-row,
+.curricmap-content-item {
+    margin-top: 0.75rem;
+}
+.curricmap-children {
+    margin-left: 1rem;
+}
+.curricmap-content-item {
+    border-top: 1px solid #dee2e6;
+    padding: 0.75rem 0;
+}
+.curricmap-preview-body {
+    overflow-wrap: anywhere;
+    overflow-x: auto;
+    padding: 0.5rem 0;
+}
+.curricmap-preview-body img,
+.curricmap-preview-body video,
+.curricmap-preview-body iframe {
+    max-width: 100%;
+}
+[data-curricmap-tree] .curricmap-cell-name {
+    flex: 2 1 60%;
+    min-width: 0;
+}
+[data-curricmap-tree] .curricmap-cell-proposal {
+    flex: 1 1 35%;
+    min-width: 0;
+}
+@media (max-width: 800px) {
+    [data-curricmap-tree] .curricmap-row {
+        flex-wrap: wrap;
+    }
+    [data-curricmap-tree] .curricmap-cell-proposal {
+        flex-basis: 100%;
+        max-width: none;
+    }
+    .curricmap-children {
+        margin-left: 0.25rem;
+    }
+}
