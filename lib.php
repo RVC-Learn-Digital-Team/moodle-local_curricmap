@@ -137,5 +137,10 @@ function local_curricmap_output_fragment_browsenode(array $args): string {
     $key = clean_param((string) ($args['key'] ?? ''), PARAM_ALPHANUMEXT);
     $grain = clean_param((string) ($args['grain'] ?? 'content'), PARAM_ALPHA);
     $year = (int) ($args['year'] ?? 0);
+    if ($courseid && $grain !== 'course') {
+        \local_curricmap\local\content_tree::address_for_key($courseid, $key);
+        $query = clean_param((string) ($args['query'] ?? ''), PARAM_TEXT);
+        return \local_curricmap\local\content_picker::browse($courseid, $key, $root, $query);
+    }
     return \local_curricmap\local\contentmap::browse_panel($root, $key, $grain, $year ?: null);
 }

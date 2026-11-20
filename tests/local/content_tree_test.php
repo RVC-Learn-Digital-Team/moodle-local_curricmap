@@ -106,7 +106,7 @@ final class content_tree_test extends \advanced_testcase {
         $html = $tree->children((int) $friday->id);
         $this->assertStringContainsString('<strong>Reflect on learning strategies</strong>', $html);
         $this->assertStringNotContainsString('<script', $html);
-        $this->assertStringContainsString('bindc' . $label->cmid, $html);
+        $this->assertStringContainsString('data-curricmap-editor="c' . $label->cmid . '"', $html);
         $path = bindings::section_path((int) $this->course->id, (int) $friday->id);
         $this->assertSame([(int) $friday->id, (int) $root->id], $path);
         $resolved = bindings::resolve(['courseid' => $this->course->id, 'cmid' => $label->cmid], 'anchor');

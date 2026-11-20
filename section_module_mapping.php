@@ -28,7 +28,6 @@ require(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 
 use local_curricmap\api\bindings;
-use local_curricmap\api\resources;
 use local_curricmap\local\contentmap;
 use local_curricmap\local\content_tree;
 use local_curricmap\local\matcher;
@@ -128,35 +127,8 @@ if ($unbind && $courseid && confirm_sesskey()) {
     redirect($pageurl);
 }
 
-// Apply section, activity and chapter selections through one validated path.
-$apply = optional_param_array('apply', [], PARAM_INT);
-if ($apply && $courseid && confirm_sesskey()) {
-    require_capability('local/curricmap:managebindings', $context);
-    $transaction = $DB->start_delegated_transaction();
-    $created = 0;
-    foreach ($apply as $key => $ticked) {
-        if (!$ticked) {
-            continue;
-        }
-        $address = content_tree::address_for_key($courseid, (string) $key);
-        foreach (optional_param_array('bind' . $key, [], PARAM_RAW_TRIMMED) as $nodeuuid) {
-            if ($nodeuuid === '') {
-                continue;
-            }
-            if (!resources::within_course_scope($nodeuuid, $courseid)) {
-                throw new moodle_exception('errorbindnode', 'local_curricmap', '', s($nodeuuid));
-            }
-            bindings::bind($address, $nodeuuid, bindings::RELATION_ANCHOR, 'course');
-            $created++;
-        }
-    }
-    $transaction->allow_commit();
-    redirect($pageurl, get_string('coursemapping_applied', 'local_curricmap', $created));
-}
-
 $typetosearch = get_string('coursemapping_typetosearch', 'local_curricmap');
-$PAGE->requires->js_call_amd('local_curricmap/content_mapping', 'init', [$context->id, $typetosearch, $focuscm]);
-$PAGE->requires->js_call_amd('local_curricmap/browse', 'init', [$context->id, $courseid]);
+$PAGE->requires->js_call_amd('local_curricmap/content_mapping', 'init', [$context->id, $focuscm]);
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('contentmapping', 'local_curricmap'));
@@ -300,7 +272,7 @@ echo html_writer::div(html_writer::empty_tag('input', ['type' => 'submit', 'valu
     'class' => 'btn btn-secondary']), 'curricmap-filter align-self-end');
 echo html_writer::end_tag('form');
 
-// Both entry points render this same tree and submit the same form.
+// Both entry points render this same tree; each content location saves independently.
 $tree = new content_tree($course, $returnurl, $modtypesfilter, $nodetypesfilter);
 $focuspath = [];
 if ($focuscm) {
@@ -315,14 +287,9 @@ foreach (['topsections', 'showall', 'expandall'] as $control) {
 }
 echo html_writer::div('', 'small', ['data-curricmap-status' => '', 'role' => 'status', 'aria-live' => 'polite']);
 echo html_writer::end_div();
-echo html_writer::start_tag('form', ['method' => 'post', 'action' => $pageurl->out(false),
-    'data-curricmap-tree' => '', 'data-courseid' => $courseid, 'data-returnurl' => $returnurl,
+echo html_writer::start_tag('div', ['data-curricmap-tree' => '', 'data-courseid' => $courseid, 'data-returnurl' => $returnurl,
     'data-modtypes' => implode(',', $modtypesfilter), 'data-ntypes' => implode(',', $nodetypesfilter),
     'data-focuspath' => implode(',', $focuspath)]);
-echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
-$applybutton = html_writer::empty_tag('input', ['type' => 'submit',
-    'value' => get_string('coursemapping_apply', 'local_curricmap'), 'class' => 'btn btn-primary my-2']);
-echo $applybutton;
 foreach ($sections as $section) {
     if (($section->component ?? '') === 'mod_subsection' || !$section->uservisible) {
         continue;
@@ -332,6 +299,5 @@ foreach ($sections as $section) {
     }
     echo $tree->section($section);
 }
-echo $applybutton;
-echo html_writer::end_tag('form');
+echo html_writer::end_tag('div');
 echo $OUTPUT->footer();

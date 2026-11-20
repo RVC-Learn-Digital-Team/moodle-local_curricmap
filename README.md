@@ -1,6 +1,6 @@
 # moodle-local_curricmap
 
-> **Status:** v0.2.0 · schema + derivation (M2) · not for production
+> **Status:** v0.37.0 · shared content mapping review · test release
 > **Component:** `local_curricmap` (repo name follows the RVC `moodle-<component>` convention)
 > **Minimum Moodle:** 4.5 LTS
 > **Databases:** MySQL 8.4 (RVC production), MariaDB 10.6.7+, PostgreSQL 13+ — CI tests Postgres 14 and MySQL 8.4
@@ -75,6 +75,27 @@ No Sofia client or sync yet — those land per [PLAN.md](PLAN.md) (M3/M4).
   **Expand all** opens all branches and text, then becomes **Collapse all**,
   which closes text previews. Loaded rows and unsaved selections survive these
   controls. Leaving the page with pending edits prompts before navigation.
+- **Suggested matches and source text** offers a Pick button beside each session
+  and outcome. Outcomes of a suggested session appear beneath it; related outcomes
+  without a direct text match are labelled explicitly. Picking a session never
+  implicitly picks its outcomes. Manually typed learning outcomes are valid evidence.
+- Each section, activity and chapter has its own **Save changes / Cancel** controls.
+  Saved mappings and pending additions are labelled separately. Saves are atomic,
+  preserve other drafts and scroll position, and retain choices on failure for retry.
+  Removing every choice and saving clears that item's explicit anchors; inherited
+  parent mappings still apply through the existing resolver.
+- **More curriculum** opens a prominent search panel beneath the item. Search checks
+  the complete curriculum beneath the course's central anchors, including unloaded
+  descendants; results include ancestry and independent Pick buttons. Empty search
+  returns to browsing. At most 50 results are shown, with a refinement notice.
+- Academic-year recognition accepts a four- or six-digit year token anywhere in
+  `idnumber`, independently of prefixes/suffixes. `VN1201_A_Y_202627_1`, `2026`,
+  `2026-`, `2026_`, `202627` and `202628` resolve to 2026. Longer uninterrupted
+  numbers are not treated as year tokens. Existing name/category range fallbacks
+  remain. The central search accepts the same standalone year spellings; a full
+  course idnumber remains a keyword search.
+- Inline TinyMCE editing is outside this release; saved anchors continue to use
+  the existing mapping resolver consumed by the editor/filter plugins.
 - Course study-resource management remains available from the editor's resource
   link (`mappings.php?resources=1`). Activity types disabled in the plugin settings
   still display their content, with an explanation beside the disabled mapping

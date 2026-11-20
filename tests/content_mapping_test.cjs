@@ -67,7 +67,7 @@ const setup = async({failFirst = false, failRender = false} = {}) => {
             state.previews.push(preview);
             container.querySelectorAll = (selector) => selector === '[data-curricmap-preview]' ? [preview] : [];
         }},
-        'core/form-autocomplete': {enhance() {}},
+        'local_curricmap/content_picker': {init: async() => {}, initRows() {}, selections: () => []},
         'core/notification': {exception(error) { state.errors.push(error.message); }},
         'core/str': {getStrings: async() => ['Expand all', 'Collapse all', 'Loading', 'Load failed']},
     };
@@ -87,7 +87,7 @@ const setup = async({failFirst = false, failRender = false} = {}) => {
         },
     };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../amd/build/content_mapping.min.js'), 'utf8'), context);
-    await exported.init(10, 'Search');
+    await exported.init(10);
     return {state, controls, tree, root, status};
 };
 

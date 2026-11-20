@@ -107,7 +107,7 @@ between them, convert the `?<n>`/`?P<n>` spelling accordingly.
 ## 2. How the matcher applies these
 
 **Central Admin Mapping page** (`course_mapping.php`):
-1. Parse an academic year from the idnumber (both dialects), then from names /
+1. Parse an academic year from a four- or six-digit token anywhere in the idnumber, then from names /
    category. No year → no proposal.
 2. Walk `aliases` in order; first `pattern` hit sets the programme `slug` and,
    via `node`, the target year-node. Exact when both programme and year came
@@ -154,11 +154,13 @@ Provide these as CSV files (the same shapes already used in
 
 ### Method
 
-1. **Year parsing** — confirm every course idnumber in input (1) yields the
-   right academic year via the two idnumber regexes; if a new idnumber format
-   appears, add/adjust a `year_patterns` regex (documented in the test repo's
-   `matching_rules.json`; the plugin's equivalents are in
-   `matcher::harmonised_year()`).
+1. **Year parsing** — the first four- or six-digit `20xx` token anywhere in
+   an idnumber supplies its starting year; digit boundaries exclude longer numbers.
+   Prefixes and suffixes do not need format-specific rules. Both `202627` and
+   `202628` mean 2026. A missing idnumber year falls back to year ranges in names
+   and category. Central search recognises standalone `2026`, `2026-`, `2026_`,
+   `202627`, `202628` and range tokens, while full course codes remain keywords.
+   Regression cases live in `tests/local/matcher_test.php`.
 2. **Aliases** — for each distinct programme stem in the idnumbers, ensure an
    `aliases` rule maps it to the right `slug` and `node`. Cross-check the
    `slug` and node titles against input (3). Order matters: put specific

@@ -122,7 +122,17 @@ final class fragment_test extends \advanced_testcase {
             $this->setUser($this->teacher);
         }
         $result = $this->fragment('browsenode');
-        $this->assertStringContainsString(get_string('contentmapping_nopool', 'local_curricmap'), $result['html']);
+        $this->assertStringContainsString(get_string('contentmapping_noresults', 'local_curricmap'), $result['html']);
+    }
+
+    /**
+     * An unsupported grain cannot fall back to the unrestricted curriculum browser.
+     */
+    public function test_unknown_grain_stays_course_scoped(): void {
+        $this->setUser($this->teacher);
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage(get_string('errorbindnode', 'local_curricmap', 'unmappednode'));
+        $this->fragment('browsenode', ['grain' => 'unsupported', 'root' => 'unmappednode']);
     }
 
     /**

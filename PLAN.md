@@ -55,6 +55,36 @@ content and chapter text have previews, both binding scopes display, content edi
 permissions are shared, affiliation remains site-managed, and subsection ancestors
 participate in resolution. Seven synthetic hierarchy/content regression tests pass.
 
+2026-11-19, v0.37.0 (`2026111900`): selectable session/outcome suggestions now
+include source evidence and related child outcomes. The shared content mapper uses
+per-item atomic Save/Cancel with retained drafts on failure and no page navigation.
+More curriculum searches the whole permitted course curriculum and displays results
+beneath the content. It does not use the TinyMCE plugin. Academic years are parsed
+from four-/six-digit tokens anywhere in idnumber, including `VN1201_A_Y_202627_1`;
+standalone year searches accept the same spellings without consuming full code keywords.
+Course affiliation permissions and the binding/resolution contract are unchanged.
+
+- [x] Seven PHP regressions cover saved session/outcome sets, repeated locations,
+      replacement of central content, atomic rejection, chapters, permissions,
+      scoped search and selectable manual-text evidence.
+- [x] Browser checks use PHP-rendered synthetic controls and the generated AMD,
+      covering independent drafts, cancellation, failed-save retry, empty saves,
+      search selection, stale responses and narrow-screen overflow.
+Release validation: Moodle 4.5/PostgreSQL isolated suite — 127 tests, 2224
+assertions, 122 passing; the same five pre-existing failures/errors remain in
+content hints, derivation and sync. All eight added regressions pass. Five lazy-load
+JavaScript tests and fifteen browser checks pass. Grunt ESLint/Rollup passes with
+only the three existing `nodeselector.js` warnings; generated source maps match.
+PHPCS reports the existing 115 errors / 2 warnings; new PHP files have no findings.
+Desktop/narrow-screen screenshots are in the ignored local
+`test_results/content_picker_preview/` directory. Live restored-course and MySQL
+validation remain outstanding. Test containers were removed; reusable test/build
+volumes remain. Moodle core and managed plugin checkouts were not modified.
+
+- [ ] Brian: deploy through the managed plugin workflow, complete the Moodle upgrade,
+      and verify both entry points on the restored nursing course. Inline TinyMCE
+      editing is explicitly excluded; existing consumer behavior needs live validation.
+
 2026-11-18, v0.36.1 (`2026111800`): fixed both content fragment callbacks to reuse
 Moodle's already-validated context instead of calling `require_login()` after the
 theme is initialised. The requested course must match that context, and mapping

@@ -289,3 +289,24 @@ $string['contentmapping_treecounts'] = '{$a->subsections} subsections · {$a->ac
 $string['contentmapping_loading'] = 'Loading course content…';
 $string['contentmapping_loadfailed'] = 'Content could not be loaded. Close and reopen this section to retry.';
 $string['contentmapping_waitforaffiliation'] = 'A site administrator must map this course to its Sofia curriculum before its content can be mapped.';
+
+// Per-location mapping review and save controls.
+$string['contentmapping_choices'] = 'Mappings for this item';
+$string['contentmapping_source'] = 'Matched source text';
+$string['contentmapping_relatedoutcome'] = 'Related outcome of the suggested session (no direct text match)';
+$string['contentmapping_nosuggestions'] = 'No suggestions from this text. Search More curriculum to choose matches.';
+$string['contentmapping_search'] = 'Search this course’s curriculum by title or code';
+$string['contentmapping_searchresults'] = 'Search results across all mapped curriculum for this course';
+$string['contentmapping_searchlimit'] = 'Showing the first 50 results. Refine your search to see more specific matches.';
+$string['contentmapping_browseroot'] = 'Back to course curriculum';
+$string['contentmapping_browsechildren'] = 'Show children';
+$string['contentmapping_noresults'] = 'No matching curriculum items.';
+$string['contentmapping_saved'] = 'Saved';
+$string['contentmapping_unsaved'] = 'Unsaved';
+$string['contentmapping_pending'] = 'Unsaved changes — save this item or cancel.';
+$string['contentmapping_remove'] = 'Remove';
+$string['contentmapping_empty'] = 'No explicit mappings selected for this item.';
+$string['contentmapping_selected'] = 'Selected';
+$string['contentmapping_saving'] = 'Saving…';
+$string['contentmapping_savefailed'] = 'Could not save. Your choices are still here; please retry.';
+$string['contentmapping_cancelled'] = 'Changes cancelled. Saved mappings restored.';

@@ -278,8 +278,8 @@ $matchyeartitles = $matchnodes ? contentmap::year_titles(array_values($matchnode
 $searchyear = null;
 $keywords = [];
 foreach (preg_split('/\s+/', matcher::normalise($search), -1, PREG_SPLIT_NO_EMPTY) as $token) {
-    if (preg_match('~^(20\d\d)(?:[-/]\d{2,4}|\d\d)?$~', $token, $matches)) {
-        $searchyear = (int) $matches[1];
+    if (($year = matcher::search_year($token)) !== null) {
+        $searchyear = $year;
     } else {
         $keywords[] = core_text::strtolower($token);
     }

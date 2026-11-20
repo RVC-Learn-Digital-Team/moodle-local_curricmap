@@ -25,6 +25,13 @@
 defined('MOODLE_INTERNAL') || die();
 
 $functions = [
+    'local_curricmap_save_content_mappings' => [
+        'classname' => 'local_curricmap\external\save_content_mappings',
+        'description' => 'Save the explicit curriculum mappings for one section, activity or book chapter.',
+        'type' => 'write',
+        'ajax' => true,
+        'capabilities' => 'local/curricmap:managebindings',
+    ],
     'local_curricmap_get_programmes' => [
         'classname' => 'local_curricmap\external\get_programmes',
         'description' => 'List enabled curriculum programmes.',

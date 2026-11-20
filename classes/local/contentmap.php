@@ -45,9 +45,6 @@ class contentmap {
      */
     const TARGET_ROLES = ['unit', 'session', 'strandoutcome', 'sessionoutcome', 'assessment'];
 
-    /** @var int Pools larger than this offer hints only. */
-    const POOL_CAP = 300;
-
     /** @var array Body-text fields per module type (instance-table columns). */
     const BODY_FIELDS = [
         'page' => ['intro', 'content'],
@@ -147,9 +144,9 @@ class contentmap {
         $sql = "SELECT b.id, b.sectionid, b.cmid, b.component, b.subitemid, b.nodeuuid, n.title, n.role, n.code, n.path
                   FROM {local_curricmap_binding} b
              LEFT JOIN {local_curricmap_node} n ON n.uuid = b.nodeuuid
-                 WHERE b.courseid = :courseid AND b.status = :status
+                 WHERE b.courseid = :courseid AND b.status = :status AND b.relation = :relation
               ORDER BY b.sortorder ASC, b.id ASC";
-        $params = ['courseid' => $courseid, 'status' => 'active'];
+        $params = ['courseid' => $courseid, 'status' => 'active', 'relation' => bindings::RELATION_ANCHOR];
         $bysection = [];
         $bycm = [];
         $bychapter = [];
@@ -185,47 +182,6 @@ class contentmap {
             $subtype = strtolower((string) ($candidate->node->subtype ?? ''));
             return in_array($role, $wanted) || ($subtype !== '' && in_array($subtype, $wanted));
         }));
-    }
-
-    /**
-     * The current-matches cell: node titles with year and a remove action.
-     *
-     * @param array $rowbindings Binding records for this row.
-     * @param string $returnurl Url (string) the remove action returns to.
-     * @return string HTML.
-     */
-    public static function current_cell(array $rowbindings, string $returnurl): string {
-        global $OUTPUT;
-        // Compact on the page, complete on hover (Brian's ruling, 2026-07-30):
-        // the visible text stays "Title - YYYY" so rows do not bloat, and the
-        // full disambiguated label (code, role, owning year node) rides in the
-        // title attribute for the ambiguous-twins cases.
-        $nodes = [];
-        foreach ($rowbindings as $binding) {
-            if ($binding->title !== null) {
-                $nodes[] = (object) ['uuid' => $binding->nodeuuid, 'title' => $binding->title,
-                    'code' => $binding->code ?? null, 'role' => $binding->role ?? null,
-                    'path' => $binding->path ?? null];
-            }
-        }
-        $yeartitles = self::year_titles($nodes);
-        $entries = [];
-        foreach ($rowbindings as $binding) {
-            $removeurl = new \moodle_url($returnurl, ['unbind' => $binding->id, 'sesskey' => sesskey()]);
-            $removeicon = $OUTPUT->pix_icon('t/delete', get_string('coursemapping_removematch', 'local_curricmap'));
-            $year = preg_match('/_(20\d\d)_\d\d_/', $binding->nodeuuid, $matches) ? ' - ' . $matches[1] : '';
-            if ($binding->title !== null) {
-                $node = (object) ['uuid' => $binding->nodeuuid, 'title' => $binding->title,
-                    'code' => $binding->code ?? null, 'role' => $binding->role ?? null];
-                $full = self::label($node, $yeartitles[$binding->nodeuuid] ?? null);
-                $label = \html_writer::tag('span', s($binding->title . $year), ['title' => s($full)]);
-            } else {
-                $label = s($binding->nodeuuid);
-            }
-            $entry = $label . ' ' . \html_writer::link($removeurl, $removeicon);
-            $entries[] = $entry;
-        }
-        return implode(\html_writer::empty_tag('br'), $entries);
     }
 
     /**
@@ -309,89 +265,6 @@ class contentmap {
             }
         }
         return $hints;
-    }
-
-    /**
-     * A multi-select proposal picker: hints first (scored), then the pool.
-     *
-     * @param string $key Row key (s/c/h prefix + id).
-     * @param array $hints Scored hints from matcher::match_title().
-     * @param array $pool Candidate pool.
-     * @param bool $narrowed Whether the pool is already below a match.
-     * @return string HTML.
-     */
-    public static function proposal_cell(
-        string $key,
-        array $hints,
-        array $pool,
-        bool $narrowed,
-        ?string $browseroot = null
-    ): string {
-        // One query for the whole option list: every node title in this estate
-        // repeats across years, so each option has to name its owning year node.
-        $labelnodes = array_map(fn($hint) => $hint->candidate->node, $hints);
-        $capped = count($pool) > self::POOL_CAP;
-        if (!$capped) {
-            foreach ($pool as $candidate) {
-                $labelnodes[] = $candidate->node;
-            }
-        }
-        $yeartitles = self::year_titles($labelnodes);
-
-        $options = [];
-        foreach ($hints as $hint) {
-            $node = $hint->candidate->node;
-            $percent = (int) round($hint->score * 100);
-            $tag = empty($hint->frombody) ? '' : ' ' . get_string('contentmapping_bodyhint', 'local_curricmap');
-            // Containment / name coverage: how much of the NODE title the
-            // name carries, then how much of the NAME the node accounts for.
-            // A short node title inside a long name scores 100% on its own.
-            $coverage = isset($hint->namecoverage)
-                ? '/' . (int) round($hint->namecoverage * 100) . '%' : '';
-            $options[$node->uuid] = self::label($node, $yeartitles[$node->uuid] ?? null)
-                . ' [' . $percent . '%' . $coverage . $tag . ']';
-        }
-        if (!$capped) {
-            foreach ($pool as $candidate) {
-                $node = $candidate->node;
-                if (!isset($options[$node->uuid])) {
-                    $options[$node->uuid] = self::label($node, $yeartitles[$node->uuid] ?? null);
-                }
-            }
-        }
-        $cell = '';
-        if ($options) {
-            $attrs = ['data-curricmap-row' => $key, 'id' => 'curricmap-bind-' . $key,
-                'multiple' => 'multiple', 'data-curricmap-search' => 1];
-            $cell = \html_writer::select($options, "bind{$key}[]", '', false, $attrs);
-        }
-        if ($capped) {
-            $notekey = $narrowed ? 'contentmapping_toolarge' : 'contentmapping_narrowfirst';
-            $note = get_string($notekey, 'local_curricmap');
-            $cell .= ' ' . \html_writer::tag('span', $note, ['class' => 'small text-muted']);
-        } else if ($cell === '') {
-            $nopool = get_string('contentmapping_nopool', 'local_curricmap');
-            $cell = \html_writer::tag('span', $nopool, ['class' => 'small text-muted']);
-        }
-        // Browse: navigate the curriculum instead of searching it. This is the
-        // path for content whose name shares no words with Sofia's ("Base Unit
-        // Test Horse Bladders") - hints are empty and, above POOL_CAP, so is
-        // the dropdown, so without browse such a row is simply unmappable.
-        // Picks land as hidden bind{key}[] inputs beside the select, so Apply
-        // reads them through the exact same code path.
-        if ($browseroot !== null) {
-            $cell .= \html_writer::div(
-                \html_writer::link('#', get_string('contentmapping_browse', 'local_curricmap'), [
-                    'data-curricmap-browse' => $key,
-                    'data-curricmap-root' => $browseroot,
-                ]),
-                'small mt-1'
-            );
-            $cell .= \html_writer::div('', 'curricmap-picks', ['data-curricmap-picks' => $key]);
-            $panelattrs = ['data-curricmap-browsepanel' => $key];
-            $cell .= \html_writer::div('', 'curricmap-browsepanel border rounded p-2 mt-1 d-none', $panelattrs);
-        }
-        return $cell;
     }
 
     /**
@@ -624,20 +497,6 @@ class contentmap {
             $items[] = \html_writer::tag('li', implode(' ', $bits), ['class' => 'mb-1']);
         }
         return $out . \html_writer::tag('ul', implode('', $items), ['class' => 'list-unstyled mb-0']);
-    }
-
-    /**
-     * A row's apply checkbox.
-     *
-     * @param string $key Row key.
-     * @param string $name Accessible name.
-     * @return string HTML.
-     */
-    public static function tick(string $key, string $name): string {
-        $attrs = ['type' => 'checkbox', 'name' => "apply[$key]", 'value' => 1,
-            'data-action' => 'toggle', 'data-toggle' => 'slave', 'data-togglegroup' => 'contentmatch',
-            'aria-label' => get_string('coursemapping_selectcourse', 'local_curricmap', $name)];
-        return \html_writer::empty_tag('input', $attrs);
     }
 
     /**

@@ -30,8 +30,6 @@ class content_tree {
     private $course;
     /** @var \course_modinfo Cached course structure. */
     private $modinfo;
-    /** @var string Return URL. */
-    private $returnurl;
     /** @var array Mapping buckets. */
     private $buckets;
     /** @var array Subsection instance to delegated section. */
@@ -68,7 +66,6 @@ class content_tree {
         array $pendingroots = []
     ) {
         $this->course = $course;
-        $this->returnurl = $returnurl;
         $this->modtypes = $modtypes;
         $this->nodetypes = $nodetypes;
         $this->pendingroots = array_values(array_filter($pendingroots,
@@ -145,7 +142,11 @@ class content_tree {
         $name = get_section_name($this->course, $section);
         $tally = $this->counts[$section->id];
         $counttext = get_string('contentmapping_treecounts', 'local_curricmap', $tally);
-        $heading = s($name) . ' ' . \html_writer::span($counttext, 'small text-muted');
+        $template = clone $tally;
+        $template->mapped = '__MAPPED__';
+        $countattrs = ['data-curricmap-counts' => $section->id, 'data-mapped' => $tally->mapped,
+            'data-count-template' => get_string('contentmapping_treecounts', 'local_curricmap', $template)];
+        $heading = s($name) . ' ' . \html_writer::span($counttext, 'small text-muted', $countattrs);
         if (!$section->visible) {
             $heading .= ' ' . \html_writer::span(get_string('hidden'), 'badge badge-secondary');
         }
@@ -308,31 +309,9 @@ class content_tree {
             get_string('contentmapping_content', 'local_curricmap')) . \html_writer::div($preview, 'curricmap-preview-body'),
             ['data-curricmap-preview' => $key, 'open' => 'open']);
         $left = \html_writer::tag('strong', $namehtml) . $preview;
-        $right = \html_writer::tag('strong', get_string('contentmapping_current', 'local_curricmap'))
-            . \html_writer::div(contentmap::current_cell($current, $this->returnurl));
-        if ($mappable) {
-            $right .= contentmap::proposal_cell($key, $hints, $pool, !empty($current), $roots[0] ?? null);
-            if ($hints) {
-                $evidence = [];
-                foreach ($hints as $hint) {
-                    $source = empty($hint->frombody) ? $name : $text;
-                    $needle = matcher::strip_types($hint->candidate->node->title, matcher::rules());
-                    $position = \core_text::strpos(\core_text::strtolower($source), \core_text::strtolower($needle));
-                    if ($position !== false && $position > 80) {
-                        $source = '…' . \core_text::substr($source, $position - 80);
-                    }
-                    $evidence[] = s($hint->candidate->node->title) . ': '
-                        . s(shorten_text($source, 240));
-                }
-                $right .= \html_writer::tag('details', \html_writer::tag('summary',
-                    get_string('contentmapping_evidence', 'local_curricmap')) . \html_writer::alist($evidence));
-            }
-        } else {
-            $right .= \html_writer::tag('p', get_string('contentmapping_typedisabled', 'local_curricmap'));
-        }
-        $tick = $mappable ? contentmap::tick($key, $name) : '';
-        return \html_writer::div(\html_writer::div($tick, 'curricmap-cell-tick')
-            . \html_writer::div($left, 'curricmap-cell-name')
+        $right = $mappable ? content_picker::editor($key, $current, $hints, $pool, $name, $text)
+            : \html_writer::tag('p', get_string('contentmapping_typedisabled', 'local_curricmap'));
+        return \html_writer::div(\html_writer::div($left, 'curricmap-cell-name')
             . \html_writer::div($right, 'curricmap-cell-proposal'), 'curricmap-row', ['data-content-key' => $key]);
     }
 }

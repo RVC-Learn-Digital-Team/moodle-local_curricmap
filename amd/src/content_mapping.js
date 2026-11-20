@@ -22,7 +22,7 @@
  */
 import Fragment from 'core/fragment';
 import Templates from 'core/templates';
-import Autocomplete from 'core/form-autocomplete';
+import * as Picker from 'local_curricmap/content_picker';
 import Notification from 'core/notification';
 import {getStrings} from 'core/str';
 
@@ -30,10 +30,9 @@ import {getStrings} from 'core/str';
  * Initialise the course editor.
  *
  * @param {number} contextid Course context for fragment permissions.
- * @param {string} placeholder Search placeholder.
  * @param {number} focuscm Optional activity to reveal.
  */
-export const init = async(contextid, placeholder, focuscm = 0) => {
+export const init = async(contextid, focuscm = 0) => {
     const tree = document.querySelector('[data-curricmap-tree]');
     if (!tree) {
         return;
@@ -47,7 +46,6 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
     const expandbutton = document.querySelector('[data-curricmap-control="expandall"]');
     const status = document.querySelector('[data-curricmap-status]');
     let previewsOpen = true;
-    let dirty = false;
     let bulk = false;
     const branches = () => Array.from(tree.querySelectorAll('[data-curricmap-branch]'));
     const previews = () => Array.from(tree.querySelectorAll('[data-curricmap-preview]'));
@@ -56,14 +54,8 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
     const update = () => {
         expandbutton.textContent = fullyExpanded() ? collapse : expand;
     };
-    const initrows = (root) => {
-        root.querySelectorAll('select[data-curricmap-row]').forEach((select) => {
-            if (!select.dataset.initialised) {
-                select.dataset.initialised = '1';
-                Autocomplete.enhance('#' + select.id, false, '', placeholder);
-            }
-        });
-    };
+    await Picker.init(tree, contextid);
+    const initrows = Picker.initRows;
     const load = (branch) => {
         if (!branch.dataset.sectionid || branch.dataset.loaded === '1') {
             return Promise.resolve();
@@ -72,10 +64,7 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
             return requests.get(branch);
         }
         const container = branch.querySelector('[data-curricmap-children]');
-        const key = branch.dataset.curricmapBranch;
-        const select = branch.querySelector('select[data-curricmap-row="' + key + '"]');
-        const pending = select ? Array.from(select.selectedOptions).map((option) => option.value) : [];
-        branch.querySelectorAll('[data-curricmap-picks="' + key + '"] input').forEach((input) => pending.push(input.value));
+        const pending = Picker.selections(branch);
         container.textContent = loading;
         const params = {courseid: tree.dataset.courseid, sectionid: branch.dataset.sectionid,
             modtypes: tree.dataset.modtypes, nodetypes: tree.dataset.ntypes,
@@ -125,30 +114,6 @@ export const init = async(contextid, placeholder, focuscm = 0) => {
         }
         update();
     }, true);
-    tree.addEventListener('change', (event) => {
-        dirty = true;
-        const select = event.target.closest('select[data-curricmap-row]');
-        if (select) {
-            const tick = tree.querySelector('input[name="apply[' + select.dataset.curricmapRow + ']"]');
-            if (tick) {
-                tick.checked = select.selectedOptions.length > 0;
-            }
-        }
-    });
-    tree.addEventListener('click', (event) => {
-        if (event.target.closest('[data-curricmap-pick], [data-curricmap-unpick]')) {
-            dirty = true;
-        }
-    });
-    window.addEventListener('beforeunload', (event) => {
-        if (dirty) {
-            event.preventDefault();
-            event.returnValue = '';
-        }
-    });
-    tree.addEventListener('submit', () => {
-        dirty = false;
-    });
     controls.forEach((button) => button.addEventListener('click', async() => {
         if (bulk) {
             return;

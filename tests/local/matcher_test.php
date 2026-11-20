@@ -87,6 +87,16 @@ final class matcher_test extends \advanced_testcase {
      */
     public function test_harmonised_year_dialects(): void {
         // Dialect A, incl. the seq and range spellings.
+        $ids = ['2026', '2026-', '2026_', '202627', '202628', 'VN1201_A_Y_202627_1',
+            'NEW-PREFIX202628-extra', 'PREFIX_2026_1'];
+        foreach ($ids as $idnumber) {
+            $this->assertSame([2026, 'idnumber'], matcher::harmonised_year($this->course($idnumber)), $idnumber);
+        }
+        foreach (['2026', '2026-', '2026_', '202627', '202628', '2026/27', '2026-2027'] as $token) {
+            $this->assertSame(2026, matcher::search_year($token), $token);
+        }
+        $this->assertNull(matcher::search_year('VN1201_A_Y_202627_1'));
+        $this->assertSame([null, null], matcher::harmonised_year($this->course('ID12026271')));
         $this->assertSame([2022, 'idnumber'], matcher::harmonised_year($this->course('RVC_FD_BSC_VN3_2022_3')));
         $this->assertSame([2020, 'idnumber'], matcher::harmonised_year($this->course('RVC_BVETMED45_ROT_2020_21')));
         // Dialect B (SRS/SITS).

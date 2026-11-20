@@ -363,20 +363,17 @@ class matcher {
 
     /**
      * The harmonised academic year (its first four digits, e.g. 2025 for
-     * 2025-26) and the field it was read from: idnumber first (both dialects),
+     * 2025-26) and the field it was read from: idnumber first (independent of the course-code format),
      * then shortname, fullname and category name.
      *
      * @param \stdClass $course Needs idnumber, shortname, fullname, categoryname.
      * @return array [int|null year, string|null field]
      */
     public static function harmonised_year(\stdClass $course): array {
-        $idnumber = trim((string) $course->idnumber);
-        // Dialect A (legacy): RVC_STEM_2025_6, incl. the RVC_..._2020_21 range spelling.
-        // Dialect B (SRS/SITS): VN1202_A_Y_202526.
-        foreach (['/_(20\d\d)_\d{1,2}$/', '/_(20\d\d)\d\d$/'] as $pattern) {
-            if (preg_match($pattern, $idnumber, $matches)) {
-                return [(int) $matches[1], 'idnumber'];
-            }
+        // Accept a four- or six-digit year token anywhere in an evolving course code.
+        // Digit boundaries avoid interpreting part of a longer numeric identifier as a year.
+        if (preg_match('/(?<!\d)(20\d\d)(?:\d\d)?(?!\d)/', (string) $course->idnumber, $matches)) {
+            return [(int) $matches[1], 'idnumber'];
         }
         foreach (['shortname', 'fullname', 'categoryname'] as $field) {
             $text = self::normalise((string) ($course->$field ?? ''));
@@ -385,6 +382,17 @@ class matcher {
             }
         }
         return [null, null];
+    }
+
+    /**
+     * Interpret a standalone academic-year search token without consuming course-code keywords.
+     *
+     * @param string $token Search token.
+     * @return int|null Starting year, or null for a keyword.
+     */
+    public static function search_year(string $token): ?int {
+        return preg_match('~^(20\d\d)(?:[-/_](?:\d{2}|\d{4})?|\d\d)?$~', self::normalise($token), $matches)
+            ? (int) $matches[1] : null;
     }
 
     /**
